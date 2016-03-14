@@ -18,19 +18,20 @@ namespace SPFLib.Types
         public short VehicleID { get; }
         public float CurrentRPM { get; }
         public float WheelRotation { get; }
+        public float Steering { get; }
         public int ID { get; }
         public VehicleFlags Flags { get; set; }
         public ushort ExtraFlags { get; set; }
 
         #endregion
 
-        public VehicleState() : this(-1, new Vector3(), new Vector3(), new Quaternion(), 0, 0, 0, 1000, 0, 0, 255, 0)
+        public VehicleState() : this(-1, new Vector3(), new Vector3(), new Quaternion(), 0, 0, 0, 0, 1000, 0, 0, 255, 0)
         { }
 
-        public VehicleState(int id) : this(id, new Vector3(), new Vector3(), new Quaternion(), 0, 0, 0, 1000, 0, 0, 255, 0)
+        public VehicleState(int id) : this(id, new Vector3(), new Vector3(), new Quaternion(), 0, 0, 0, 0, 1000, 0, 0, 255, 0)
         { }
 
-        public VehicleState(int id, Vector3 position, Vector3 velocity, Quaternion rotation, float currentRPM, float wheelRotation, short flags, 
+        public VehicleState(int id, Vector3 position, Vector3 velocity, Quaternion rotation, float currentRPM, float wheelRotation, float steering, short flags, 
             short health, byte primaryColor, byte secondaryColor, byte radioStation, short vehicleID) : base()
         {
             ID = id;
@@ -39,6 +40,7 @@ namespace SPFLib.Types
             Rotation = rotation;
             CurrentRPM = currentRPM;
             WheelRotation = wheelRotation;
+            Steering = steering;
             Flags = (VehicleFlags)flags;
             Health = health;
             PrimaryColor = primaryColor;
@@ -81,6 +83,10 @@ namespace SPFLib.Types
             seekIndex += 2;
 
             WheelRotation = BitConverter.ToInt16(data, seekIndex).Deserialize();
+
+            seekIndex += 2;
+
+            Steering = BitConverter.ToInt16(data, seekIndex).Deserialize();
 
             seekIndex += 2;
 
@@ -148,6 +154,8 @@ namespace SPFLib.Types
             result.AddRange(BitConverter.GetBytes(CurrentRPM.Serialize()));
 
             result.AddRange(BitConverter.GetBytes(WheelRotation.Serialize()));
+
+            result.AddRange(BitConverter.GetBytes(Steering.Serialize()));
 
             result.AddRange(BitConverter.GetBytes(Health));
 

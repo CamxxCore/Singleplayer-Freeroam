@@ -11,6 +11,11 @@ namespace SPFClient.Entities
             OnUpdateRecieved += UpdateReceived;
         }
 
+        public NetHeli(Vehicle vehicle, int id) : base(vehicle, id)
+        {
+            OnUpdateRecieved += UpdateReceived;
+        }
+
         private void UpdateReceived(NetworkVehicle sender, VehicleState e)
         {
         }

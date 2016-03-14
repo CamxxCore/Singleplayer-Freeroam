@@ -16,7 +16,7 @@ namespace SPFClient.Network
 
     public delegate void SessionStateHandler(EndPoint sender, SessionState e);
 
-    public delegate void ServerEchoHandler(EndPoint sender, TimeSync e);
+    public delegate void TimeSyncHandler(EndPoint sender, TimeSync e);
 
     public delegate void ServerHelloHandler(EndPoint sender, ServerHello e);
 
@@ -50,7 +50,7 @@ namespace SPFClient.Network
         internal event NativeInvocationHandler NativeInvoked;
 
         /// fired when the server invokes a time sync
-        internal event ServerEchoHandler TimeSyncEvent;
+        internal event TimeSyncHandler TimeSyncEvent;
 
         /// fired when the server send a text notification
       //  public event ServerNotificationHandler ServerNotification;
@@ -224,9 +224,6 @@ namespace SPFClient.Network
                     case NetMessage.NativeCall:
                         OnNativeInvoke(sender, new NativeCall(byteData));
                         break;
-                  /*  case NetMessage.ServerNotification:
-                        OnServerNotification(sender, new ServerNotification(byteData));
-                        break;*/
                     case NetMessage.ServerHello:
                         OnServerHello(sender, new ServerHello(byteData));
                         break;
@@ -276,6 +273,12 @@ namespace SPFClient.Network
             UserEvent?.Invoke(sender, msg);
         }
 
+        protected virtual void OnServerHello(EndPoint sender, ServerHello msg)
+        {
+            SendGenericCallback(new GenericCallback(msg.NetID));
+            ServerHelloEvent?.Invoke(sender, msg);
+        }
+
         protected virtual void OnServerTimeSync(EndPoint sender, TimeSync msg)
         {
             SendTimeSync(msg);
@@ -285,17 +288,6 @@ namespace SPFClient.Network
         protected virtual void OnNativeInvoke(EndPoint sender, NativeCall msg)
         {
             NativeInvoked?.Invoke(sender, msg);
-        }
-
-       /* protected virtual void OnServerNotification(EndPoint sender, ServerNotification msg)
-        {
-            ServerNotification?.Invoke(sender, msg);
-        }*/
-
-        protected virtual void OnServerHello(EndPoint sender, ServerHello msg)
-        {
-            SendGenericCallback(new GenericCallback(msg.NetID));
-            ServerHelloEvent?.Invoke(sender, msg);    
         }
 
         public void SendNativeCallback(NativeCallback cb)

@@ -15,7 +15,7 @@ namespace SPFLib.Types
         {
             NetID = netID;
             Value = value;
-            Type = value == null ? DataType.None : Helpers.GetDataType(value.GetType());
+            Type = value == null ? DataType.None : Helpers.GetDataType(value);
         }
 
         public NativeCallback(byte[] data)

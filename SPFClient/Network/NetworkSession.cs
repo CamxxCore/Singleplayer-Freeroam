@@ -23,7 +23,7 @@ namespace SPFClient.Network
         /// <summary>
         /// Update rate for local packets sent to the server.
         /// </summary>
-        private const int ClUpdateRate = 30;
+        private const int ClUpdateRate = 50;
 
         /// <summary>
         /// Total idle time before the client is considered to have timed out from the server.
@@ -100,7 +100,7 @@ namespace SPFClient.Network
 
         private static void ServerHello(EndPoint sender, ServerHello e)
         {
-            UIManager.UINotifyProxy("Server says: " + e.Message);
+            UIManager.UINotifyProxy("[~y~Server~w~] " + e.Message);
 
         }
 
@@ -187,14 +187,21 @@ namespace SPFClient.Network
         private static void UserEvent(EndPoint sender, UserEvent e)
         {
             var client = NetworkManager.PlayerFromID(e.SenderID);
-
             switch (e.EventType)
             {
+                case EventType.PlayerSynced:
+                    // start timer and begin sending data.
+                    clUpdateTimer = DateTime.Now + TimeSpan.FromMilliseconds(ClUpdateRate);
+                    Initialized = true;
+                    break;
+
                 case EventType.PlayerLogon:
+                    if (e.SenderID == UID) return;
                     UIManager.UINotifyProxy(e.SenderName + " joined.");
                     break;
 
                 case EventType.PlayerLogout:
+                    if (e.SenderID == UID) return;
                     if (client != null)
                     {
                         if (client.ActiveVehicle != null)
@@ -205,16 +212,12 @@ namespace SPFClient.Network
                     break;
 
                 case EventType.PlayerKicked:
+                    if (e.SenderID == UID) return;
                     if (client != null) NetworkManager.RemoveClient(client);
                     UIManager.UINotifyProxy(e.SenderName + " was kicked.");
                     break;
 
-                case EventType.PlayerSynced:
-                    UIManager.UINotifyProxy(e.SenderName + " synced.");
-                    // start timer and begin sending data.
-                    clUpdateTimer = DateTime.Now + TimeSpan.FromMilliseconds(ClUpdateRate);
-                    Initialized = true;  
-                    break;
+
             }
         }
 
@@ -279,7 +282,32 @@ namespace SPFClient.Network
                             {
                                 vehicle = NetworkManager.VehicleFromLocalHandle(localPlayer.Ped.CurrentVehicle.Handle);
                                 if (vehicle == null)
-                                    vehicle = new NetworkVehicle(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
+                                {
+                                    var hash = localPlayer.Ped.CurrentVehicle.Model.Hash;
+
+                                    if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, hash))
+                                    {
+                                        vehicle = new NetCar(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
+                                    }
+
+                                    else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_HELI, hash))
+                                    {
+                                        vehicle = new NetHeli(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
+                                    }
+
+                                    else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_PLANE, hash))
+                                    {
+                                        vehicle = new NetPlane(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
+                                    }
+
+                                    else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, hash))
+                                    {
+                                        vehicle = new NetBicycle(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
+                                    }
+
+                                    else vehicle = new NetworkVehicle(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
+                                }
+
                                 localPlayer.SetCurrentVehicle(vehicle);
                             }
 
@@ -293,6 +321,7 @@ namespace SPFClient.Network
                                     vehicle.Quaternion.Serialize(),
                                     v.CurrentRPM,
                                     vehicle.GetWheelRotation(),
+                                    v.Steering,
                                     0, Convert.ToInt16(v.Health),
                                     (byte)v.PrimaryColor, (byte)v.SecondaryColor,
                                     localPlayer.GetRadioStation(),
@@ -300,9 +329,12 @@ namespace SPFClient.Network
 
                                 state.VehicleState.Flags |= VehicleFlags.Driver;
 
-                                if (v.IsDead) state.VehicleState.Flags |= VehicleFlags.Exploded;
+                                if (Function.Call<bool>(Hash.IS_HORN_ACTIVE, v.Handle))
+                                    state.VehicleState.Flags |= VehicleFlags.HornPressed;
 
-                                if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, vehicle.Model.Hash))
+                                if (v.Health <= 0) state.VehicleState.Flags |= VehicleFlags.Exploded;
+
+                                if (vehicle is NetCar)
                                 {
                                     if (v.LeftHeadLightBroken)
                                         state.VehicleState.ExtraFlags |= (ushort)VDamageFlags.LHeadlightBroken;
@@ -326,7 +358,7 @@ namespace SPFClient.Network
                                         state.VehicleState.ExtraFlags |= (ushort)VDamageFlags.HoodBroken;
                                 }
 
-                                else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_PLANE, vehicle.Model.Hash))
+                                else if (vehicle is NetPlane)
                                 {
                                     if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehicleFlyUnderCarriage))
                                     {
@@ -356,7 +388,7 @@ namespace SPFClient.Network
                                     }
                                 }
 
-                                else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, vehicle.Model.Hash))
+                                else if (vehicle is NetBicycle)
                                 {
                                     if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehiclePushbikePedal))
                                     {
@@ -390,7 +422,6 @@ namespace SPFClient.Network
                         state.Seat = localPlayer.GetVehicleSeat();
                         state.PedID = localPlayer.GetPedID();
                         state.WeaponID = localPlayer.GetWeaponID();
-                        UI.Notify(state.Seat.ToString());
                         vehicle.UpdateSent(state.VehicleState);
                     }
 
@@ -548,6 +579,12 @@ namespace SPFClient.Network
                 // dequeue the client that needs an update.
                 var remoteClient = clientQueue.Dequeue();
 
+
+                if (remoteClient.Key.Position?.X == 0 &&
+                        remoteClient.Key.Position.Y == 0 &&
+                        remoteClient.Key.Position.Z == 0)
+                    continue;
+
                 var clientState = remoteClient.Key;
                 NetworkPlayer client = PlayerFromID(clientState.ID);
 
@@ -597,10 +634,18 @@ namespace SPFClient.Network
                             Function.Call(Hash.SET_VEHICLE_ENGINE_ON, vehicle.Handle, true, true, 0);
                         }
 
-                        if (!client.LastState.InVehicle)
+                        if (!Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
                         {
-                            UI.ShowSubtitle("not in vehicle last.. entering..");
-                            Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.Seat, 1.0f, 3, 0);
+                            Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.Seat, 0.0f, 3, 0);
+
+                            var dt = DateTime.Now + TimeSpan.FromMilliseconds(1000);
+
+                            while (DateTime.Now < dt)
+                                Script.Yield();
+
+                            if (!Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
+                                Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.Seat, 1.0f, 16, 0);
+
                         }
 
                         if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, vehicle.Model.Hash))
@@ -609,7 +654,7 @@ namespace SPFClient.Network
                         }
 
                         if (vehicleState.Flags.HasFlag(VehicleFlags.Driver))
-                        vehicle.HandleUpdatePacket(vehicleState, clientState.PktID, remoteClient.Value);
+                            vehicle.HandleUpdatePacket(vehicleState, clientState.PktID, remoteClient.Value);
 
                     }
 

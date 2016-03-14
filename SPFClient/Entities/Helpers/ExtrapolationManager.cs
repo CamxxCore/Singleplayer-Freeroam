@@ -10,12 +10,11 @@ namespace SPFClient.Entities
 {
     public sealed class Extrapolator
     {
-
         /// <summary>
         /// Minimum amount of snapshots needed before interpolating.
         /// </summary>
-        public const int SnapshotMin = 10;
-        public const int InterpDelay = 100;
+        public const int SnapshotMin = 20;
+        public const int InterpDelay = 200;
 
         private List<EntitySnapshot> unorderedPacketList = new List<EntitySnapshot>();
 
@@ -28,16 +27,16 @@ namespace SPFClient.Entities
                 pktID));
         }
 
-        public EntitySnapshot GetExtrapolatedPosition(Vector3 curPosition, Quaternion curRotation, EntitySnapshot[] extrpBuffer, int validSnapshots, float lerpFactor = 1.0f)
+        public EntitySnapshot GetExtrapolatedPosition(Vector3 curPosition, Quaternion curRotation, EntitySnapshot[] extrpBuffer, int validSnapshots, float lerpFactor = 1.0f, bool forceExtrp = false)
         {
             if (validSnapshots < SnapshotMin) return null;
 
-            var timeNow = DateTime.UtcNow;
+            var timeNow = PreciseDatetime.Now;
             var interpolationTime = timeNow - TimeSpan.FromMilliseconds(InterpDelay);
 
             List<EntitySnapshot> deletionQueue = new List<EntitySnapshot>();
 
-            if (extrpBuffer[0].Timestamp > interpolationTime)
+            if (extrpBuffer[0].Timestamp > interpolationTime && !forceExtrp)
             {
                 //UIManagement.UIManager.UISubtitleProxy("~g~interp");
 
@@ -48,7 +47,7 @@ namespace SPFClient.Entities
                         EntitySnapshot newState = extrpBuffer[Math.Max(i - 1, 0)];
                         EntitySnapshot lastState = extrpBuffer[i];
 
-                    /*    if (unorderedPacketList.Count > 0)
+                        /*if (unorderedPacketList.Count > 0)
                         {
                             if (unorderedPacketList.Count > 5) unorderedPacketList.Clear();
 
@@ -72,7 +71,7 @@ namespace SPFClient.Entities
 
                             deletionQueue.ForEach(x => unorderedPacketList.Remove(x));
                         }*/
-
+                        
                         if (newState.Timestamp <= lastState.Timestamp) break;
 
                         float t = 0.0f;
@@ -82,17 +81,18 @@ namespace SPFClient.Entities
 
                         if (duration.TotalMilliseconds > 1)
                         {
+                          //  t = (float) (1.0f - ((newState.Timestamp - timeNow).TotalMilliseconds / InterpDelay));
                             //      UIManagement.UIManager.UINotifyProxy(string.Format("{0}, {1}", lastState.PacketID, newState.PacketID));
-                            t = (float)((currentTime.TotalMilliseconds / 1000) / (duration.TotalMilliseconds / 1000));
+                            t = (float)((float)(currentTime.TotalMilliseconds / 1000f) / (float)(InterpDelay / 1000f));
                         }
 
                         var position = Vector3.Lerp(curPosition, Vector3.Lerp(lastState.Position, newState.Position, t), lerpFactor);
 
+                        var quaternion = Helpers.Slerp(curRotation, Helpers.Slerp(lastState.Rotation, newState.Rotation, t), lerpFactor);
+
                         var velocity = Vector3.Lerp(lastState.Velocity, newState.Velocity, t);
 
                         var angles = Vector3.Lerp(lastState.Angles, newState.Angles, t);
-
-                        var quaternion = Helpers.Slerp(curRotation, Helpers.Slerp(lastState.Rotation, newState.Rotation, t), lerpFactor);
 
                         return new EntitySnapshot(position, velocity, quaternion, angles, lastState.Timestamp + TimeSpan.FromMilliseconds(t * 1000), -1);  // Tuple<Vector3, Quaternion>(position, quaternion);
                     }
@@ -103,16 +103,15 @@ namespace SPFClient.Entities
 
             else
             {
-
-                //UIManagement.UIManager.UISubtitleProxy("~r~extrp");
+            //    UIManagement.UIManager.UISubtitleProxy("~r~extrp");
 
                 var lastState = extrpBuffer[0];
 
                 float extrapolationLength = ((float)(interpolationTime - lastState.Timestamp).TotalMilliseconds) / 1000.0f;
 
+
                 if (extrapolationLength < 0.70)
                 {
-
                     var rot = lastState.Rotation * Quaternion.Invert(extrpBuffer[1].Rotation);
 
                     rot.Normalize();
@@ -131,12 +130,11 @@ namespace SPFClient.Entities
 
                     var position = Vector3.Lerp(curPosition, Vector3.Lerp(lastState.Position, lastState.Position + lastState.Velocity * extrapolationLength, t), lerpFactor);
 
-                    var quaternion = Helpers.Slerp(curRotation, Helpers.Slerp(lastState.Rotation, Helpers.RotationAxis(axis, angle) * extrpBuffer[1].Rotation, t), lerpFactor);
-
-                    var angles = lastState.Angles;
+                    var quaternion = Helpers.Slerp(lastState.Rotation, Helpers.RotationAxis(axis, angle) * extrpBuffer[1].Rotation, t);
 
                     var velocity = lastState.Velocity;
 
+                    var angles = lastState.Angles;
 
                     return new EntitySnapshot(position, velocity, quaternion, angles);
                 }

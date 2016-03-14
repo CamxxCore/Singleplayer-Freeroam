@@ -5,7 +5,7 @@ using System;
 
 namespace SPFServer
 {
-    public class ThreadQueue
+    internal class ThreadQueue
     {
         private readonly HashSet<ThreadStart> WorkingThreads = new HashSet<ThreadStart>();
         private readonly Queue<ThreadStart> Queue = new Queue<ThreadStart>();

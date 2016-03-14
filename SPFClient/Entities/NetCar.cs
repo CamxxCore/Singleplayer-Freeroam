@@ -7,8 +7,12 @@ namespace SPFClient.Entities
 {
     public sealed class NetCar : NetworkVehicle
     {
-
         public NetCar(VehicleState state) : base(state)
+        {
+            OnUpdateRecieved += UpdateReceived;
+        }
+
+        public NetCar(Vehicle vehicle, int id) : base(vehicle, id)
         {
             OnUpdateRecieved += UpdateReceived;
         }

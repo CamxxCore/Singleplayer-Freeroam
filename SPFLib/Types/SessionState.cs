@@ -38,7 +38,7 @@ namespace SPFLib.Types
 
                 bool bSendName = BitConverter.ToBoolean(data, seekIndex + 6);
 
-                buffer = new byte[bInVehicle ? bSendName ? (78 + 32) : 78 : bSendName ? (75 + 32) : 75];
+                buffer = new byte[bInVehicle ? bSendName ? (80 + 32) : 80 : bSendName ? (75 + 32) : 75];
 
                 Array.Copy(data, seekIndex, buffer, 0, buffer.Length);
                 clients.Add(new ClientState(buffer));

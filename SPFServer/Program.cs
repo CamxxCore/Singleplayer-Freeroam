@@ -2,34 +2,25 @@
 using System.ServiceModel;
 using System.Net;
 using System.Text.RegularExpressions;
+using System.IO;
 
 namespace SPFServer
 {
-    class Program
+    public class Program
     {
         private static UDPSocketListener listener;
 
-        private static ASUPServiceClient sProvider;
-
-        public static ASUPServiceClient SessionProvider
-        {
-            get
-            {
-                return sProvider;
-            }
-        }
-
-        object sMainFib = null;
-        object sScriptFib = null;
+        internal static ASUPServiceClient sProvider;
 
         static void Main(string[] args)
-        {
-            
-
+        {       
             int sessionID = AnnounceSessionToService();
 
             listener = new UDPSocketListener(sessionID);
             listener.StartListening();
+
+          //  if (StartScriptDomain())
+          //      System.Threading.ThreadPool.QueueUserWorkItem(x => Console.WriteLine("Script Domain started."));
 
             Run();
         }
@@ -91,7 +82,21 @@ namespace SPFServer
             }
         }
 
-        static IPAddress GetExternAddress()
+       /* static bool StartScriptDomain()
+        {
+            domain = ScriptDomain.Load(Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "scripts"));
+
+            if (domain == null)
+            {
+                return false;
+            }
+
+            domain.Start();
+
+            return true;
+        }*/
+
+        public static IPAddress GetExternAddress()
         {
             string externalIP = "";
             externalIP = (new WebClient()).DownloadString("http://checkip.dyndns.org/");
@@ -99,7 +104,7 @@ namespace SPFServer
             return IPAddress.Parse(externalIP);
         }
 
-        public static void WriteToConsole(string message = "")
+        internal static void WriteToConsole(string message = "")
         {
             if (message.Length > 0)
             {
@@ -108,7 +113,7 @@ namespace SPFServer
         }
 
         const string _readPrompt = "Server> ";
-        public static string ReadFromConsole(string promptMessage = "")
+        internal static string ReadFromConsole(string promptMessage = "")
         {
             // Show a prompt, and get input:
             Console.Write(_readPrompt + promptMessage);

@@ -74,7 +74,9 @@ namespace SPFClient.Entities
             Helpers.ToAngleAxis(rotation, out angle, out vec);
 
             //Handle the vehicle
-            var vehicle = World.CreateVehicle(model, position, angle);
+            var vehicle = World.CreateVehicle(model, position);
+
+            vehicle.Quaternion = rotation;
 
             var dt = DateTime.Now + TimeSpan.FromMilliseconds(100);
 
@@ -85,11 +87,21 @@ namespace SPFClient.Entities
 
             vehicle.EngineRunning = true;
 
-            Function.Call(Hash.SET_ENTITY_MOTION_BLUR, vehicle.Handle, true);
+          //  Function.Call(Hash.SET_ENTITY_MOTION_BLUR, vehicle.Handle, true);
 
-            Function.Call(Hash.SET_ENTITY_COLLISION, vehicle.Handle, 1, 1);
+          //  Function.Call(Hash.NETWORK_SET_ENTITY_CAN_BLEND, vehicle.Handle, true);
+
+            Function.Call(Hash.SET_ENTITY_COLLISION, vehicle.Handle, 1, 0);
 
             Function.Call(Hash.SET_ENTITY_AS_MISSION_ENTITY, vehicle.Handle, true, true);
+
+            Function.Call(Hash.SET_VEHICLE_FRICTION_OVERRIDE, vehicle.Handle, 0.0f);
+
+          //  Function.Call(Hash.SET_ENTITY_PROOFS, vehicle.Handle, true, true, false, true, false, false, false, false);
+
+       //     Function.Call(Hash._0x1CF38D529D7441D9, vehicle.Handle, 1);
+
+        //    Function.Call(Hash.NETWORK_FADE_IN_ENTITY, vehicle.Handle);
 
             return vehicle;
         }
@@ -101,12 +113,12 @@ namespace SPFClient.Entities
 
         internal void HandleUpdatePacket(VehicleState state, int packetID, DateTime svTime)
         {
-            if ((state.Flags & VehicleFlags.Exploded) != 0)
+           /* if ((state.Flags & VehicleFlags.Exploded) != 0)
             {
                 IsInvincible = false;
                 new Vehicle(Handle).Explode();
                 return;
-            }
+            }*/
 
             if (packetID > 0 && packetID > lastPacketID)
             {
@@ -122,11 +134,15 @@ namespace SPFClient.Entities
 
                 if ((state.Flags & VehicleFlags.DoorsLocked) != (lastReceivedState?.Flags & VehicleFlags.DoorsLocked))
                 {
-                    UI.Notify("lock doors");
                     Function.Call(Hash.SET_VEHICLE_DOORS_LOCKED_FOR_PLAYER, Handle, Game.Player.Handle, state.Flags.HasFlag(VehicleFlags.DoorsLocked));
                 }
 
-                Function.Call(Hash.SET_VEHICLE_COLOURS, Handle, state.PrimaryColor, state.SecondaryColor);
+                if ((state.Flags & VehicleFlags.HornPressed) != 0)
+                {
+                    UI.ShowSubtitle("horn");
+                    Function.Call(Hash.START_VEHICLE_HORN, Handle, 100, 0, false);
+                }
+                    Function.Call(Hash.SET_VEHICLE_COLOURS, Handle, state.PrimaryColor, state.SecondaryColor);
 
                 if (state.RadioStation != currentRadioStation)
                 {
@@ -149,7 +165,7 @@ namespace SPFClient.Entities
 
             else
             {
-                QueueUnorderedPacket(state, svTime, packetID);
+               // QueueUnorderedPacket(state, svTime, packetID);
             }
 
             if (packetID - lastPacketID > 5)
@@ -177,18 +193,20 @@ namespace SPFClient.Entities
 
         public override void Update()
         {
-            var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.8f);
+            var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.3f);
 
             if (entityPosition != null)
-            {             
+            {
                 PositionNoOffset = entityPosition.Position;
                 Quaternion = entityPosition.Rotation;
-                Velocity = entityPosition.Velocity;
+            //    Velocity = entityPosition.Velocity;
             }
 
             SetCurrentRPM(lastReceivedState.CurrentRPM);
 
             SetWheelRotation(lastReceivedState.WheelRotation);
+
+            //SetSteering(lastReceivedState.Steering);
 
             base.Update();
         }
@@ -213,7 +231,13 @@ namespace SPFClient.Entities
         {
             if (!Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, Model.Hash)) return;
             for (int i = 0; i < 4; i++)
-                MemoryAccess.SetWheelRotation(wheelsPtr, i, lastReceivedState.WheelRotation);
+                MemoryAccess.SetWheelRotation(wheelsPtr, i, value);
+        }
+
+        public void SetSteering(float value)
+        {
+            if (!Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, Model.Hash)) return;
+                MemoryAccess.WriteSingle(vAddress + Offsets.CVehicle.Steering, value);
         }
 
         public void SetCurrentRPM(float value)

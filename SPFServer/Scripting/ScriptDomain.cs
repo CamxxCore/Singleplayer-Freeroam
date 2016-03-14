@@ -1,135 +1,225 @@
-﻿/**
- * Copyright (C) 2015 crosire
- *
- * This software is  provided 'as-is', without any express  or implied  warranty. In no event will the
- * authors be held liable for any damages arising from the use of this software.
- * Permission  is granted  to anyone  to use  this software  for  any  purpose,  including  commercial
- * applications, and to alter it and redistribute it freely, subject to the following restrictions:
- *
- *   1. The origin of this software must not be misrepresented; you must not claim that you  wrote the
- *      original  software. If you use this  software  in a product, an  acknowledgment in the product
- *      documentation would be appreciated but is not required.
- *   2. Altered source versions must  be plainly  marked as such, and  must not be  misrepresented  as
- *      being the original software.
- *   3. This notice may not be removed or altered from any source distribution.
- */
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.CodeDom.Compiler;
+using System.Security;
 using Microsoft.CSharp;
 using Microsoft.VisualBasic;
-using System.Threading;
-using System.Windows.Forms;
+using System.Reflection;
+using System.IO;
 
 namespace SPFServer.Scripting
 {
-    interface IScriptTask
+    internal class RequireScript : System.Attribute
     {
-        void Run();
-    };
-
-    [System.AttributeUsage(System.AttributeTargets.Class, AllowMultiple = true)]
-    public class RequireScript : System.Attribute
-    {
-        RequireScript(System.Type dependency)
+        public RequireScript(System.Type dependency)
         {
-            _dependency = dependency;
+            this._dependency = dependency;
         }
 
-        internal Type _dependency;
-    };
+        internal System.Type _dependency;
+    }
 
-     sealed class ScriptDomain : MarshalByRefObject
+    internal sealed class ScriptDomain : MarshalByRefObject
     {
-        public ScriptBase ExecutingScript { get { return sCurrentDomain.ExecutingScript; } }
+        ScriptBase executingScript;
 
-        public AppDomain AppDomain { get { return _appdomain; } }
+        List<ScriptBase> executingScripts = new List<ScriptBase>();
+        List<Tuple<string, Type>> scriptTypes = new List<Tuple<string, Type>>();
 
-        public ScriptDomain CurrentDomain { get { return sCurrentDomain; } }
-
-        ScriptBase _executingScript;
-
-        static ScriptDomain sCurrentDomain;
-
-        private System.AppDomain _appdomain;
-        private List<ScriptBase> _runningScripts;
-        private List<Tuple<string, Type>> _scriptTypes;
-        private Queue<IScriptTask> _taskQueue;
-		private List<IntPtr> _pinnedStrings;
-        private int _executingThreadId;
-        private bool _recordKeyboardEvents;
-        bool[] _keyboardState;
+        AppDomain appDomain;
 
         public ScriptDomain()
         {
-            _appdomain = AppDomain.CurrentDomain;
-            _executingThreadId = Thread.CurrentThread.ManagedThreadId;
-            _runningScripts = new List<ScriptBase>();
-            _taskQueue = new Queue<IScriptTask>();
-            _pinnedStrings = new List<IntPtr>();
-            _scriptTypes = new List<Tuple<string, Type>>();
-            _recordKeyboardEvents = true;
-            _keyboardState = new bool[256];
-            _appdomain.AssemblyResolve += new ResolveEventHandler(HandleResolve);
-            _appdomain.UnhandledException += new UnhandledExceptionEventHandler(HandleUnhandledException);
+            appDomain = AppDomain.CurrentDomain;
         }
 
-    /*ScriptDomain::~ScriptDomain()
-    {
-        CleanupStrings();
-
-        Log("[DEBUG]", "Deleted script domain '", _appdomain->FriendlyName, "'.");
-    }
-    */
-
-    public void DoTick()
+        public void DoTick()
         {
-            // Execute scripts
-            foreach (ScriptBase script in _runningScripts)
+            foreach (var script in executingScripts)
             {
-                if (!script._running)
+                if (!script.running)
+                    continue;  
+          
+            }
+        }
+
+        public void DoClientConnect(GameClient client, DateTime connectTime)
+        {
+            foreach (var script in executingScripts)
+            {
+                if (!script.running)
+                    continue;
+
+                script.OnClientConnect(client, connectTime);
+            }
+        }
+
+        public void DoClientDisconnect(GameClient client, DateTime disconnectTime)
+        {
+            foreach (var script in executingScripts)
+            {
+                if (!script.running)
+                    continue;
+
+                script.OnClientDisconnect(client, disconnectTime);
+            }
+        }
+
+        public void DoMessageReceived(GameClient sender, string message)
+        {
+            foreach (var script in executingScripts)
+            {
+                if (!script.running)
+                    continue;
+
+                script.OnMessageReceived(sender, message);
+            }
+        }
+
+        public static ScriptDomain Load(string path)
+        {
+
+            path = Path.GetFullPath(path);
+
+            AppDomainSetup setup = new AppDomainSetup();
+            setup.ApplicationBase = path;
+            setup.ShadowCopyFiles = "true";
+            setup.ShadowCopyDirectories = path;
+            PermissionSet permissions = new PermissionSet(System.Security.Permissions.PermissionState.Unrestricted);
+
+            System.AppDomain appdomain = System.AppDomain.CreateDomain("ScriptDomain_" + (path.GetHashCode() * Environment.TickCount).ToString("X"), null, setup, permissions);
+            appdomain.InitializeLifetimeService();
+
+            ScriptDomain scriptdomain = null;
+
+            try
+            {
+                scriptdomain = (ScriptDomain)appdomain.CreateInstanceFromAndUnwrap(typeof(ScriptDomain).Assembly.Location, typeof(ScriptDomain).FullName);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("[ERROR]" + "Failed to create script domain '" + appdomain.FriendlyName + "':" + Environment.NewLine + ex.ToString());
+
+                System.AppDomain.Unload(appdomain);
+
+                return null;
+            }
+
+            Logger.Log("[DEBUG]" + "Loading scripts from '" + path + "' into script domain '" + appdomain.FriendlyName + "' ...");
+
+            if (Directory.Exists(path))
+            {
+                List<string> filenameScripts = new List<string>();
+                List<string> filenameAssemblies = new List<string>();
+
+                try
+                {
+                    filenameScripts.AddRange(Directory.GetFiles(path, "*.vb", SearchOption.AllDirectories));
+                    filenameScripts.AddRange(Directory.GetFiles(path, "*.cs", SearchOption.AllDirectories));
+                    filenameAssemblies.AddRange(Directory.GetFiles(path, "*.dll", SearchOption.AllDirectories));
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log("[ERROR]" + "Failed to reload scripts:" + Environment.NewLine + ex.ToString());
+
+                    System.AppDomain.Unload(appdomain);
+
+                    return null;
+                }
+
+                foreach (string filename in filenameScripts)
+                {
+                    scriptdomain.LoadScript(filename);
+                }
+                foreach (string filename in filenameAssemblies)
+                {
+                    scriptdomain.LoadAssembly(filename);
+                }
+            }
+            else
+            {
+                Logger.Log("[ERROR]" + "Failed to reload scripts because directory is missing.");
+            }
+
+            return scriptdomain;
+        }
+
+        public void Start()
+        {
+            if (executingScripts.Count != 0 || scriptTypes.Count == 0)
+            {
+                return;
+            }
+
+            string assemblyPath = Assembly.GetExecutingAssembly().Location;
+            string assemblyFilename = Path.GetFileNameWithoutExtension(assemblyPath);
+
+            foreach (string path in Directory.GetFiles(Path.GetDirectoryName(assemblyPath), "*.log"))
+            {
+                if (!path.StartsWith(assemblyFilename))
                 {
                     continue;
                 }
 
-                _executingScript = script;
-
-                while ((script._running = SignalAndWait(script._continueEvent, script._waitEvent, 5000)) && _taskQueue.Count > 0)
+                try
                 {
-                    _taskQueue.Dequeue().Run();
+                    TimeSpan logAge = DateTime.Now - DateTime.Parse(Path.GetFileNameWithoutExtension(path).Substring(path.IndexOf('-') + 1));
+
+                    // Delete logs older than 5 days
+                    if (logAge.Days >= 5)
+                    {
+                        File.Delete(path);
+                    }
                 }
-
-                _executingScript = null;
-
-                if (!script._running)
+                catch
                 {
-                   // Log("[ERROR]", "Script '", script.Name, "' is not responding! Aborting ...");
-
-                    AbortScript(script);
                     continue;
                 }
             }
 
-            // Clean up pinned strings
-        //    CleanupStrings();
-        }
+            Logger.Log("[DEBUG]" + "Starting " + scriptTypes.Count.ToString() + " script(s) ...");
 
+            if (!SortScripts(ref scriptTypes))
+            {
+                return;
+            }
+
+            foreach (Tuple<string, Type> scripttype in scriptTypes)
+            {
+                ScriptBase script = InstantiateScript(scripttype.Item2);
+
+                if (script == null)
+                {
+                    continue;
+                }
+
+                script.running = true;
+                //     script._filename = scripttype.Item1;
+                //  script._scriptdomain = this;
+                //   script._thread = new Thread(new ThreadStart(script, Script.MainLoop));
+
+                //  script._thread.Start();
+
+                Logger.Log("[DEBUG]" + "Started script '" + script.Name + "'.");
+
+                executingScripts.Add(script);
+            }
+        }
 
         bool LoadScript(string filename)
         {
             CodeDomProvider compiler = null;
             CompilerParameters compilerOptions = new CompilerParameters();
             compilerOptions.CompilerOptions = "/optimize";
-            compilerOptions.GenerateInMemory = true;
+            compilerOptions.GenerateInMemory = false;
             compilerOptions.IncludeDebugInformation = true;
             compilerOptions.ReferencedAssemblies.Add("System.dll");
             compilerOptions.ReferencedAssemblies.Add("System.Drawing.dll");
             compilerOptions.ReferencedAssemblies.Add("System.Windows.Forms.dll");
-            //  compilerOptions.ReferencedAssemblies.Add(GTA.Script.typeid.Assembly.Location);
+            compilerOptions.ReferencedAssemblies.Add(Assembly.GetExecutingAssembly().Location);
 
             string extension = System.IO.Path.GetExtension(filename);
 
@@ -151,7 +241,7 @@ namespace SPFServer.Scripting
 
             if (!compilerResult.Errors.HasErrors)
             {
-                Console.WriteLine("[DEBUG]", "Successfully compiled '", System.IO.Path.GetFileName(filename), "'.");
+                Logger.Log("[DEBUG]" + "Successfully compiled " + System.IO.Path.GetFileName(filename) + "'.");
 
                 return LoadAssembly(filename, compilerResult.CompiledAssembly);
             }
@@ -172,7 +262,7 @@ namespace SPFServer.Scripting
                     }
                 }
 
-                //  Console.WriteLine("[ERROR]", "Failed to compile '", IO::Path::GetFileName(filename), "' with ", compilerResult.Errors.Count.ToString(), " error(s):", Environment::NewLine, errors.ToString());
+                Logger.Log("[ERROR]" + "Failed to compile '" + Path.GetFileName(filename) + "' with " + compilerResult.Errors.Count.ToString() + " error(s):" + Environment.NewLine + errors.ToString());
 
                 return false;
             }
@@ -188,7 +278,7 @@ namespace SPFServer.Scripting
             }
             catch (Exception ex)
             {
-                //  Log("[ERROR]", "Failed to load assembly '", IO.Path.GetFileName(filename), "':", Environment.NewLine, ex.ToString());
+                Logger.Log("[ERROR]" + "Failed to load assembly '" + Path.GetFileName(filename) + "':" + Environment.NewLine + ex.ToString());
 
                 return false;
             }
@@ -206,236 +296,29 @@ namespace SPFServer.Scripting
                 foreach (Type type in assembly.GetTypes())
 
                 {
+                    Logger.Log(type.FullName.ToString());
+
                     if (!type.IsSubclassOf(typeof(ScriptBase)))
                     {
                         continue;
                     }
 
                     count++;
-                    _scriptTypes.Add(new Tuple<string, Type>(filename, type));
+                    scriptTypes.Add(new Tuple<string, Type>(filename, type));
                 }
 
             }
 
             catch (System.Reflection.ReflectionTypeLoadException ex)
             {
-                //  Log("[ERROR]", "Failed to list assembly types:", Environment.NewLine, ex.ToString());
+                Logger.Log("[ERROR]" + "Failed to list assembly types:" + Environment.NewLine + ex.LoaderExceptions[0].ToString());
 
                 return false;
             }
 
-            //  Log("[DEBUG]", "Found ", count.ToString(), " script(s) in '", IO.Path.GetFileName(filename), "'.");
+            Logger.Log("[DEBUG]" + "Found " + count.ToString() + " script(s) in '" + Path.GetFileName(filename) + "'.");
 
             return count != 0;
-        }
-
-        private void HandleUnhandledException(object sender, UnhandledExceptionEventArgs args)
-        {
-            if (!args.IsTerminating)
-            {
-                //Log("[ERROR]", "Caught unhandled exception:", Environment.NewLine, args.ExceptionObject.ToString());
-            }
-            else
-            {
-               // Log("[ERROR]", "Caught fatal unhandled exception:", Environment.NewLine, args.ExceptionObject.ToString());
-            }
-        }
-
-        private System.Reflection.Assembly HandleResolve(object sender, ResolveEventArgs args)
-        {
-            if (args.Name.ToLower().Contains("scripthookvdotnet"))
-            {
-                return System.Reflection.Assembly.GetAssembly(typeof(ScriptBase));
-            }
-
-            return null;
-        }
-
-
-        private void SignalAndWait(AutoResetEvent toSignal, AutoResetEvent toWaitOn)
-        {
-            toSignal.Set();
-            toWaitOn.WaitOne();
-        }
-        private bool SignalAndWait(AutoResetEvent toSignal, AutoResetEvent toWaitOn, int timeout)
-        {
-            toSignal.Set();
-            return toWaitOn.WaitOne(timeout);
-        }
-
-        public void DoKeyboardMessage(Keys key, bool status, bool statusCtrl, bool statusShift, bool statusAlt)
-        {
-            int keycode = (int)key;
-
-            if (keycode < 0 || keycode >= 256)
-            {
-                return;
-            }
-
-            _keyboardState[keycode] = status;
-
-            if (_recordKeyboardEvents)
-            {
-                KeyEventArgs args = new KeyEventArgs(key | (statusCtrl ? Keys.Control : Keys.None) | (statusShift ? Keys.Shift : Keys.None) | (statusAlt ? Keys.Alt : Keys.None));
-                Tuple<bool, KeyEventArgs> eventinfo = new Tuple<bool, KeyEventArgs>(status, args);
-
-                foreach (ScriptBase script in _runningScripts)
-                {
-                    script._keyboardEvents.Enqueue(eventinfo);
-                }
-            }
-        }
-        public void PauseKeyboardEvents(bool pause)
-        {
-            _recordKeyboardEvents = !pause;
-        }
-        public void ExecuteTask(IScriptTask task)
-        {
-            if (Thread.CurrentThread.ManagedThreadId == _executingThreadId)
-            {
-                task.Run();
-            }
-            else
-            {
-                _taskQueue.Enqueue(task);
-
-                SignalAndWait(ExecutingScript._waitEvent, ExecutingScript._continueEvent);
-            }
-        }
-
-        public void Unload(ref ScriptDomain domain)
-
-        {
-            //   Log("[DEBUG]", "Unloading script domain '", domain.Name, "' ...");
-
-            domain.Abort();
-
-            System.AppDomain appdomain = domain.AppDomain;
-
-            domain = null;
-
-            try
-            {
-                System.AppDomain.Unload(appdomain);
-            }
-            catch (Exception ex)
-            {
-                //Log("[ERROR]", "Failed to unload deleted script domain:", Environment.NewLine, ex.ToString());
-            }
-
-            domain = null;
-
-            GC.Collect();
-        }
-
-
-
-        public ScriptBase InstantiateScript(Type scripttype)
-
-        {
-            if (!scripttype.IsSubclassOf(typeof(ScriptBase)))
-            {
-                return null;
-            }
-
-            //   Log("[DEBUG]", "Instantiating script '", scripttype.FullName, "' in script domain '", Name, "' ...");
-
-            try
-            {
-                return (ScriptBase)Activator.CreateInstance(scripttype);
-            }
-            catch (MissingMethodException)
-            {
-                // Log("[ERROR]", "Failed to instantiate script '", scripttype.FullName, "' because no public default constructor was found.");
-            }
-
-            catch (System.Reflection.TargetInvocationException ex)
-            {
-                //   Log("[ERROR]", "Failed to instantiate script '", scripttype.FullName, "' because constructor threw an exception:", Environment.NewLine, ex.InnerException.ToString());
-            }
-
-            catch (Exception ex)
-            {
-                //   Log("[ERROR]", "Failed to instantiate script '", scripttype.FullName, "':", Environment.NewLine, ex.ToString());
-            }
-
-            return null;
-        }
-
-        public void Abort()
-        {
-            //     Log("[DEBUG]", "Stopping ", _runningScripts.Count.ToString(), " script(s) ...");
-
-            foreach (ScriptBase script in _runningScripts)
-            {
-                AbortScript(script);
-            }
-
-            _scriptTypes.Clear();
-            _runningScripts.Clear();
-
-            GC.Collect();
-        }
-
-        public void Start()
-        {
-            if (_runningScripts.Count != 0 || _scriptTypes.Count == 0)
-            {
-                return;
-            }
-
-            string assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            string assemblyFilename = System.IO.Path.GetFileNameWithoutExtension(assemblyPath);
-
-            foreach (string path in System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(assemblyPath), "*.log"))
-            {
-                if (!path.StartsWith(assemblyFilename))
-                {
-                    continue;
-                }
-
-                try
-                {
-                    TimeSpan logAge = DateTime.Now - DateTime.Parse(System.IO.Path.GetFileNameWithoutExtension(path).Substring(path.IndexOf('-') + 1));
-
-                    // Delete logs older than 5 days
-                    if (logAge.Days >= 5)
-                    {
-                        System.IO.File.Delete(path);
-                    }
-                }
-                catch
-                {
-                    continue;
-                }
-            }
-
-            // Log("[DEBUG]", "Starting ", _scriptTypes.Count.ToString(), " script(s) ...");
-
-            if (!SortScripts(ref _scriptTypes))
-            {
-                return;
-            }
-
-            foreach (Tuple<string, Type> scripttype in _scriptTypes)
-            {
-                ScriptBase script = InstantiateScript(scripttype.Item2);
-
-                if (object.ReferenceEquals(script, null))
-                {
-                    continue;
-                }
-
-                script._running = true;
-                script._filename = scripttype.Item1;
-                script._scriptdomain = this;
-                script._thread = new System.Threading.Thread(script.MainLoop);
-                script._thread.Start();
-
-                //  Log("[DEBUG]", "Started script '", script.Name, "'.");
-
-                _runningScripts.Add(script);
-            }
         }
 
         private bool SortScripts(ref List<Tuple<string, Type>> scripttypes)
@@ -446,7 +329,7 @@ namespace SPFServer.Scripting
             {
                 List<Type> dependencies = new List<Type>();
 
-                foreach (RequireScript attribute in ((System.Reflection.MemberInfo)scripttype.Item2).GetCustomAttributes(typeof(RequireScript), true))
+                foreach (RequireScript attribute in ((MemberInfo)scripttype.Item2).GetCustomAttributes(typeof(RequireScript), true))
                 {
                     dependencies.Add(attribute._dependency);
                 }
@@ -471,7 +354,7 @@ namespace SPFServer.Scripting
 
                 if (scriptype == null)
                 {
-                    //Log("[ERROR]", "Detected a circular script dependency. Aborting ...");
+                    Logger.Log("[ERROR]" + "Detected a circular script dependency. Aborting ...");
                     return false;
                 }
 
@@ -490,19 +373,35 @@ namespace SPFServer.Scripting
         }
 
 
-        public void AbortScript(ScriptBase script)
+        public ScriptBase InstantiateScript(Type scripttype)
         {
-            if (object.ReferenceEquals(script._thread, null))
+            if (!scripttype.IsSubclassOf(typeof(ScriptBase)))
             {
-                return;
+                return null;
             }
 
-            script._running = false;
+            Logger.Log("[DEBUG]" + "Instantiating script '" + scripttype.FullName + "' in script domain '" + appDomain.FriendlyName + "' ...");
 
-            script._thread.Abort();
-            script._thread = null;
+            try
+            {
+                return (ScriptBase)Activator.CreateInstance(scripttype);
+            }
+            catch (MissingMethodException)
+            {
+                Logger.Log("[ERROR]" + "Failed to instantiate script '" + scripttype.FullName + "' because no public default constructor was found.");
+            }
+            catch (TargetInvocationException ex)
+            {
 
-            //Log("[DEBUG]", "Aborted script '", script.Name, "'.");
+                Logger.Log("[ERROR]" + "Failed to instantiate script '" + scripttype.FullName + "' because constructor threw an exception:" + Environment.NewLine + ex.InnerException.ToString());
+            }
+            catch (Exception ex)
+            {
+                Logger.Log("[ERROR]" + "Failed to instantiate script '" + scripttype.FullName + "':" + Environment.NewLine + ex.ToString());
+            }
+
+            return null;
         }
+
     }
 }

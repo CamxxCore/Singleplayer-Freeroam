@@ -138,7 +138,7 @@ namespace SPFClient.Entities
 
             playerName = new UIResText(state.Name, 
                 new System.Drawing.Point(), 
-                0.72f, 
+                0.6f, 
                 System.Drawing.Color.White, 
                 Font.ChaletLondon, 
                 UIResText.Alignment.Centered);
@@ -152,7 +152,7 @@ namespace SPFClient.Entities
         {
 
             // packet is out of range if this fails
-            if (state.PktID > 0 && state.PktID > lastReceivedState.PktID)
+            if (state.PktID > 0 && state.PktID == lastReceivedState.PktID + 1)
             {
                 if (!state.InVehicle)
                 {
@@ -197,7 +197,7 @@ namespace SPFClient.Entities
 
             else
             {
-                extrapolator.QueueUnorderedPacket(state, svTime, state.PktID);
+                //extrapolator.QueueUnorderedPacket(state, svTime, state.PktID);
             }
 
             if (state.PktID - lastReceivedState.PktID > 5)
@@ -221,7 +221,7 @@ namespace SPFClient.Entities
 
             else
             {
-                var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount,1f);
+                var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.6f);
 
                 if (entityPosition != null)
                 {

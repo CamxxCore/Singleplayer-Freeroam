@@ -8,7 +8,7 @@ using System.Threading;
 
 namespace SPFServer.Weather
 {
-    public class TimeCycleManager
+    internal class TimeCycleManager
     {
         private ServerStopwatch svClock;
 

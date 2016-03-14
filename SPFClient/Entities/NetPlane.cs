@@ -13,6 +13,11 @@ namespace SPFClient.Entities
             OnUpdateRecieved += UpdateReceived;
         }
 
+        public NetPlane(Vehicle vehicle, int id) : base(vehicle, id)
+        {
+            OnUpdateRecieved += UpdateReceived;
+        }
+
         private void UpdateReceived(NetworkVehicle sender, VehicleState e)
         {
           //  new Vehicle(Handle).EnginePowerMultiplier = new Vehicle(Handle).Speed / 1000;

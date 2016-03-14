@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SPFServer
 {
-    public static class Helpers
+    internal static class Helpers
     {
         public static TimeSpan CalculateAverage(ref List<TimeSpan> samples, int minSamples = 5)
         {

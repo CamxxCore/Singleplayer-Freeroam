@@ -155,7 +155,7 @@ namespace SPFLib.Types
 
             if (InVehicle && seekIndex != data.Length - 1)
             {
-                var buffer = new byte[59];
+                var buffer = new byte[61];
                 Buffer.BlockCopy(data, seekIndex, buffer, 0, buffer.Length);
                 VehicleState = new VehicleState(buffer);
             }

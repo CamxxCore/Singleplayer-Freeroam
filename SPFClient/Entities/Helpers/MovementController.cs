@@ -21,7 +21,7 @@ namespace SPFClient.Entities
             { WeaponHash.BullpupRifle, "anim@weapons@submg@bullpup_rifle" },
             { WeaponHash.BullpupShotgun, "weapons@rifle@" },
             { WeaponHash.BZGas, "weapons@projectile@grenade_str" },
-            { WeaponHash.CarbineRifle, "weapons@rifle@hi@assault_rifle" },
+            { WeaponHash.CarbineRifle, "weapons@rifle@" },
             { WeaponHash.CombatMG, "weapons@machinegun@combat_mg" },
             { WeaponHash.CombatPDW, "weapons@submg@" },
             { WeaponHash.CombatPistol, "weapons@pistol@combat_pistol" },
@@ -50,8 +50,9 @@ namespace SPFClient.Entities
             { WeaponHash.Molotov, "weapons@projectile@molotov" },
             { WeaponHash.PetrolCan, "weapons@misc@jerrycan@mp_male" },
             { WeaponHash.SniperRifle, "weapons@rifle@" },
-            { WeaponHash.SpecialCarbine, "anim@weapons@rifle@lo@spcarbine" },
-            { WeaponHash.StunGun, "weapon@w_pi_stungun" }
+            { WeaponHash.SpecialCarbine, "weapons@rifle@" },
+            { WeaponHash.StunGun, "weapon@w_pi_stungun" },
+            { WeaponHash.RPG, "weapons@heavy@rpg_str" }
 
         };
 

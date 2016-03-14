@@ -9,38 +9,38 @@ namespace SPFServer.Weather
 {
     public delegate void WeatherChangedHandler(WeatherType lastWeather, WeatherType newWeather);
 
-    public class WeatherManager
+    public sealed class WeatherManager
     {
         public const int MinTimeForChange = 600000; // 10min
+
+        private WeatherType[] weatherTypes;
+
+        public WeatherType CurrentWeather { get { return currentWeather; } }
+
+        private WeatherType lastWeather, currentWeather;
+    
+        public event WeatherChangedHandler OnServerWeatherChanged;
 
         private DateTime lastChanged;
 
         private Timer updateTimer;
 
-        private WeatherType[] weatherTypes;
-
-        private WeatherType lastWeather, currentWeather;
-
-        public WeatherType CurrentWeather { get { return currentWeather; } }
-
-        public event WeatherChangedHandler OnServerWeatherChanged;
-
-        public WeatherManager(WeatherType initialWeather)
+        internal WeatherManager(WeatherType initialWeather)
         {
             updateTimer = new Timer(new TimerCallback(UpdateTimerCallback), null, MinTimeForChange, Timeout.Infinite);
             weatherTypes = Enum.GetValues(typeof(WeatherType)).Cast<WeatherType>().ToArray();
             currentWeather = initialWeather;
         }
 
-        public WeatherManager() : this(WeatherType.Clear)
+        internal WeatherManager() : this(WeatherType.Clear)
         { }
 
-        public void SetAllowedWeatherTypes(params WeatherType[] weatherTypes)
+        /*public void SetAllowedWeatherTypes(params WeatherType[] weatherTypes)
         {
             this.weatherTypes = weatherTypes;
-        }
+        }*/
 
-        private WeatherType GetRandomWeatherType(WeatherType[] allowedTypes)
+        internal WeatherType GetRandomWeatherType(WeatherType[] allowedTypes)
         {
             for (int i = 0; i < allowedTypes.Length; i++)
             {
@@ -51,19 +51,17 @@ namespace SPFServer.Weather
                 if (num1 > num2 && weatherTypes[i] != currentWeather &&
                     allowedTypes[i] != lastWeather &&
                     DateTime.Now - lastChanged > TimeSpan.FromMilliseconds(MinTimeForChange))
-                {
                     return allowedTypes[i];
-                }
             }
             return WeatherType.Clear;
         }
 
-        public void ForceWeatherChange()
+        internal void ForceWeatherChange()
         {
             updateTimer.Change(0, Timeout.Infinite);
         }
 
-        private void UpdateTimerCallback(object state)
+        internal void UpdateTimerCallback(object state)
         {
             var weather = GetRandomWeatherType(weatherTypes);
             lastWeather = currentWeather;

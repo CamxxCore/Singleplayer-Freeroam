@@ -17,18 +17,19 @@ using ASUPService;
 
 namespace SPFServer
 {
+
     public class GameClient
     {
-        public ClientInfo Info { get; }
-        public ClientState State { get; private set; }
+        public ClientInfo Info { get; }      
         public TimeSpan Ping { get; set; }
-        public TimeSpan TimeDiff { get; set; }
-        public List<TimeSpan> AvgPing;
-        public int LastUpd { get; set; }
-        public int LastSync { get; set; }
-        public int LastCMD { get; set; }
-        public int LastVehicleUpd { get; set; }
-        public bool WaitForRespawn;
+        internal ClientState State { get; private set; }
+        internal TimeSpan TimeDiff { get; set; }
+        internal List<TimeSpan> AvgPing;
+        internal int LastUpd { get; set; }
+        internal int LastSync { get; set; }
+        internal int LastCMD { get; set; }
+        internal int LastVehicleUpd { get; set; }
+        internal bool WaitForRespawn;
 
         public GameClient(ClientInfo info, EndPoint endpoint)
         {
@@ -37,7 +38,7 @@ namespace SPFServer
             AvgPing = new List<TimeSpan>();
         }
 
-        public void UpdateState(ClientState state, int updTime)
+        internal void UpdateState(ClientState state, int updTime)
         {
             State.Name = null;
             State.Position = state.Position;
@@ -63,7 +64,7 @@ namespace SPFServer
         }
     }
 
-    public class UDPSocketListener
+    internal sealed class UDPSocketListener
     {
         private WeatherManager weatherMgr;
 
@@ -148,10 +149,8 @@ namespace SPFServer
         /// <summary>
         /// Start listening for client requests asynchronously.
         /// </summary>
-        public void StartListening()
+        internal void StartListening()
         {
-            sw.Start();
-
             // Create a UDP socket.
             Console.WriteLine("Starting server...");
 
@@ -205,106 +204,103 @@ namespace SPFServer
         {
             while (true)
             {
-                if (sw.ElapsedMilliseconds >= TimerInterval)
+                serverTime += 1;
+
+            //    Server.domain.DoTick();
+
+                state.Clients = GetClientStates();
+
+                for (int i = stateBuffer.Length - 1; i > 0; i--)
+                    stateBuffer[i] = stateBuffer[i - 1];
+
+                var timeNow = PreciseDatetime.Now;
+
+                stateBuffer[0] = new KeyValuePair<DateTime, ClientState[]>(timeNow, state.Clients);
+
+                validStates = Math.Min(validStates + 1, stateBuffer.Length);
+
+                lock (syncObj)
                 {
-                    serverTime += 1;
-
-                    state.Clients = GetClientStates();
-
-                    for (int i = stateBuffer.Length - 1; i > 0; i--)
-                        stateBuffer[i] = stateBuffer[i - 1];
-
-                    var timeNow = PreciseDatetime.Now;
-
-                    stateBuffer[0] = new KeyValuePair<DateTime, ClientState[]>(timeNow, state.Clients);
-
-                    validStates = Math.Min(validStates + 1, stateBuffer.Length);
-
-                    lock (syncObj)
+                    foreach (var client in clientList)
                     {
-                        foreach (var client in clientList)
+                        if (client.Value.LastUpd != 0 && (serverTime - client.Value.LastUpd) > 1000)
                         {
-                            if (client.Value.LastUpd != 0 && (serverTime - client.Value.LastUpd) > 1000)
-                            {
-                                removalQueue.Add(client.Key, client.Value);
-                                continue;
-                            }
+                            removalQueue.Add(client.Key, client.Value);
+                            continue;
+                        }
 
-                            if (client.Value.AvgPing.Count < MinTimeSamples && serverTime - client.Value.LastSync > 2)
-                            {
-                                threadQueue.AddTask(() => SendSynchronizationRequest(client.Key));                             
-                                threadQueue.AddTask(() => Program.WriteToConsole("send again"));
-                                client.Value.LastSync = serverTime;
-                            }
+                        if (client.Value.AvgPing.Count < MinTimeSamples && serverTime - client.Value.LastSync > 2)
+                        {
+                            SendSynchronizationRequest(client.Key);
+                            client.Value.LastSync = serverTime;
+                        }
 
-                            if (client.Value.State.MovementFlags.HasFlag(ClientFlags.Dead) && !client.Value.WaitForRespawn)
-                            {
-                                client.Value.WaitForRespawn = true;
+                        if (client.Value.State.MovementFlags.HasFlag(ClientFlags.Dead) && !client.Value.WaitForRespawn)
+                        {
+                            client.Value.WaitForRespawn = true;
 
-                                threadQueue.AddTask(() =>
-                                {
-                                    Thread.Sleep(8900); //8.7 seconds to allow respawn
+                            threadQueue.AddTask(() =>
+                            {
+                                Thread.Sleep(8900); //8.7 seconds to allow respawn
                                     client.Value.SetHealth(100);
-                                    client.Value.WaitForRespawn = false;
-                                });
-                            }
+                                client.Value.WaitForRespawn = false;
+                            });
+                        }
 
-                            client.Value.State.PktID = ++client.Value.State.PktID;
-                            client.Value.State.PktID %= int.MaxValue;
+                        client.Value.State.PktID = ++client.Value.State.PktID;
+                        client.Value.State.PktID %= int.MaxValue;
 
-                         //   try
+                        //   try
                         //    {
-                                state.Timestamp = timeNow.Subtract(client.Value.TimeDiff);
+                        state.Timestamp = timeNow.Subtract(client.Value.TimeDiff);
                         //    }
 
-                          //  catch (ArgumentOutOfRangeException)
-                          //  { }
+                        //  catch (ArgumentOutOfRangeException)
+                        //  { }
 
-                            var msgBytes = state.ToByteArray();
+                        var msgBytes = state.ToByteArray();
 
-                            serverSocket.BeginSendTo(msgBytes, 0, msgBytes.Length, SocketFlags.None, client.Key,
-                                new AsyncCallback(OnSend), msgBytes);
-                        }
+                        serverSocket.BeginSendTo(msgBytes, 0, msgBytes.Length, SocketFlags.None, client.Key,
+                            new AsyncCallback(OnSend), msgBytes);
                     }
+                }
 
-                    foreach (var client in removalQueue)
+                foreach (var client in removalQueue)
+                {
+                    threadQueue.AddTask(() => Program.WriteToConsole(string.Format("User \"{0}\" timed out.", client.Value.Info.Name)));
+                    RaiseClientEvent(client.Value, EventType.PlayerLogout);
+                    RemoveClient(client.Key);
+                }
+
+                if (serverTime > lastMasterUpdate + PingInterval)
+                {
+                    var maxPlayers = serverVars.GetVar<int>("sv_maxplayers");
+
+                    var sessionInfo = new SessionUpdate()
                     {
-                        threadQueue.AddTask(() => Program.WriteToConsole(string.Format("User \"{0}\" timed out.", client.Value.Info.Name)));
-                        RaiseClientEvent(client.Value, EventType.PlayerLogout);
-                        RemoveClient(client.Key);
-                    }
+                        ServerID = SessionID,
+                        ClientCount = clientList.Count,
+                        MaxClients = maxPlayers,
+                    };
 
-                    if (serverTime > lastMasterUpdate + PingInterval)
-                    {
-                        var clientCount = clientList.Count;
+                    threadQueue.AddTask(() => SendSessionUpdate(sessionInfo));
+                    lastMasterUpdate = serverTime;
+                }
 
-                        var maxPlayers = serverVars.GetVar<int>("sv_maxplayers");
+                removalQueue.Clear();
 
-                        var sessionInfo = new SessionUpdate()
-                        {
-                            ClientCount = clientList.Count,
-                            MaxClients = maxPlayers,
-                            ServerID = SessionID
-                        };
+                Thread.Sleep(TimerInterval);
 
-                        threadQueue.AddTask(() => SendSessionUpdate(sessionInfo));
-                        lastMasterUpdate = serverTime;
-                    }
-
-                    removalQueue.Clear();
-
-                    sw.Reset();
-                    sw.Start();
 #if DEBUG
                     Console.WriteLine(((float)sw1.ElapsedMilliseconds / 1000f).ToString());
 
                     sw1.Reset();
                     sw1.Start();
-#endif        
-                }
+#endif
+
             }
         }
-
+    
         /// <summary>
         /// Callback method for sent data.
         /// </summary>
@@ -342,19 +338,19 @@ namespace SPFServer
                             HandleClientStateUpdate(sender, new ClientState(byteData));
                             break;
                         case NetMessage.ChatMessage:
-                            threadQueue.AddTask(new ThreadStart(() => HandleChatMessage(sender, new MessageInfo(byteData))));
+                            threadQueue.AddTask(() => HandleChatMessage(sender, new MessageInfo(byteData)));
                             break;
                         case NetMessage.ServerCommand:
-                            threadQueue.AddTask(new ThreadStart(() => HandleServerCommand(sender, new ServerCommand(byteData))));
+                            threadQueue.AddTask(() => HandleServerCommand(sender, new ServerCommand(byteData)));
                             break;
                         case NetMessage.TimeSync:
-                            threadQueue.AddTask(new ThreadStart(() => HandleTimeSync(sender, new TimeSync(byteData))));
+                            threadQueue.AddTask(() => HandleTimeSync(sender, new TimeSync(byteData)));
                             break;
                         case NetMessage.NativeCallback:
-                            threadQueue.AddTask(new ThreadStart(() => HandleNativeCallback(sender, new NativeCallback(byteData))));
+                            threadQueue.AddTask(() => HandleNativeCallback(sender, new NativeCallback(byteData)));
                             break;
                         case NetMessage.WeaponHit:
-                            threadQueue.AddTask(new ThreadStart(() => HandleBulletImpact(sender, new WeaponHit(byteData))));
+                            threadQueue.AddTask(() => HandleBulletImpact(sender, new WeaponHit(byteData)));
                             break;              
                 }
             }
@@ -381,7 +377,7 @@ namespace SPFServer
 
                 catch (SocketException)
                 {
-                    Console.WriteLine("listen failed. retrying...");
+                   // Console.WriteLine("listen failed. retrying...");
                     goto listen;
                 }
             }
@@ -421,7 +417,7 @@ namespace SPFServer
         {
             try
             {
-                Program.SessionProvider.SendHeartbeat(sessionInfo);
+                Program.sProvider.SendHeartbeat(sessionInfo);
             }
 
             catch (Exception)
@@ -782,7 +778,7 @@ namespace SPFServer
                             new NativeArg(svTime.Minute),
                             new NativeArg(svTime.Second));
 
-                        SendServerHello(sender, cmd.NetID);
+                        SendServerHello(sender, cmd.NetID, "Successfully joined.");
 
                         // request time sync
                         SendSynchronizationRequest(sender);
@@ -806,7 +802,7 @@ namespace SPFServer
                         }
 
                         RaiseClientEvent(client, EventType.PlayerLogout);
-               
+
                         threadQueue.AddTask(() => Program.WriteToConsole(string.Format("User \"{0}\" left the session.", cmd.Name, cmd.UID)));
 
                     }
@@ -956,7 +952,7 @@ namespace SPFServer
         /// </summary>
         /// <param name="cmd"></param>
         /// <returns></returns>
-        public bool ExecuteCommandString(string cmd)
+        internal bool ExecuteCommandString(string cmd)
         {
             var stringArray = Regex.Split(cmd,
               "(?<=^[^\"]*(?:\"[^\"]*\"[^\"]*)*) (?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
@@ -979,7 +975,7 @@ namespace SPFServer
             }
         }
 
-        public string ShowHelp(params string[] args)
+        internal string ShowHelp(params string[] args)
         {
             var builder = new System.Text.StringBuilder("\nValid Commands:\n\n");
             builder.AppendLine("status - get a list of all active clients. params: N/A");
@@ -998,7 +994,7 @@ namespace SPFServer
         /// <summary>
         /// Get a list of active clients and print it to the console.
         /// </summary>
-        public string GetStatus(params string[] args)
+        internal string GetStatus(params string[] args)
         {
             var states = GetClientStates();
 
@@ -1017,7 +1013,7 @@ namespace SPFServer
         /// <summary>
         /// Get a list of active vehicles and print it to the console.
         /// </summary>
-        public string GetVehicleStatus(params string[] args)
+        internal string GetVehicleStatus(params string[] args)
         {
             var states = GetVehicleStates();
 
@@ -1036,7 +1032,7 @@ namespace SPFServer
         /// <summary>
         /// Invoke a client native.
         /// </summary>
-        public string InvokeNative(params string[] args)
+        internal string InvokeNative(params string[] args)
         {
             var endpoint = clientList.ElementAt(Convert.ToInt32(args[0])).Key;
             string funcName = args[1];
@@ -1059,7 +1055,7 @@ namespace SPFServer
         /// Set weather for all players
         /// </summary>
         /// <param name="weather">Weather type as string</param>
-        public string SetWeather(params string[] args)
+        internal string SetWeather(params string[] args)
         {
             var weatherArgs = args[0];
 
@@ -1078,7 +1074,7 @@ namespace SPFServer
         /// <param name="hours">hours</param>
         /// <param name="minutes">minutes</param>
         /// <param name="seconds">seconds</param>
-        public string SetTime(params string[] args)
+        internal string SetTime(params string[] args)
         {
             int hours = Convert.ToInt32(args[0]);
             int minutes = Convert.ToInt32(args[1]);
@@ -1102,7 +1098,7 @@ namespace SPFServer
         /// <param name="hours">hours</param>
         /// <param name="minutes">minutes</param>
         /// <param name="seconds">seconds</param>
-        public string Kick(params string[] args)
+        internal string Kick(params string[] args)
         {
             var client = clientList.ElementAt(Convert.ToInt32(args[0]));
 
@@ -1122,7 +1118,7 @@ namespace SPFServer
         /// Set weather for all players
         /// </summary>
         /// <param name="weather">Weather type as string</param>
-        public string GetPosition(params string[] args)
+        internal string GetPosition(params string[] args)
         {
             var client = clientList.ElementAt(Convert.ToInt32(args[0])).Value;
 
@@ -1137,7 +1133,7 @@ namespace SPFServer
         /// <summary>
         /// Force a time sync for all clients.
         /// </summary>
-        public string ForceSync(params string[] args)
+        internal string ForceSync(params string[] args)
         {
             foreach (var client in clientList)
             {

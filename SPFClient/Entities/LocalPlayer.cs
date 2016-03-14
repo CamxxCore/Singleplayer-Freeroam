@@ -282,7 +282,6 @@ namespace SPFClient.Entities
 
                 if (closestVehicle != null)
                 {
-
                     var veh = NetworkManager.VehicleFromLocalHandle(closestVehicle.Handle);
 
                     if (veh != null && !Ped.IsInVehicle(closestVehicle) && veh.Handle != Ped.CurrentVehicle?.Handle)
@@ -293,18 +292,13 @@ namespace SPFClient.Entities
                             Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_pside_f"), //0 front right
                             Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_dside_r"), //1 back left                     
                             Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_pside_r") //2 back right                     
-
                         };
 
                         var closestBone = bones.OrderBy(x => Function.Call<GTA.Math.Vector3>((Hash)0x44A8FCB8ED227738, veh.Handle, x).DistanceTo(Ped.Position)).First();
 
-                        UI.Notify("trying to enter " + closestVehicle.Handle.ToString());
                         Ped.Task.ClearAll();
 
-                        // Ped.Task.WarpIntoVehicle(closestVehicle, (GTA.VehicleSeat)(Array.IndexOf(bones, closestBone) - 1));
                         Function.Call(Hash.TASK_ENTER_VEHICLE, Ped.Handle, veh.Handle, -1, (Array.IndexOf(bones, closestBone) - 1), 0.0f, 3, 0);
-                        //    Ped.SetIntoVehicle(vehicle, seat);
-                        //  Function.Call<int>((Hash)0x814FA8BE5449445D, Ped.Handle);
                     }
                 }
             }

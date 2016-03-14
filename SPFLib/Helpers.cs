@@ -21,6 +21,11 @@ namespace SPFLib
             return BitConverter.ToInt32(data, 0);
         }
 
+        public static DataType GetDataType(object obj)
+        {
+            return GetDataType(obj.GetType());
+        }
+
         public static DataType GetDataType(Type t)
         {
             if (t == typeof(int))

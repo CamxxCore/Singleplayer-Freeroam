@@ -11,7 +11,7 @@ namespace SPFLib.Types
 
         public NativeArg(object value)
         {
-            Type = Helpers.GetDataType(value.GetType());
+            Type = Helpers.GetDataType(value);
             Value = value;
         }
 
