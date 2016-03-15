@@ -14,14 +14,14 @@ namespace SPFClient.Entities
         {
             { WeaponHash.AdvancedRifle, "weapons@submg@advanced_rifle" },
             { WeaponHash.APPistol, "weapons@pistol@ap_pistol" },
-            { WeaponHash.AssaultRifle, "weapons@rifle@" },
-            { WeaponHash.AssaultShotgun, "weapons@rifle@" },
+            { WeaponHash.AssaultRifle, "weapons@rifle@hi@assault_rifle" },
+            { WeaponHash.AssaultShotgun, "weapons@rifle@hi@assault_rifle" },
             { WeaponHash.AssaultSMG, "weapons@submg@assault_smg" },
             { WeaponHash.Bat, "weapons@melee_2h" },
             { WeaponHash.BullpupRifle, "anim@weapons@submg@bullpup_rifle" },
-            { WeaponHash.BullpupShotgun, "weapons@rifle@" },
+            { WeaponHash.BullpupShotgun, "weapons@rifle@hi@assault_rifle" },
             { WeaponHash.BZGas, "weapons@projectile@grenade_str" },
-            { WeaponHash.CarbineRifle, "weapons@rifle@" },
+            { WeaponHash.CarbineRifle, "weapons@submg@advanced_rifle" },
             { WeaponHash.CombatMG, "weapons@machinegun@combat_mg" },
             { WeaponHash.CombatPDW, "weapons@submg@" },
             { WeaponHash.CombatPistol, "weapons@pistol@combat_pistol" },
@@ -32,12 +32,11 @@ namespace SPFClient.Entities
             { WeaponHash.Grenade, "weapons@projectile@grenade_str" },
             { WeaponHash.GrenadeLauncher, "weapons@heavy@grenade_launcher" },
             { WeaponHash.GrenadeLauncherSmoke, "weapons@heavy@grenade_launcher" },
-       //     { WeaponHash.Gusenberg, "weapons@machinegun@gusenberg" },
             { WeaponHash.Hammer, "weapons@melee_1h" },
             { WeaponHash.Hatchet, "melee@holster" },
             { WeaponHash.HeavyPistol, "weapons@pistol@pistol" },
             { WeaponHash.HeavyShotgun, "weapons@pistol@pistol" },
-            { WeaponHash.HeavySniper, "weapons@rifle@" },
+            { WeaponHash.HeavySniper, "weapons@rifle@hi@assault_rifle" },
             { WeaponHash.MarksmanPistol, "weapons@pistol@pistol" },
             { WeaponHash.HomingLauncher, "weapons@pistol@pistol" },
             { WeaponHash.Knife, "weapons@first_person@aim_idle@generic@melee@knife@shared@core" },
@@ -49,11 +48,10 @@ namespace SPFClient.Entities
             { WeaponHash.Minigun, "weapons@heavy@minigun" },
             { WeaponHash.Molotov, "weapons@projectile@molotov" },
             { WeaponHash.PetrolCan, "weapons@misc@jerrycan@mp_male" },
-            { WeaponHash.SniperRifle, "weapons@rifle@" },
-            { WeaponHash.SpecialCarbine, "weapons@rifle@" },
+            { WeaponHash.SniperRifle, "weapons@rifle@hi@assault_rifle" },
+            { WeaponHash.SpecialCarbine, "weapons@rifle@hi@assault_rifle" },
             { WeaponHash.StunGun, "weapon@w_pi_stungun" },
             { WeaponHash.RPG, "weapons@heavy@rpg_str" }
-
         };
 
         private class Anims
@@ -157,7 +155,6 @@ namespace SPFClient.Entities
         private bool TransitionActive()
         {
             return Anims.Walk2Run.IsPlayingOn(ped) || Anims.Roll90Deg.IsPlayingOn(ped);
-
         }
 
         private void HandleShootAnim()
@@ -317,7 +314,8 @@ namespace SPFClient.Entities
 
                 if (upperAnimation != null && !upperAnimation.IsPlayingOn(ped))
                 {
-                    PlayAnimation(upperAnimation, 33);
+                    UI.ShowSubtitle("play");
+                    PlayAnimation(upperAnimation, 48);
                 }
             }
 

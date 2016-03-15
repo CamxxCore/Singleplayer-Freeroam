@@ -4,6 +4,7 @@ using SPFLib.Types;
 using SPFClient.Types;
 using SPFLib.Enums;
 using System;
+using System.Drawing;
 using Vector3 = GTA.Math.Vector3;
 using Quaternion = GTA.Math.Quaternion;
 
@@ -16,7 +17,6 @@ namespace SPFClient.Entities
         public readonly int ID;
 
         private int snapshotCount;
-
         private int lastPacketID;
 
         private int currentRadioStation;
@@ -29,7 +29,7 @@ namespace SPFClient.Entities
 
         private EntitySnapshot[] moveBuffer = new EntitySnapshot[20];
 
-        private static Extrapolator extrapolator = new Extrapolator();
+        private static ExtrapolationManager extrapolator = new ExtrapolationManager();
 
         public int LastUpdateTime { get; private set; }
 
@@ -87,21 +87,11 @@ namespace SPFClient.Entities
 
             vehicle.EngineRunning = true;
 
-          //  Function.Call(Hash.SET_ENTITY_MOTION_BLUR, vehicle.Handle, true);
-
-          //  Function.Call(Hash.NETWORK_SET_ENTITY_CAN_BLEND, vehicle.Handle, true);
-
             Function.Call(Hash.SET_ENTITY_COLLISION, vehicle.Handle, 1, 0);
 
             Function.Call(Hash.SET_ENTITY_AS_MISSION_ENTITY, vehicle.Handle, true, true);
 
             Function.Call(Hash.SET_VEHICLE_FRICTION_OVERRIDE, vehicle.Handle, 0.0f);
-
-          //  Function.Call(Hash.SET_ENTITY_PROOFS, vehicle.Handle, true, true, false, true, false, false, false, false);
-
-       //     Function.Call(Hash._0x1CF38D529D7441D9, vehicle.Handle, 1);
-
-        //    Function.Call(Hash.NETWORK_FADE_IN_ENTITY, vehicle.Handle);
 
             return vehicle;
         }
@@ -120,7 +110,7 @@ namespace SPFClient.Entities
                 return;
             }*/
 
-            if (packetID > 0 && packetID > lastPacketID)
+            if (packetID > 0 && packetID == lastPacketID + 1)
             {
                 var position = state.Position.Deserialize();
                 var vel = state.Velocity.Deserialize();
@@ -139,7 +129,6 @@ namespace SPFClient.Entities
 
                 if ((state.Flags & VehicleFlags.HornPressed) != 0)
                 {
-                    UI.ShowSubtitle("horn");
                     Function.Call(Hash.START_VEHICLE_HORN, Handle, 100, 0, false);
                 }
                     Function.Call(Hash.SET_VEHICLE_COLOURS, Handle, state.PrimaryColor, state.SecondaryColor);
@@ -163,16 +152,14 @@ namespace SPFClient.Entities
                 lastPacketID = packetID;
             }
 
-            else
-            {
-               // QueueUnorderedPacket(state, svTime, packetID);
-            }
+            lastReceivedState = state;
+            lastPacketID = packetID;
 
-            if (packetID - lastPacketID > 5)
+      /*      if (packetID - lastPacketID > 5)
             {
                 lastReceivedState = state;
                 lastPacketID = packetID;
-            }
+            }*/
 
             OnUpdateRecieved?.Invoke(this, state);
 
@@ -191,35 +178,13 @@ namespace SPFClient.Entities
               return wheelsAddr;
           }
 
-        public override void Update()
+        internal Color GetVehicleColor()
         {
-            var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.3f);
+            OutputArgument outR, outG, outB;
+            outR = outG = outB = new OutputArgument();
+            Function.Call(Hash.GET_VEHICLE_COLOR, Handle, outR, outG, outB);
 
-            if (entityPosition != null)
-            {
-                PositionNoOffset = entityPosition.Position;
-                Quaternion = entityPosition.Rotation;
-            //    Velocity = entityPosition.Velocity;
-            }
-
-            SetCurrentRPM(lastReceivedState.CurrentRPM);
-
-            SetWheelRotation(lastReceivedState.WheelRotation);
-
-            //SetSteering(lastReceivedState.Steering);
-
-            base.Update();
-        }
-
-        protected EntitySnapshot GetEntitySnapshot(int index)
-        {
-            if (index > moveBuffer.Length - 1) throw new ArgumentOutOfRangeException("index: out of range.");
-            return moveBuffer[index];
-        }
-
-        public void QueueUnorderedPacket(VehicleState state, DateTime svTime, int pktID)
-        {
-            extrapolator.QueueUnorderedPacket(state, svTime, pktID);
+            return Color.FromArgb(outR.GetResult<byte>(), outG.GetResult<byte>(), outB.GetResult<byte>());
         }
 
         public float GetWheelRotation()
@@ -243,8 +208,32 @@ namespace SPFClient.Entities
         public void SetCurrentRPM(float value)
         {
             var offset = (ushort)((int)Game.Version > 3 ? 0x7D4 : 0x7C4);
-
             MemoryAccess.WriteSingle(vAddress + offset, value);
+        }
+
+        public override void Update()
+        {
+            var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.3f);
+
+            if (entityPosition != null)
+            {
+                PositionNoOffset = entityPosition.Position;
+                Quaternion = entityPosition.Rotation;
+            }
+
+            SetCurrentRPM(lastReceivedState.CurrentRPM);
+
+            SetWheelRotation(lastReceivedState.WheelRotation);
+
+            //SetSteering(lastReceivedState.Steering);
+
+            //IS_VEHICLE_ENGINE_ON
+            if (!Function.Call<bool>((Hash)0xAE31E7DF9B5B132E, Handle))
+            {
+                Function.Call(Hash.SET_VEHICLE_ENGINE_ON, Handle, true, true, 0);
+            }
+
+            base.Update();
         }
 
         /// <summary>

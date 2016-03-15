@@ -23,7 +23,7 @@ namespace SPFClient.Network
         /// <summary>
         /// Update rate for local packets sent to the server.
         /// </summary>
-        private const int ClUpdateRate = 50;
+        private const int ClUpdateRate = 20;
 
         /// <summary>
         /// Total idle time before the client is considered to have timed out from the server.
@@ -45,11 +45,11 @@ namespace SPFClient.Network
 
         public static SessionClient CurrentSession { get { return currentSession; } }
         private static SessionClient currentSession;
-        
+
         private static Queue<NativeCall> nativeQueue = new Queue<NativeCall>();
 
         private static DateTime disconnectTimeout = new DateTime(),
-            clUpdateTimer = new DateTime();
+            clientUpdateTimer = new DateTime();
 
         private static Queue<MessageInfo> msgQueue =
             new Queue<MessageInfo>();
@@ -61,7 +61,7 @@ namespace SPFClient.Network
         }
 
         /// <summary>
-        /// Join an active session.
+        /// Join the specified session.
         /// </summary>
         /// <param name="session"></param>
         public static void JoinActiveSession(ActiveSession session)
@@ -69,7 +69,6 @@ namespace SPFClient.Network
             if (currentSession != null) Close();
 
             currentSession = new SessionClient(new IPAddress(session.Address), Port);
-
             currentSession.ChatEvent += ChatEvent;
             currentSession.SessionStateEvent += SessionStateEvent;
             currentSession.NativeInvoked += NativeInvoked;
@@ -80,13 +79,14 @@ namespace SPFClient.Network
             if (currentSession.StartListening())
 
             {
-                World.GetAllEntities().ToList().ForEach(x => {
+                World.GetAllEntities().ToList().ForEach(x =>
+                {
                     if ((x is Ped || x is Vehicle) &&
                     x.Handle != Game.Player.Character.CurrentVehicle?.Handle)
                     { x.Delete(); }
                 });
 
-                Function.Call((Hash)0x231C8F89D0539D8F, 0, 1);            
+                Function.Call((Hash)0x231C8F89D0539D8F, 0, 1);
                 NetworkManager.LocalPlayer.Setup();
                 // wait for server callback and handle initialization there.
             }
@@ -98,6 +98,11 @@ namespace SPFClient.Network
             }
         }
 
+        /// <summary>
+        /// Fired when the server sends a hello message after a successful join.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private static void ServerHello(EndPoint sender, ServerHello e)
         {
             UIManager.UINotifyProxy("[~y~Server~w~] " + e.Message);
@@ -123,7 +128,8 @@ namespace SPFClient.Network
             }
 
             // remove all clients and any vehicles from the world.
-            World.GetAllEntities().ToList().ForEach(x => {
+            World.GetAllEntities().ToList().ForEach(x =>
+            {
                 if ((x is Ped || x is Vehicle) &&
                 x.Handle != Game.Player.Character.CurrentVehicle?.Handle)
                 { x.Delete(); }
@@ -136,7 +142,7 @@ namespace SPFClient.Network
 
             // reset timers to zero
             disconnectTimeout = new DateTime();
-            clUpdateTimer = new DateTime();
+            clientUpdateTimer = new DateTime();
         }
 
         /// <summary>
@@ -191,7 +197,7 @@ namespace SPFClient.Network
             {
                 case EventType.PlayerSynced:
                     // start timer and begin sending data.
-                    clUpdateTimer = DateTime.Now + TimeSpan.FromMilliseconds(ClUpdateRate);
+                    clientUpdateTimer = DateTime.Now + TimeSpan.FromMilliseconds(ClUpdateRate);
                     Initialized = true;
                     break;
 
@@ -216,8 +222,6 @@ namespace SPFClient.Network
                     if (client != null) NetworkManager.RemoveClient(client);
                     UIManager.UINotifyProxy(e.SenderName + " was kicked.");
                     break;
-
-
             }
         }
 
@@ -247,194 +251,22 @@ namespace SPFClient.Network
                 Close();
             }
 
-            if ((clUpdateTimer.Ticks > 0 && DateTime.Now > clUpdateTimer))
+            if ((clientUpdateTimer.Ticks > 0 && DateTime.Now > clientUpdateTimer))
             {
                 // Send local information to the server
-
                 var localPlayer = NetworkManager.LocalPlayer;
 
                 try
                 {
-                    var state = new ClientState();
-
-                    // dont serialize this information unless we have to
-                    if (!localPlayer.Ped.IsInVehicle())
-                    {
-                        state.Position = localPlayer.Ped.Position.Serialize();
-                        state.Velocity = localPlayer.Ped.Velocity.Serialize();
-                        state.Angles = GameplayCamera.Rotation.Serialize();
-                        state.Rotation = localPlayer.Ped.Quaternion.Serialize();
-                        state.MovementFlags = localPlayer.ClientFlags;
-                        state.ActiveTask = (ActiveTask)MemoryAccess.ReadInt16(localPlayer.EntityAddress + Offsets.CLocalPlayer.Stance);
-                        state.Health = Convert.ToInt16(localPlayer.Ped.Health);
-                        state.WeaponID = localPlayer.GetWeaponID();
-                        state.PedID = localPlayer.GetPedID();
-                    }
-
-                    else
-                    {
-                        var vehicle = localPlayer.Vehicle;
-
-                        if ((int)localPlayer.GetVehicleSeat() == -1)
-                        {
-                            // if the local player is in a vehicle that doesn't exist in the active list...
-                            if ((vehicle == null || localPlayer.Ped.CurrentVehicle.Handle != vehicle.Handle))
-                            {
-                                vehicle = NetworkManager.VehicleFromLocalHandle(localPlayer.Ped.CurrentVehicle.Handle);
-                                if (vehicle == null)
-                                {
-                                    var hash = localPlayer.Ped.CurrentVehicle.Model.Hash;
-
-                                    if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, hash))
-                                    {
-                                        vehicle = new NetCar(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
-                                    }
-
-                                    else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_HELI, hash))
-                                    {
-                                        vehicle = new NetHeli(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
-                                    }
-
-                                    else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_PLANE, hash))
-                                    {
-                                        vehicle = new NetPlane(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
-                                    }
-
-                                    else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, hash))
-                                    {
-                                        vehicle = new NetBicycle(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
-                                    }
-
-                                    else vehicle = new NetworkVehicle(localPlayer.Ped.CurrentVehicle, SPFLib.Helpers.GenerateUniqueID());
-                                }
-
-                                localPlayer.SetCurrentVehicle(vehicle);
-                            }
-
-                            else
-                            {
-                                var v = new Vehicle(vehicle.Handle);
-
-                                state.VehicleState = new VehicleState(vehicle.ID,
-                                    vehicle.Position.Serialize(),
-                                    vehicle.Velocity.Serialize(),
-                                    vehicle.Quaternion.Serialize(),
-                                    v.CurrentRPM,
-                                    vehicle.GetWheelRotation(),
-                                    v.Steering,
-                                    0, Convert.ToInt16(v.Health),
-                                    (byte)v.PrimaryColor, (byte)v.SecondaryColor,
-                                    localPlayer.GetRadioStation(),
-                                    localPlayer.GetVehicleID());
-
-                                state.VehicleState.Flags |= VehicleFlags.Driver;
-
-                                if (Function.Call<bool>(Hash.IS_HORN_ACTIVE, v.Handle))
-                                    state.VehicleState.Flags |= VehicleFlags.HornPressed;
-
-                                if (v.Health <= 0) state.VehicleState.Flags |= VehicleFlags.Exploded;
-
-                                if (vehicle is NetCar)
-                                {
-                                    if (v.LeftHeadLightBroken)
-                                        state.VehicleState.ExtraFlags |= (ushort)VDamageFlags.LHeadlightBroken;
-
-                                    if (v.RightHeadLightBroken)
-                                        state.VehicleState.ExtraFlags |= (ushort)VDamageFlags.RHeadlightBroken;
-
-                                    if (v.IsDoorBroken(VehicleDoor.FrontLeftDoor))
-                                        state.VehicleState.ExtraFlags |= (ushort)VDamageFlags.LDoorBroken;
-
-                                    if (v.IsDoorBroken(VehicleDoor.FrontRightDoor))
-                                        state.VehicleState.ExtraFlags |= (ushort)VDamageFlags.RDoorBroken;
-
-                                    if (v.IsDoorBroken(VehicleDoor.BackLeftDoor))
-                                        state.VehicleState.ExtraFlags |= (ushort)VDamageFlags.BLDoorBroken;
-
-                                    if (v.IsDoorBroken(VehicleDoor.BackRightDoor))
-                                        state.VehicleState.ExtraFlags |= (ushort)VDamageFlags.BRDoorBroken;
-
-                                    if (v.IsDoorBroken(VehicleDoor.Hood))
-                                        state.VehicleState.ExtraFlags |= (ushort)VDamageFlags.HoodBroken;
-                                }
-
-                                else if (vehicle is NetPlane)
-                                {
-                                    if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehicleFlyUnderCarriage))
-                                    {
-                                        var lgState = Function.Call<int>(Hash._GET_VEHICLE_LANDING_GEAR, vehicle.Handle);
-                                        state.VehicleState.ExtraFlags = (ushort)lgState;
-                                    }
-
-                                    if (Game.IsControlPressed(0, Control.VehicleFlyAttack) || Game.IsControlPressed(0, Control.VehicleFlyAttack2))
-                                    {
-                                        var outArg = new OutputArgument();
-                                        if (Function.Call<bool>(Hash.GET_CURRENT_PED_VEHICLE_WEAPON, localPlayer.Ped.Handle, outArg))
-                                        {
-                                            unchecked
-                                            {
-                                                switch ((WeaponHash)outArg.GetResult<int>())
-                                                {
-                                                    case (WeaponHash)0xCF0896E0:
-                                                        state.VehicleState.Flags |= VehicleFlags.PlaneShoot;
-                                                        break;
-
-                                                    case (WeaponHash)0xE2822A29:
-                                                        state.VehicleState.Flags |= VehicleFlags.PlaneGun;
-                                                        break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                else if (vehicle is NetBicycle)
-                                {
-                                    if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehiclePushbikePedal))
-                                    {
-                                        if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
-                                            state.VehicleState.ExtraFlags = (ushort)BicycleState.TuckPedaling;
-                                        else state.VehicleState.ExtraFlags = (ushort)BicycleState.Pedaling;
-                                    }
-
-                                    else
-                                    {
-                                        if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
-                                            state.VehicleState.ExtraFlags = (ushort)BicycleState.TuckCruising;
-                                        else state.VehicleState.ExtraFlags = (ushort)BicycleState.Cruising;
-                                    }
-                                }
-                            }
-                        }
-
-                        else
-                        {
-                            vehicle = NetworkManager.VehicleFromLocalHandle(localPlayer.Ped.CurrentVehicle.Handle);
-                            if (vehicle != null)
-                            {
-                                state.VehicleState = new VehicleState(vehicle.ID);
-                            }
-                        }
-
-                        state.InVehicle = true;
-
-                     //   state.Health = Convert.ToInt16(localPlayer.Ped.Health);
-                        state.Seat = localPlayer.GetVehicleSeat();
-                        state.PedID = localPlayer.GetPedID();
-                        state.WeaponID = localPlayer.GetWeaponID();
-                        vehicle.UpdateSent(state.VehicleState);
-                    }
-
+                    var state = localPlayer.GetClientState();
                     currentSession.UpdateUserData(state);
-
-                    //reset local user command
                     localPlayer.ResetClientFlags();
                 }
 
                 catch
                 { }
 
-                clUpdateTimer = DateTime.Now + TimeSpan.FromMilliseconds(ClUpdateRate);
+                clientUpdateTimer = DateTime.Now + TimeSpan.FromMilliseconds(ClUpdateRate);
             }
 
             while (msgQueue.Count > 0)
@@ -465,6 +297,7 @@ namespace SPFClient.Network
             #endregion
 
             Function.Call(Hash.SET_PED_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
+
             Function.Call(Hash.SET_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
             //  Function.Call(Hash.SET_RANDOM_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
         }
@@ -531,7 +364,8 @@ namespace SPFClient.Network
         /// <param name="A_0"></param>
         protected override void Dispose(bool A_0)
         {
-            World.GetAllEntities().ToList().ForEach(x => {
+            World.GetAllEntities().ToList().ForEach(x =>
+            {
                 if ((x is Ped || x is Vehicle) &&
                 x.Handle != Game.Player.Character.CurrentVehicle?.Handle)
                 { x.Delete(); }
@@ -546,20 +380,22 @@ namespace SPFClient.Network
 
         public static LocalPlayer LocalPlayer { get { return localPlayer; } }
 
-        private static Queue<ClientState> lClientQueue =
-        new Queue<ClientState>();
+        public static List<NetworkPlayer> ActivePlayers {  get { return activePlayers; } }
 
-        private static Queue<KeyValuePair<ClientState, DateTime>> clientQueue =
+        private static Queue<ClientState> localClientQueue =
+            new Queue<ClientState>();
+
+        private static Queue<KeyValuePair<ClientState, DateTime>> remoteClientQueue =
             new Queue<KeyValuePair<ClientState, DateTime>>();
 
-        private static List<NetworkPlayer> activeClients =
+        private static List<NetworkPlayer> activePlayers =
             new List<NetworkPlayer>();
 
         private static Queue<NetworkPlayer> clientDeletionQueue =
-          new Queue<NetworkPlayer>();
+            new Queue<NetworkPlayer>();
 
         private static Queue<NetworkVehicle> vehicleDeletionQueue =
-      new Queue<NetworkVehicle>();
+            new Queue<NetworkVehicle>();
 
         private static List<NetworkVehicle> activeVehicles =
          new List<NetworkVehicle>();
@@ -574,18 +410,19 @@ namespace SPFClient.Network
         {
             if (!NetworkSession.Initialized) return;
 
-            while (clientQueue.Count > 0)
+            while (remoteClientQueue.Count > 0)
             {
                 // dequeue the client that needs an update.
-                var remoteClient = clientQueue.Dequeue();
+                var remoteClient = remoteClientQueue.Dequeue();
 
-
+                // make sure the client psoition is valid
                 if (remoteClient.Key.Position?.X == 0 &&
                         remoteClient.Key.Position.Y == 0 &&
                         remoteClient.Key.Position.Z == 0)
                     continue;
 
                 var clientState = remoteClient.Key;
+
                 NetworkPlayer client = PlayerFromID(clientState.ID);
 
                 // the client doesn't exist
@@ -598,9 +435,11 @@ namespace SPFClient.Network
                 else
                 {
                     if (clientState.PedID != 0 && client.GetPedID() != clientState.PedID ||
-                        clientState.Health > 0 && client.Health <= 0)
+                        clientState.Health > 0 && client.Health <= 0 ||
+                        clientState.PktID - client.LastState.PktID > 5)
                     {
                         ForceRemoveClient(client);
+                        continue;
                     }
 
                     // vehicle exists. queue for update.
@@ -619,33 +458,28 @@ namespace SPFClient.Network
                         {
                             vehicle = VehicleFromID(vehicleState.ID);
 
-                            if (vehicle == null && vehicleState.Flags.HasFlag(VehicleFlags.Driver))
+                            if (vehicle == null)
                             {
-
-                                vehicle = AddVehicle(vehicleState);
+                                vehicle = CreateAndAddVehicle(vehicleState);
                                 client.ActiveVehicle = vehicle;
-                                Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.Seat,
-                                  0.0f, 3, 0);
-                            }
-                        }
+                                Function.Call(Hash.TASK_ENTER_VEHICLE,
+                                    client.Handle, vehicle.Handle, -1, (int)clientState.Seat, 0.0f, 3, 0);
 
-                        if (!Function.Call<bool>((Hash)0xAE31E7DF9B5B132E, vehicle.Handle))
-                        {
-                            Function.Call(Hash.SET_VEHICLE_ENGINE_ON, vehicle.Handle, true, true, 0);
+                                var dt = DateTime.Now + TimeSpan.FromMilliseconds(1500);
+
+                                while (DateTime.Now < dt)
+                                    Yield();
+                            }
                         }
 
                         if (!Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
                         {
-                            Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.Seat, 0.0f, 3, 0);
+                            Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.Seat, 0.0f, 16, 0);
 
-                            var dt = DateTime.Now + TimeSpan.FromMilliseconds(1000);
+                            var dt = DateTime.Now + TimeSpan.FromMilliseconds(1500);
 
                             while (DateTime.Now < dt)
-                                Script.Yield();
-
-                            if (!Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
-                                Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.Seat, 1.0f, 16, 0);
-
+                                Yield();
                         }
 
                         if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, vehicle.Model.Hash))
@@ -655,7 +489,6 @@ namespace SPFClient.Network
 
                         if (vehicleState.Flags.HasFlag(VehicleFlags.Driver))
                             vehicle.HandleUpdatePacket(vehicleState, clientState.PktID, remoteClient.Value);
-
                     }
 
                     // update entity location data.
@@ -663,19 +496,19 @@ namespace SPFClient.Network
                 }
             }
 
-            while (lClientQueue.Count > 0)
+            while (localClientQueue.Count > 0)
             {
-                var clientUpd = lClientQueue.Dequeue();
+                var clientUpdate = localClientQueue.Dequeue();
 
-                if (clientUpd.Health <= 0 && Game.Player.Character.Health > -1)
+                if (clientUpdate.Health <= 0 && Game.Player.Character.Health > -1)
                     Game.Player.Character.Health = -1;
 
                 else
                 {
-                    if (Game.Player.Character.Health > clientUpd.Health)
+                    if (Game.Player.Character.Health > clientUpdate.Health)
                     {
                         Function.Call(Hash.APPLY_DAMAGE_TO_PED, Game.Player.Character.Handle,
-                            Game.Player.Character.Health - clientUpd.Health, true);
+                            Game.Player.Character.Health - clientUpdate.Health, true);
                     }
                 }
             }
@@ -697,7 +530,7 @@ namespace SPFClient.Network
                 localPlayer.Update();
             }
 
-            foreach (NetworkPlayer client in activeClients)
+            foreach (NetworkPlayer client in activePlayers)
             {
                 client.Update();
             }
@@ -707,47 +540,75 @@ namespace SPFClient.Network
                 vehicle.Update();
             }
         }
-    
-      //  static Stopwatch sw = new Stopwatch();
 
-        internal static void QueueClientUpdate(ClientState state, DateTime serverTime, bool isLocal)
-        {
-            if (isLocal) lClientQueue.Enqueue(state);
-            else
-                clientQueue.Enqueue(new KeyValuePair<ClientState, DateTime>(state, serverTime));
-        }
-
-        internal static List<NetworkPlayer> GetClients()
-        {
-            return activeClients;
-        }
-
+        /// <summary>
+        /// Add an already created NetworkPlayer object to the active list of entities.
+        /// </summary>
+        /// <param name="client"></param>
         internal static void AddClient(NetworkPlayer client)
         {
-            activeClients.Add(client);
+            activePlayers.Add(client);
         }
 
+        /// <summary>
+        /// Queue a client update from a client state object sent over the network.
+        /// </summary>
+        /// <param name="state"></param>
+        /// <param name="serverTime"></param>
+        /// <param name="isLocal"></param>
+        internal static void QueueClientUpdate(ClientState state, DateTime serverTime, bool isLocal)
+        {
+            if (isLocal) localClientQueue.Enqueue(state);
+            else
+                remoteClientQueue.Enqueue(new KeyValuePair<ClientState, DateTime>(state, serverTime));
+        }
+     
+        /// <summary>
+        /// Get a NetworkPlayer from its respective ID.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         internal static NetworkPlayer PlayerFromID(int id)
         {
-            return activeClients.Find(x => x.ID == id);
+            return activePlayers.Find(x => x.ID == id);
         }
 
+        /// <summary>
+        /// Get a NetworkPlayer from its handle in the local game world.
+        /// </summary>
+        /// <param name="handle"></param>
+        /// <returns></returns>
         internal static NetworkPlayer PlayerFromLocalHandle(int handle)
         {
-            return activeClients.Find(x => x.Handle == handle);
+            return activePlayers.Find(x => x.Handle == handle);
         }
 
+        /// <summary>
+        /// Get a NetworkVehicle from its respective ID.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         internal static NetworkVehicle VehicleFromID(int id)
         {
             return activeVehicles.FirstOrDefault(x => x.ID == id);
         }
 
+        /// <summary>
+        /// Get a NetworkVehicle from its handle in the local game world.
+        /// </summary>
+        /// <param name="handle"></param>
+        /// <returns></returns>
         internal static NetworkVehicle VehicleFromLocalHandle(int handle)
         {
             return activeVehicles.FirstOrDefault(x => x.Handle == handle);
         }
 
-        internal static NetworkVehicle AddVehicle(VehicleState state)
+        /// <summary>
+        /// Takes a vehicle state object sent over the network and create its representation in the local world.
+        /// </summary>
+        /// <param name="state"></param>
+        /// <returns></returns>
+        internal static NetworkVehicle CreateAndAddVehicle(VehicleState state)
         {
             var hash = (int)Helpers.VehicleIDToHash(state.VehicleID);
 
@@ -780,16 +641,29 @@ namespace SPFClient.Network
             return vehicle;
         }
 
+        /// <summary>
+        /// Queue a client for deletion next game loop.
+        /// </summary>
+        /// <param name="client"></param>
         internal static void RemoveClient(NetworkPlayer client)
         {
             clientDeletionQueue.Enqueue(client);
         }
 
+        /// <summary>
+        /// Queue a vehicle for deletion next game loop.
+        /// </summary>
+        /// <param name="vehicle"></param>
         internal static void RemoveVehicle(NetworkVehicle vehicle)
         {
             vehicleDeletionQueue.Enqueue(vehicle);
         }
 
+        /// <summary>
+        /// Forces a client to be removed from the list of active entites, and optionally from the local world.
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="removeFromWorld"></param>
         internal static void ForceRemoveClient(NetworkPlayer client, bool removeFromWorld = true)
         {
             if (removeFromWorld)
@@ -797,9 +671,14 @@ namespace SPFClient.Network
                 client.MarkAsNoLongerNeeded();
                 client.Remove();
             }
-            activeClients.Remove(client);
+            activePlayers.Remove(client);
         }
 
+        /// <summary>
+        /// Forces a vehicle to be removed from the list of active entites, and optionally from the local world.
+        /// </summary>
+        /// <param name="vehicle"></param>
+        /// <param name="removeFromWorld"></param>
         internal static void ForceRemoveVehicle(NetworkVehicle vehicle, bool removeFromWorld = true)
         {
             if (removeFromWorld)
@@ -810,22 +689,24 @@ namespace SPFClient.Network
             activeVehicles.Remove(vehicle);
         }
 
+        /// <summary>
+        /// Forces all active clients to be removed from the list of active entities and the local world.
+        /// </summary>
         internal static void ForceRemoveAllClients()
         {
-            foreach (var client in activeClients)
-            {
+            foreach (var client in activePlayers)
                 ForceRemoveClient(client);
-            }
 
-            activeClients.Clear();
+            activePlayers.Clear();
         }
 
+        /// <summary>
+        /// Forces all active vehicles to be removed from the list of active entities and the local world.
+        /// </summary>
         internal static void ForceRemoveAllVehicles()
         {
             foreach (var vehicle in activeVehicles)
-            {
                 ForceRemoveVehicle(vehicle);
-            }
 
             activeVehicles.Clear();
         }

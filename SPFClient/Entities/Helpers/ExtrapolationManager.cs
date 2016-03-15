@@ -8,24 +8,13 @@ using Quaternion = GTA.Math.Quaternion;
 
 namespace SPFClient.Entities
 {
-    public sealed class Extrapolator
+    public sealed class ExtrapolationManager
     {
         /// <summary>
         /// Minimum amount of snapshots needed before interpolating.
         /// </summary>
         public const int SnapshotMin = 20;
         public const int InterpDelay = 200;
-
-        private List<EntitySnapshot> unorderedPacketList = new List<EntitySnapshot>();
-
-        public void QueueUnorderedPacket(IEntityState state, DateTime svTime, int pktID)
-        {
-            unorderedPacketList.Add(new EntitySnapshot(state.Position.Deserialize(),
-                state.Velocity.Deserialize(),
-                state.Rotation.Deserialize(),
-                svTime,
-                pktID));
-        }
 
         public EntitySnapshot GetExtrapolatedPosition(Vector3 curPosition, Quaternion curRotation, EntitySnapshot[] extrpBuffer, int validSnapshots, float lerpFactor = 1.0f, bool forceExtrp = false)
         {
@@ -38,8 +27,6 @@ namespace SPFClient.Entities
 
             if (extrpBuffer[0].Timestamp > interpolationTime && !forceExtrp)
             {
-                //UIManagement.UIManager.UISubtitleProxy("~g~interp");
-
                 for (int i = 0; i < validSnapshots; i++)
                 {
                     if (extrpBuffer[i].Timestamp <= interpolationTime || i == extrpBuffer.Length - 1)
@@ -47,31 +34,6 @@ namespace SPFClient.Entities
                         EntitySnapshot newState = extrpBuffer[Math.Max(i - 1, 0)];
                         EntitySnapshot lastState = extrpBuffer[i];
 
-                        /*if (unorderedPacketList.Count > 0)
-                        {
-                            if (unorderedPacketList.Count > 5) unorderedPacketList.Clear();
-
-                            for (int p = unorderedPacketList.Count - 1; p > 0; p--)
-                            {
-
-                                // if the out of order packet is currentID - 1
-                                if (unorderedPacketList[p].PacketID == newState.PacketID - 1)
-                                {
-                                    lastState = unorderedPacketList[p];
-                                    deletionQueue.Add(unorderedPacketList[p]);
-                                }
-
-                                // if the out of order packet is currentID + 1
-                                if (unorderedPacketList[p].PacketID == lastState.PacketID + 1)
-                                {
-                                    newState = unorderedPacketList[p];
-                                    deletionQueue.Add(unorderedPacketList[p]);
-                                }
-                            }
-
-                            deletionQueue.ForEach(x => unorderedPacketList.Remove(x));
-                        }*/
-                        
                         if (newState.Timestamp <= lastState.Timestamp) break;
 
                         float t = 0.0f;
@@ -81,9 +43,7 @@ namespace SPFClient.Entities
 
                         if (duration.TotalMilliseconds > 1)
                         {
-                          //  t = (float) (1.0f - ((newState.Timestamp - timeNow).TotalMilliseconds / InterpDelay));
-                            //      UIManagement.UIManager.UINotifyProxy(string.Format("{0}, {1}", lastState.PacketID, newState.PacketID));
-                            t = (float)((float)(currentTime.TotalMilliseconds / 1000f) / (float)(InterpDelay / 1000f));
+                            t = (float)((float)(currentTime.TotalMilliseconds / 1000f) / (float)(duration.TotalMilliseconds / 1000f));
                         }
 
                         var position = Vector3.Lerp(curPosition, Vector3.Lerp(lastState.Position, newState.Position, t), lerpFactor);
@@ -103,12 +63,9 @@ namespace SPFClient.Entities
 
             else
             {
-            //    UIManagement.UIManager.UISubtitleProxy("~r~extrp");
-
                 var lastState = extrpBuffer[0];
 
                 float extrapolationLength = ((float)(interpolationTime - lastState.Timestamp).TotalMilliseconds) / 1000.0f;
-
 
                 if (extrapolationLength < 0.70)
                 {

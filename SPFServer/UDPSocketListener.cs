@@ -64,7 +64,7 @@ namespace SPFServer
         }
     }
 
-    internal sealed class UDPSocketListener
+    public sealed class UDPSocketListener
     {
         private WeatherManager weatherMgr;
 
@@ -72,7 +72,7 @@ namespace SPFServer
 
         private ServerVarCollection<int> serverVars;
 
-        private const int SVTickRate = 10; // updates / sec
+        private const int SVTickRate = 20; // updates / sec
         private const int SVPingRate = 10000; // master server ping interval (10 sec)
         private const int MinTimeSamples = 5;
 
@@ -360,7 +360,7 @@ namespace SPFServer
                 GameClient client;
                 if (clientList.TryGetValue(sender, out client))
                 {
-                    threadQueue.AddTask(() => Program.WriteToConsole(string.Format("User \"{0}\" timed out.\n\nException:\n{1}", client.Info.Name, e.ToString())));
+                    threadQueue.AddTask(() => Program.WriteToConsole(string.Format("User \"{0}\" timed out.", client.Info.Name)));
                     RaiseClientEvent(client, EventType.PlayerLogout);
                     RemoveClient(sender);
                 }
@@ -417,7 +417,7 @@ namespace SPFServer
         {
             try
             {
-                Program.sProvider.SendHeartbeat(sessionInfo);
+                Program.SProvider.SendHeartbeat(sessionInfo);
             }
 
             catch (Exception)
@@ -669,7 +669,7 @@ namespace SPFServer
         /// Return an array of active client states.
         /// </summary>
         /// <returns></returns>
-        internal ClientState[] GetClientStates()
+        public ClientState[] GetClientStates()
         {
             return clientList.Values.Select(x => x.State).ToArray();
         }
@@ -706,6 +706,8 @@ namespace SPFServer
                             new AsyncCallback(OnSend), msgBytes);
                     }
                 }
+
+                Program.Domain.DoMessageReceived(msg.SenderName, msg.Message);
 
                 threadQueue.AddTask(() => Program.WriteToConsole(string.Format("{0}: {1} [{2}]", client.Info.Name, msg.Message, PreciseDatetime.Now.ToString())));
             }
@@ -785,6 +787,8 @@ namespace SPFServer
 
                         newClient.LastCMD = serverTime;
 
+                        Program.Domain.DoClientConnect(cmd.Name, PreciseDatetime.Now);
+
                         threadQueue.AddTask(() =>
                         Program.WriteToConsole(string.Format("User \"{0}\" joined the session with user ID \'{1}\'. Client IP Address: {2}\nIn- game time: {3}", cmd.Name, cmd.UID, (sender as IPEndPoint).Address.ToString(), svTime.ToShortTimeString())));
                     }
@@ -802,6 +806,8 @@ namespace SPFServer
                         }
 
                         RaiseClientEvent(client, EventType.PlayerLogout);
+
+                        Program.Domain.DoClientDisconnect(cmd.Name, PreciseDatetime.Now);
 
                         threadQueue.AddTask(() => Program.WriteToConsole(string.Format("User \"{0}\" left the session.", cmd.Name, cmd.UID)));
 
@@ -1063,9 +1069,16 @@ namespace SPFServer
             {
                 InvokeClientNative(cl.Key, "SET_OVERRIDE_WEATHER", new NativeArg(weatherArgs));
             }
-           
-
             return null;
+        }
+
+        /// <summary>
+        /// Set weather for all players
+        /// </summary>
+        /// <param name="weather">Weather type as string</param>
+        public void SetWeather(WeatherType weather)
+        {
+            SetWeather(weather);
         }
 
         /// <summary>

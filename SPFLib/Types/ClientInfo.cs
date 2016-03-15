@@ -6,6 +6,7 @@ using System.IO;
 
 namespace SPFLib.Types
 {
+    [Serializable]
     public class ClientInfo
     {
         public int UID { get; }

@@ -6,6 +6,7 @@ using System.Linq;
 
 namespace SPFLib.Types
 {
+    [Serializable]
     public class ClientState : IEntityState
     {
         public string Name;

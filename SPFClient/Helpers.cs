@@ -75,6 +75,17 @@ namespace SPFClient
             return outArg.GetResult<int>();
         }
 
+        public static VehicleSeat CurrentVehicleSeat(this Ped ped)
+        {
+            var vehicle = ped.CurrentVehicle;
+
+            foreach (VehicleSeat seat in Enum.GetValues(typeof(GTA.VehicleSeat)))
+                if (vehicle.GetPedOnSeat(seat) == ped)
+                    return (VehicleSeat)seat;
+            
+            return VehicleSeat.None;
+        }
+
 
         /// <summary>
         /// Returns the 1080pixels-based screen resolution while mantaining current aspect ratio.

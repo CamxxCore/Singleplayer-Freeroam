@@ -8,26 +8,28 @@ namespace SPFServer
 {
     public class Program
     {
-        private static UDPSocketListener listener;
+        private static UDPSocketListener currentSession;
 
-        internal static ASUPServiceClient sProvider;
+        internal static ASUPServiceClient SProvider;
+
+        internal static Scripting.ScriptDomain Domain;
 
         static void Main(string[] args)
         {       
             int sessionID = AnnounceSessionToService();
 
-            listener = new UDPSocketListener(sessionID);
-            listener.StartListening();
+            currentSession = new UDPSocketListener(sessionID);
+            currentSession.StartListening();
 
-          //  if (StartScriptDomain())
-          //      System.Threading.ThreadPool.QueueUserWorkItem(x => Console.WriteLine("Script Domain started."));
+            if (StartScriptDomain())
+                System.Threading.ThreadPool.QueueUserWorkItem(x => Console.WriteLine("Script Domain started."));
 
             Run();
         }
 
         static int AnnounceSessionToService()
         {
-            sProvider = new ASUPServiceClient(
+            SProvider = new ASUPServiceClient(
             new WSHttpBinding(SecurityMode.Transport),
             new EndpointAddress("https://camx.me/asupstatsvc/asupservice.svc"));
 
@@ -35,7 +37,7 @@ namespace SPFServer
 
             try
             {
-                int sessionID = sProvider.AnnounceSession("session1");
+                int sessionID = SProvider.AnnounceSession("session1");
                 success = true;
                 return sessionID;
             }
@@ -71,7 +73,7 @@ namespace SPFServer
 
                 try
                 {
-                    if (!listener.ExecuteCommandString(consoleInput))
+                    if (!currentSession.ExecuteCommandString(consoleInput))
                         WriteToConsole("Command not recognized '" + consoleInput + "'");
                 }
 
@@ -82,19 +84,19 @@ namespace SPFServer
             }
         }
 
-       /* static bool StartScriptDomain()
+       static bool StartScriptDomain()
         {
-            domain = ScriptDomain.Load(Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "scripts"));
+            Domain = Scripting.ScriptDomain.Load(Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "scripts"));
 
-            if (domain == null)
+            if (Domain == null)
             {
                 return false;
             }
 
-            domain.Start();
+            Domain.Start();
 
             return true;
-        }*/
+        }
 
         public static IPAddress GetExternAddress()
         {

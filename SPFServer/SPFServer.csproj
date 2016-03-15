@@ -59,6 +59,9 @@
     <Compile Include="Logger.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Scripting\IScriptBase.cs" />
+    <Compile Include="Scripting\ScriptBase.cs" />
+    <Compile Include="Scripting\ScriptDomain.cs" />
     <Compile Include="Types\ServerVarCollection.cs" />
     <Compile Include="Time\TimeCycleManager.cs" />
     <Compile Include="Types\ServerVar.cs" />

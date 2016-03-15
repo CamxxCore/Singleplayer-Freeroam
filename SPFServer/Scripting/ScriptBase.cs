@@ -23,19 +23,19 @@ namespace SPFServer.Scripting
             System.Threading.Thread.Sleep(Interval);
         }
 
-        public virtual void OnClientConnect(GameClient client, DateTime time)
+
+        public virtual void OnClientConnect(string username, DateTime time)
         {
-            this.OnClientConnect(client, time);
+           
         }
 
-        public virtual void OnClientDisconnect(GameClient client, DateTime time)
+        public virtual void OnClientDisconnect(string client, DateTime time)
         {
 
         }
 
-        public virtual void OnMessageReceived(GameClient sender, string message)
+        public virtual void OnMessageReceived(string username, string message)
         {
-            this.OnMessageReceived(sender, message);
         }
     }
 }

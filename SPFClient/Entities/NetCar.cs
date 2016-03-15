@@ -55,7 +55,6 @@ namespace SPFClient.Entities
             if (flags.HasFlag(VDamageFlags.RHeadlightBroken) && !vehicle.RightHeadLightBroken)
                 vehicle.RightHeadLightBroken = true;
 
-
             /*   if (Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.FrontLeftWindow))
                    state.VehicleState.Flags |= VehicleDMGFlags.LWindowBroken;
 
@@ -67,26 +66,10 @@ namespace SPFClient.Entities
 
                if (Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.BackRightWindow))
                    state.VehicleState.Flags |= VehicleDMGFlags.BRWindowBroken;*/
-
         }
-
-
-        /*  private static ulong GetWheelPointer(ulong baseAddress)
-          {
-              var wheelsAddr = MemoryAccess.ReadUInt64(baseAddress + Offsets.CVehicle.WheelsPtr);
-
-              if (baseAddress > wheelsAddr)
-              {
-                  wheelsAddr = ulong.Parse(baseAddress.ToString("X").Substring(0, 3) + wheelsAddr.ToString("X"), System.Globalization.NumberStyles.HexNumber);
-              }
-
-              return wheelsAddr;
-          }*/
 
         public override void Update()
         {
- 
-
             base.Update();
         }
     }

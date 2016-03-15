@@ -57,7 +57,7 @@ namespace SPFClient.UIManagement
 
             if (drawSubtitle)
             {
-                UI.ShowSubtitle(bufferText, 1);
+                UI.ShowSubtitle(bufferText);
                 bufferText = null;
                 drawSubtitle = false;
             }

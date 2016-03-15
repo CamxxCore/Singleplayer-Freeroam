@@ -8,8 +8,8 @@ namespace SPFServer.Scripting
 {
     public interface IScriptBase
     {
-        void OnClientConnect(GameClient client, DateTime time);
-        void OnClientDisconnect(GameClient client, DateTime time);
-        void OnMessageReceived(GameClient sender, string message);
+        void OnClientConnect(string username, DateTime time);
+        void OnClientDisconnect(string username, DateTime time);
+        void OnMessageReceived(string username, string message);
     }
 }

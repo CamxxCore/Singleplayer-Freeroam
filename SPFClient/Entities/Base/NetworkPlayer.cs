@@ -39,7 +39,7 @@ namespace SPFClient.Entities
         private static MovementController animationManager;
         private static BicyleAnimController bicyleController;
 
-        private Extrapolator extrapolator = new Extrapolator();
+        private ExtrapolationManager extrapolator = new ExtrapolationManager();
         private EntitySnapshot[] moveBuffer = new EntitySnapshot[20];
         private ClientState lastReceivedState;
 
@@ -195,15 +195,10 @@ namespace SPFClient.Entities
                 lastReceivedState = state;
             }
 
-            else
-            {
-                //extrapolator.QueueUnorderedPacket(state, svTime, state.PktID);
-            }
-
-            if (state.PktID - lastReceivedState.PktID > 5)
+        /*    if (state.PktID - lastReceivedState.PktID > 10)
             {
                 lastReceivedState = state;
-            }
+            }*/
         }
 
         public override void Update()
@@ -221,7 +216,7 @@ namespace SPFClient.Entities
 
             else
             {
-                var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.6f);
+                var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.4f);
 
                 if (entityPosition != null)
                 {

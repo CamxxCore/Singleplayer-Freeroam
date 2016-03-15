@@ -22,7 +22,7 @@ namespace SPFServer.Scripting
         internal System.Type _dependency;
     }
 
-    internal sealed class ScriptDomain : MarshalByRefObject
+    public sealed class ScriptDomain : MarshalByRefObject
     {
         ScriptBase executingScript;
 
@@ -41,47 +41,47 @@ namespace SPFServer.Scripting
             foreach (var script in executingScripts)
             {
                 if (!script.running)
-                    continue;  
-          
+                    continue;
+
+                script.OnTick();   
             }
         }
 
-        public void DoClientConnect(GameClient client, DateTime connectTime)
+        public void DoClientConnect(string username, DateTime connectTime)
         {
             foreach (var script in executingScripts)
             {
                 if (!script.running)
                     continue;
 
-                script.OnClientConnect(client, connectTime);
+                script.OnClientConnect(username, connectTime);
             }
         }
 
-        public void DoClientDisconnect(GameClient client, DateTime disconnectTime)
+        public void DoClientDisconnect(string username, DateTime disconnectTime)
         {
             foreach (var script in executingScripts)
             {
                 if (!script.running)
                     continue;
 
-                script.OnClientDisconnect(client, disconnectTime);
+                script.OnClientDisconnect(username, disconnectTime);
             }
         }
 
-        public void DoMessageReceived(GameClient sender, string message)
+        public void DoMessageReceived(string username, string message)
         {
             foreach (var script in executingScripts)
             {
                 if (!script.running)
                     continue;
 
-                script.OnMessageReceived(sender, message);
+                script.OnMessageReceived(username, message);
             }
         }
 
         public static ScriptDomain Load(string path)
         {
-
             path = Path.GetFullPath(path);
 
             AppDomainSetup setup = new AppDomainSetup();
@@ -193,16 +193,17 @@ namespace SPFServer.Scripting
 
                 if (script == null)
                 {
+
                     continue;
                 }
 
                 script.running = true;
+
                 //     script._filename = scripttype.Item1;
                 //  script._scriptdomain = this;
                 //   script._thread = new Thread(new ThreadStart(script, Script.MainLoop));
 
                 //  script._thread.Start();
-
                 Logger.Log("[DEBUG]" + "Started script '" + script.Name + "'.");
 
                 executingScripts.Add(script);
@@ -399,7 +400,6 @@ namespace SPFServer.Scripting
             {
                 Logger.Log("[ERROR]" + "Failed to instantiate script '" + scripttype.FullName + "':" + Environment.NewLine + ex.ToString());
             }
-
             return null;
         }
 

@@ -8,22 +8,15 @@ namespace SPFClient.Entities
     {
         public NetHeli(VehicleState state) : base(state)
         {
-            OnUpdateRecieved += UpdateReceived;
         }
 
         public NetHeli(Vehicle vehicle, int id) : base(vehicle, id)
-        {
-            OnUpdateRecieved += UpdateReceived;
-        }
-
-        private void UpdateReceived(NetworkVehicle sender, VehicleState e)
         {
         }
 
         public override void Update()
         {
             Function.Call(Hash.SET_HELI_BLADES_FULL_SPEED, Handle);
-
             base.Update();
         }
     }
