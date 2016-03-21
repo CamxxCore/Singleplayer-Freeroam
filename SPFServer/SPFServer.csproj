@@ -57,18 +57,18 @@
   <ItemGroup>
     <Compile Include="Helpers.cs" />
     <Compile Include="Logger.cs" />
-    <Compile Include="Program.cs" />
+    <Compile Include="Server.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Scripting\IScriptBase.cs" />
     <Compile Include="Scripting\ScriptBase.cs" />
-    <Compile Include="Scripting\ScriptDomain.cs" />
+    <Compile Include="Scripting\ScriptManager.cs" />
     <Compile Include="Types\ServerVarCollection.cs" />
     <Compile Include="Time\TimeCycleManager.cs" />
     <Compile Include="Types\ServerVar.cs" />
     <Compile Include="Weather\WeatherManager.cs" />
     <Compile Include="ServiceClient.cs" />
     <Compile Include="ThreadQueue.cs" />
-    <Compile Include="UDPSocketListener.cs" />
+    <Compile Include="SessionServer.cs" />
     <Compile Include="Weather\WeatherType.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -80,7 +80,6 @@
       <Name>SPFLib</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

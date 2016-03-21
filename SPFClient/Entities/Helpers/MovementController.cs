@@ -14,7 +14,7 @@ namespace SPFClient.Entities
         {
             { WeaponHash.AdvancedRifle, "weapons@submg@advanced_rifle" },
             { WeaponHash.APPistol, "weapons@pistol@ap_pistol" },
-            { WeaponHash.AssaultRifle, "weapons@rifle@hi@assault_rifle" },
+            { WeaponHash.AssaultRifle, "weapons@rifle@hi@" },
             { WeaponHash.AssaultShotgun, "weapons@rifle@hi@assault_rifle" },
             { WeaponHash.AssaultSMG, "weapons@submg@assault_smg" },
             { WeaponHash.Bat, "weapons@melee_2h" },
@@ -159,22 +159,21 @@ namespace SPFClient.Entities
 
         private void HandleShootAnim()
         {
-            var shootPos = Helpers.SmoothStep(lastAimPos, ped.Position + Helpers.RotationToDirection(pAngles) * 10, 0.5f);
-
+            var shootPos = Helpers.SmoothStep(lastAimPos, ped.Position + Helpers.RotationToDirection(pAngles) * 10, 1f);
             lastAimPos = shootPos;
 
             Function.Call(Hash.TASK_SHOOT_AT_COORD, ped.Handle, 
                 shootPos.X, 
                 shootPos.Y, 
                 shootPos.Z, 
-                2000, 
+                1500, 
                 Function.Call<int>(Hash.GET_HASH_KEY, 
                 "firing_pattern_full_auto"));
         }
 
         private void HandleAimAnim()
         {
-            var aimPos = Helpers.SmoothStep(lastAimPos, pPosition + Helpers.RotationToDirection(pAngles) * 10, 0.5f);
+            var aimPos = Helpers.SmoothStep(lastAimPos, pPosition + Helpers.RotationToDirection(pAngles) * 10, 1f);
             Function.Call(Hash.TASK_AIM_GUN_AT_COORD, ped.Handle, aimPos.X, aimPos.Y, aimPos.Z, -1, 0, 0);
             lastAimPos = aimPos;
         }
@@ -303,8 +302,7 @@ namespace SPFClient.Entities
                     }
                 }
 
-                else
-                ped.Task.ClearAll();
+                else ped.Task.ClearAll();
             }
 
             else
@@ -314,7 +312,6 @@ namespace SPFClient.Entities
 
                 if (upperAnimation != null && !upperAnimation.IsPlayingOn(ped))
                 {
-                    UI.ShowSubtitle("play");
                     PlayAnimation(upperAnimation, 48);
                 }
             }

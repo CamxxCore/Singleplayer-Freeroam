@@ -4,13 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SPFServer.Scripting
+namespace SPFServer
 {
     public abstract class ScriptBase : IScriptBase
     {
         internal string Name { get { return GetType().FullName; } }
-
-        public int Interval { get; private set; }
 
         internal bool running;
 
@@ -18,23 +16,21 @@ namespace SPFServer.Scripting
 
         internal virtual void OnTick()
         {
-            Console.WriteLine("tick");
             Tick?.Invoke(this, new EventArgs());
-            System.Threading.Thread.Sleep(Interval);
         }
 
 
-        public virtual void OnClientConnect(string username, DateTime time)
+        public virtual void OnClientConnect(GameClient sender, DateTime time)
         {
            
         }
 
-        public virtual void OnClientDisconnect(string client, DateTime time)
+        public virtual void OnClientDisconnect(GameClient sender, DateTime time)
         {
 
         }
 
-        public virtual void OnMessageReceived(string username, string message)
+        public virtual void OnMessageReceived(GameClient sender, string message)
         {
         }
     }

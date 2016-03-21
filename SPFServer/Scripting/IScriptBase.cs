@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SPFServer.Scripting
+namespace SPFServer
 {
-    public interface IScriptBase
+    internal interface IScriptBase
     {
-        void OnClientConnect(string username, DateTime time);
-        void OnClientDisconnect(string username, DateTime time);
-        void OnMessageReceived(string username, string message);
+        void OnClientConnect(GameClient sender, DateTime time);
+        void OnClientDisconnect(GameClient sender, DateTime time);
+        void OnMessageReceived(GameClient sender, string message);
     }
 }

@@ -1,7 +1,10 @@
 ﻿using System;
 using SPFLib.Enums;
 using System.Security.Cryptography;
-using System.Text;
+using SPFLib.Types;
+using Lidgren.Network;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SPFLib
 {
@@ -61,6 +64,317 @@ namespace SPFLib
             else throw new ArgumentException("t: Not a known type.");
         }
 
+        public static SessionState ReadSessionState(this NetIncomingMessage message)
+        {
+            var state = new SessionState();
+            state.Timestamp = new DateTime(message.ReadInt64());
+            var clientCount = message.ReadInt32();
+            state.Clients = GetClientStates(message, clientCount).ToArray();
+            return state;
+        }
+
+        private static IEnumerable<ClientState> GetClientStates(this NetIncomingMessage message, int clientCount)
+        {
+            ClientState[] clients = new ClientState[clientCount];
+            for (int i = 0; i < clientCount; i++)
+                yield return message.ReadClientState();
+        }
+
+        public static void Write(this NetOutgoingMessage message, SessionState state)
+        {
+            message.Write(state.Timestamp.Ticks);
+            message.Write(state.Clients.Length);
+
+            foreach (var client in state.Clients)
+                message.Write(client);
+        }
+
+        public static WeaponData ReadWeaponData(this NetIncomingMessage message)
+        {
+            var wd = new WeaponData();
+            wd.Timestamp = new DateTime(message.ReadInt64());
+            wd.HitCoords = message.ReadVector3();
+            wd.WeaponDamage = message.ReadInt16();
+            return wd;
+        }
+
+        public static void Write(this NetOutgoingMessage message, WeaponData wd)
+        {
+            message.Write(wd.Timestamp.Ticks);
+            message.Write(wd.HitCoords);
+            message.Write(wd.WeaponDamage);
+        }
+
+        public static SessionCommand ReadSessionCommand(this NetIncomingMessage message)
+        {
+            var cmd = new SessionCommand();
+            cmd.UID = message.ReadInt32();
+            cmd.Name = message.ReadString();
+            cmd.Command = (CommandType)message.ReadInt16();
+            return cmd;
+        }
+
+        public static void Write(this NetOutgoingMessage message, SessionCommand cmd)
+        {
+            message.Write(cmd.UID);
+            message.Write(cmd.Name);
+            message.Write((short)cmd.Command);
+        }
+
+        public static SessionSync ReadSessionSync(this NetIncomingMessage message)
+        {
+            var sync = new SessionSync();
+            sync.ServerTime = new DateTime(message.ReadInt64());
+            sync.ClientTime = new DateTime(message.ReadInt64());
+            return sync;
+        }
+
+        public static void Write(this NetOutgoingMessage message, SessionSync sync)
+        {
+            message.Write(sync.ServerTime.Ticks);
+            message.Write(sync.ClientTime.Ticks);
+        }
+
+        public static NativeCall ReadNativeCall(this NetIncomingMessage message)
+        {
+            var nc = new NativeCall();
+            nc.FunctionName = message.ReadString();
+            nc.ReturnType = (DataType)message.ReadByte();
+            var argsCount = message.ReadInt16();
+            nc.Args = new NativeArg[argsCount];
+            for (int i = 0; i < argsCount; i++)
+            {
+               nc.Args[i] = ReadNativeArg(message);
+            }
+            return nc;
+        }
+
+        public static void Write(this NetOutgoingMessage message, NativeCall nc)
+        {
+            if (nc.Args.Length > short.MaxValue)
+                throw new ArgumentOutOfRangeException("nc.Args: Array length exeeds maximum range of serializable items.");
+            message.Write(nc.FunctionName);
+            message.Write((byte)nc.ReturnType);
+            message.Write((short)nc.Args.Length);
+            foreach (var arg in nc.Args)
+                message.Write(arg);
+        }
+
+        public static NativeArg ReadNativeArg(this NetIncomingMessage message)
+        {
+            var na = new NativeArg();
+            na.Type = (DataType)message.ReadByte();
+            var valueLen = message.ReadInt32();
+            byte[] bytes = message.ReadBytes(valueLen);
+            na.Value = Serializer.DeserializeObject<object>(bytes);
+            return na;
+        }
+
+        public static void Write(this NetOutgoingMessage message, NativeArg na)
+        {
+            var bytes = Serializer.SerializeObject(na.Value);
+            message.Write((byte)na.Type);
+            message.Write(bytes.Length);
+            message.Write(bytes);
+        }
+
+        public static NativeCallback ReadNativeCallback(this NetIncomingMessage message)
+        {
+            var nc = new NativeCallback();
+            nc.Type = (DataType)message.ReadByte();
+            var valueLen = message.ReadInt32();
+            byte[] bytes = message.ReadBytes(valueLen);
+            nc.Value = Serializer.DeserializeObject<object>(bytes);
+            return nc;
+        }
+
+        public static void Write(this NetOutgoingMessage message, NativeCallback nc)
+        {
+            var bytes = Serializer.SerializeObject(nc.Value);
+            message.Write((byte)nc.Type);
+            message.Write(bytes.Length);
+            message.Write(bytes);
+        }
+
+        public static SessionEvent ReadSessionEvent(this NetIncomingMessage message)
+        {
+            var sEvent = new SessionEvent();
+            sEvent.SenderID = message.ReadInt32();
+            sEvent.SenderName = message.ReadString();
+            sEvent.EventType = (EventType)message.ReadInt16();
+            return sEvent;
+        }
+
+        public static void Write(this NetOutgoingMessage message, SessionEvent sessionEvent)
+        {
+            message.Write(sessionEvent.SenderID);
+            message.Write(sessionEvent.SenderName);
+            message.Write((short)sessionEvent.EventType);
+        }
+
+        public static SessionMessage ReadSessionMessage(this NetIncomingMessage message)
+        {
+            var msg = new SessionMessage();
+            msg.Timestamp = new DateTime(message.ReadInt64());
+            msg.SenderUID = message.ReadInt32();
+            msg.SenderName = message.ReadString();
+            msg.Message = message.ReadString();
+            return msg;
+        }
+
+        public static ClientState ReadClientState(this NetIncomingMessage message)
+        {
+            var state = new ClientState();
+
+            state.InVehicle = message.ReadBoolean();
+            state.PedID = message.ReadInt16();
+            state.WeaponID = message.ReadInt16();
+            state.Health = message.ReadInt16();
+            state.VehicleSeat = (VehicleSeat)message.ReadInt16();
+
+            if (!state.InVehicle)
+            {
+                state.MovementFlags = (ClientFlags)message.ReadInt16();
+                state.ActiveTask = (ActiveTask)message.ReadInt16();
+                state.Position = message.ReadVector3();
+                state.Velocity = message.ReadVector3();
+                state.Angles = message.ReadVector3();
+                state.Rotation = message.ReadQuaternion();
+            }
+
+            state.ClientID = message.ReadInt32();
+
+            bool nameSent = message.ReadBoolean();
+
+            state.Name = nameSent ? message.ReadString() : null;
+
+            if (state.InVehicle)
+            {
+                state.VehicleState = new VehicleState();
+                // Console.WriteLine("wrote");
+                state.VehicleState.Position = message.ReadVector3();
+
+                state.VehicleState.Velocity = message.ReadVector3();
+
+                state.VehicleState.Rotation = message.ReadQuaternion();
+
+                state.VehicleState.CurrentRPM = message.ReadInt16().Deserialize();
+
+                state.VehicleState.WheelRotation = message.ReadInt16().Deserialize();
+
+                state.VehicleState.Steering = message.ReadInt16().Deserialize();
+
+                state.VehicleState.Health = message.ReadInt16();
+
+                state.VehicleState.VehicleID = message.ReadInt16();
+
+                state.VehicleState.PrimaryColor = message.ReadByte();
+
+                state.VehicleState.SecondaryColor = message.ReadByte();
+
+                state.VehicleState.RadioStation = message.ReadByte();
+
+                state.VehicleState.Flags = (VehicleFlags)message.ReadInt16();
+
+                state.VehicleState.ExtraFlags = message.ReadUInt16();
+
+                state.VehicleState.ID = message.ReadInt32();
+            }
+
+            return state;
+        }
+
+        public static void Write(this NetOutgoingMessage message, ClientState state)
+        {
+            message.Write(state.InVehicle);
+            message.Write(state.PedID);
+            message.Write(state.WeaponID);
+            message.Write(state.Health);
+            message.Write((short)state.VehicleSeat);
+
+            if (!state.InVehicle)
+            {
+                message.Write((short)state.MovementFlags);
+                message.Write((short)state.ActiveTask);
+                message.Write(state.Position);
+                message.Write(state.Velocity);
+                message.Write(state.Angles);
+                message.Write(state.Rotation);
+            }
+
+            message.Write(state.ClientID);
+
+            message.Write(state.Name != null);
+
+            if (state.Name != null)
+                message.Write(state.Name);
+
+            if (state.InVehicle)
+            {
+                //   message.Write(state.VehicleState.Position);
+                message.Write(state.VehicleState.Position);
+
+                message.Write(state.VehicleState.Velocity);
+                message.Write(state.VehicleState.Rotation);
+
+                message.Write(state.VehicleState.CurrentRPM.Serialize());
+
+                message.Write(state.VehicleState.WheelRotation.Serialize());
+
+                message.Write(state.VehicleState.Steering.Serialize());
+
+                message.Write(state.VehicleState.Health);
+
+                message.Write(state.VehicleState.VehicleID);
+
+                message.Write(state.VehicleState.PrimaryColor);
+
+                message.Write(state.VehicleState.SecondaryColor);
+
+                message.Write(state.VehicleState.RadioStation);
+
+                message.Write((short)state.VehicleState.Flags);
+
+                message.Write(state.VehicleState.ExtraFlags);
+
+                message.Write(state.VehicleState.ID);
+            }
+        }
+
+        public static Quaternion ReadQuaternion(this NetIncomingMessage message)
+        {
+            Quaternion q = new Quaternion();
+            q.X = message.ReadFloat();
+            q.Y = message.ReadFloat();
+            q.Z = message.ReadFloat();
+            q.W = message.ReadFloat();
+            return q;
+        }
+
+        public static void Write(this NetOutgoingMessage message, Quaternion q)
+        {
+            message.Write(q.X);
+            message.Write(q.Y);
+            message.Write(q.Z);
+            message.Write(q.W);
+        }
+
+        public static Vector3 ReadVector3(this NetIncomingMessage message)
+        {
+            Vector3 vec = new Vector3();
+            vec.X = message.ReadFloat();
+            vec.Y = message.ReadFloat();
+            vec.Z = message.ReadFloat();
+            return vec;
+        }
+
+        public static void Write(this NetOutgoingMessage message, Vector3 vec)
+        {
+            message.Write(vec.X);
+            message.Write(vec.Y);
+            message.Write(vec.Z);
+        }
+
         public static short Serialize(this float fl)
         {
             return (short)(fl * 256);
@@ -70,6 +384,5 @@ namespace SPFLib
         {
             return (us / 256f);
         }
-
     }
 }

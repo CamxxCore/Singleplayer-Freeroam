@@ -5,13 +5,15 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 
-namespace SPFServer.Weather
+namespace SPFServer
 {
     public delegate void WeatherChangedHandler(WeatherType lastWeather, WeatherType newWeather);
 
     public sealed class WeatherManager
     {
-        public const int MinTimeForChange = 600000; // 10min
+        public bool AutoChange { get; private set; } = true;
+
+        private const int MinTimeForChange = 600000; // 10min
 
         private WeatherType[] weatherTypes;
 
@@ -56,14 +58,28 @@ namespace SPFServer.Weather
             return WeatherType.Clear;
         }
 
-        internal void ForceWeatherChange()
+        public void SetRandomWeatherType()
         {
             updateTimer.Change(0, Timeout.Infinite);
         }
 
+        public void SetWeatherType(WeatherType weather)
+        {
+            lastWeather = currentWeather;
+            currentWeather = weather;
+            lastChanged = DateTime.Now;
+            OnServerWeatherChanged?.Invoke(lastWeather, currentWeather);
+        }
+
         internal void UpdateTimerCallback(object state)
         {
+            if (!AutoChange) return;
+
             var weather = GetRandomWeatherType(weatherTypes);
+
+            while (weather == currentWeather)
+                weather = GetRandomWeatherType(weatherTypes);
+
             lastWeather = currentWeather;
             currentWeather = weather;
             lastChanged = DateTime.Now;

@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SPFLib;
+using SPFLib.Enums;
+using Lidgren.Network;
 
 namespace SPFServer
 {

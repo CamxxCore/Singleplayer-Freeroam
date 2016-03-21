@@ -7,41 +7,34 @@ using System.Threading;
 using SPFLib.Types;
 using SPFLib.Enums;
 using SPFLib;
+using Lidgren.Network;
 
 namespace SPFClient.Network
 {
-    public delegate void ChatEventHandler(EndPoint sender, MessageInfo e);
+    public delegate void ChatEventHandler(EndPoint sender, SessionMessage e);
 
-    public delegate void SessionEventHandler(EndPoint sender, UserEvent e);
+    public delegate void SessionEventHandler(EndPoint sender, SessionEvent e);
 
     public delegate void SessionStateHandler(EndPoint sender, SessionState e);
 
-    public delegate void TimeSyncHandler(EndPoint sender, TimeSync e);
+    public delegate void SessionSyncHandler(EndPoint sender, SessionSync e);
 
-    public delegate void ServerHelloHandler(EndPoint sender, ServerHello e);
-
-    public delegate void ServerNotificationHandler(EndPoint sender, ServerNotification e);
+    public delegate void SessionNotificationHandler(EndPoint sender, SessionNotification e);
 
     public delegate void NativeInvocationHandler(EndPoint sender, NativeCall e);
 
-    public class SessionClient
+    public class SessionClient : IDisposable
     {
-        private bool didInitCallback = false;
+        private IPEndPoint serverEP;
+        private NetClient client;
 
-        private int port;
-        private IPAddress remoteAddress;
-        private Socket clientSocket;
-        private EndPoint epServer;
-
-        private List<ServerCommand> pendingCMDCallbacks;
-
-        private Dictionary<int, byte[]> pendingCallbacks;
+        private readonly NetPeerConfiguration Config;
 
         /// fired when a user in the session sends a chat message
         public event ChatEventHandler ChatEvent;
 
         /// fired when a user in the session triggers a client event
-        public event SessionEventHandler UserEvent;
+        public event SessionEventHandler SessionEvent;
 
         /// fired when the server sends a state update
         public event SessionStateHandler SessionStateEvent;
@@ -50,217 +43,153 @@ namespace SPFClient.Network
         internal event NativeInvocationHandler NativeInvoked;
 
         /// fired when the server invokes a time sync
-        internal event TimeSyncHandler TimeSyncEvent;
+        internal event SessionSyncHandler SessionSyncEvent;
 
-        /// fired when the server send a text notification
-      //  public event ServerNotificationHandler ServerNotification;
-
-        /// fired when the server send a hello
-        internal event ServerHelloHandler ServerHelloEvent;
-
-        private byte[] byteData = new byte[1024];
+        NetIncomingMessage message;
 
         public SessionClient(IPAddress remoteAddress, int port)
         {
-            this.remoteAddress = remoteAddress;
-            this.port = port;
-            clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            pendingCallbacks = new Dictionary<int, byte[]>();
-          
-            epServer = new IPEndPoint(remoteAddress, port);
+            serverEP = new IPEndPoint(remoteAddress, port);
+            Config = new NetPeerConfiguration("spfsession");
+            Config.EnableMessageType(NetIncomingMessageType.ConnectionApproval);
+            client = new NetClient(Config);
         }
 
         public void Login(int uid, string name)
         {
-            try
-            {
-                ServerCommand req = new ServerCommand();
-                req.UID = uid;
-                req.Name = name;
-                req.Command = CommandType.Login;
-                var packedData = req.ToByteArray();
-                clientSocket.BeginSendTo(packedData, 0, packedData.Length, SocketFlags.None, epServer,
-                    new AsyncCallback(OnSend), packedData);
-
-                var timer = new Timer(new TimerCallback(x =>
-                {
-                    // keep sending until we receive a callback
-                    if (!didInitCallback)//   if (pendingCMDCallbacks.Contains(req)) 
-                        clientSocket.BeginSendTo(packedData, 0, packedData.Length, SocketFlags.None, epServer,
-                        new AsyncCallback(OnSend), packedData);
-                }),
-                null, 1000, 1000);
-
-                pendingCMDCallbacks.Add(req);
-            }
-
-            catch (SocketException ex)
-            {
-                Console.WriteLine("Failed to login due to a connection error.\n" + ex.Message);
-            }
-
-            catch (Exception ex)
-            {
-                Console.WriteLine("Failed to login.\n" + ex.Message);
-            }
+            SessionCommand req = new SessionCommand();
+            req.UID = uid;
+            req.Name = name;
+            req.Command = CommandType.Login;
+            var msg = client.CreateMessage();
+            msg.Write((byte)NetMessage.SessionCommand);
+            msg.Write(req);
+            client.Connect(serverEP, msg);
         }
 
         public void Say(string message)
         {
-            try
-            {
-                MessageInfo msg = new MessageInfo();
-                msg.Message = message;
-                msg.Timestamp = DateTime.UtcNow;
-                var packedData = msg.ToByteArray();
-                clientSocket.BeginSendTo(packedData, 0, packedData.Length, SocketFlags.None, epServer,
-                    new AsyncCallback(OnSend), packedData);
-
-                var timer = new Timer(new TimerCallback(x => {
-                    // keep sending until we receive a callback
-                    if (pendingCallbacks.ContainsKey(msg.NetID))
-                        clientSocket.BeginSendTo(packedData, 0, packedData.Length, SocketFlags.None, epServer,
-                        new AsyncCallback(OnSend), packedData);
-                }), null, 1000, 1000);
-
-                pendingCallbacks.Add(msg.NetID, packedData);
-            }
-
-            catch (SocketException ex)
-            {
-                Console.WriteLine("Socket error.\n" + ex.Message);
-            }
-
-            catch (Exception ex)
-            {
-                Console.WriteLine("Failed to send the message.\n" + ex.Message);
-            }
+            var msg = client.CreateMessage();
+            msg.Write((byte)NetMessage.SessionMessage);
+            msg.WriteTime(false);
+            msg.Write(message);
+            client.SendMessage(msg, NetDeliveryMethod.ReliableOrdered);
         }
 
-        public void UpdateUserData(ClientState clientState)
+        public void UpdateUserData(ClientState state)
         {
-            try
-            {
-                var packedData = clientState.ToByteArray();
-                clientSocket.BeginSendTo(packedData, 0, packedData.Length, SocketFlags.None, epServer,
-                    new AsyncCallback(OnSend), packedData);
-            }
-
-            catch (SocketException ex)
-            {
-                Console.WriteLine("Failed to send the data due to a connection error.\n" + ex.Message);
-            }
-
-            catch (Exception ex)
-            {
-                Console.WriteLine("Failed to send the data.\n" + ex.Message);
-            }
+            var msg = client.CreateMessage();
+            msg.Write((byte)NetMessage.ClientState);
+            msg.Write(state);
+            client.SendMessage(msg, NetDeliveryMethod.ReliableSequenced);
         }
 
-        public void SendWeaponHit(short dmg, Vector3 hitCoords)
+        public void SendWeaponData(short dmg, Vector3 hitCoords)
         {
-            WeaponHit wh = new WeaponHit(hitCoords);
-            wh.Timestamp = PreciseDatetime.Now;
-            wh.WeaponDamage = dmg;
-            var packedData = wh.ToByteArray();
-            clientSocket.BeginSendTo(packedData, 0, packedData.Length, SocketFlags.None, epServer,
-                new AsyncCallback(OnSend), packedData);
-
-            var timer = new Timer(new TimerCallback(x => {
-                // keep sending until we receive a callback
-                if (pendingCallbacks.ContainsKey(wh.NetID))
-                    clientSocket.BeginSendTo(packedData, 0, packedData.Length, SocketFlags.None, epServer,
-                    new AsyncCallback(OnSend), packedData);
-            }),
-            null, 1000, 1000);
-
-            pendingCallbacks.Add(wh.NetID, packedData);
+            var msg = client.CreateMessage();
+            msg.Write((byte)NetMessage.WeaponData);
+            msg.Write(NetworkTime.Now.Ticks);
+            msg.Write(hitCoords.X);
+            msg.Write(hitCoords.Y);
+            msg.Write(hitCoords.Z);
+            msg.Write(dmg);
+            client.SendMessage(msg, NetDeliveryMethod.ReliableSequenced);
         }
 
         public bool StartListening()
         {
             try
             {
-                //Start listening to the data asynchronously
-                clientSocket.BeginReceiveFrom(byteData, 0, byteData.Length, SocketFlags.None, ref epServer,
-                    new AsyncCallback(OnReceive), byteData);
+                client.Start();
                 return true;
             }
 
-            catch (SocketException)
+            catch (ArgumentNullException)
             {
-                return false;
-            }
-
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-
-        private void OnReceive(IAsyncResult ar)
-        {
-            try
-            {
-                EndPoint sender = new IPEndPoint(IPAddress.Any, 0);
-                clientSocket.EndReceiveFrom(ar, ref sender);
-
-                var msg = (NetMessage)byteData[0];
-
-                switch (msg)
-                {
-                    case NetMessage.SessionUpdate:
-                        OnSessionUpdate(sender, new SessionState(byteData));
-                        break;
-                    case NetMessage.ChatMessage:
-                        OnChatEvent(sender, new MessageInfo(byteData));
-                        break;
-                    case NetMessage.UserEvent:
-                        OnUserEvent(sender, new UserEvent(byteData));
-                        break;
-                    case NetMessage.TimeSync:
-                        OnServerTimeSync(sender, new TimeSync(byteData));
-                        break;
-                    case NetMessage.NativeCall:
-                        OnNativeInvoke(sender, new NativeCall(byteData));
-                        break;
-                    case NetMessage.ServerHello:
-                        OnServerHello(sender, new ServerHello(byteData));
-                        break;
-                    case NetMessage.SimpleCallback:
-                        HandleSimpleCallback(sender, new GenericCallback(byteData));
-                        break;
-                }
             }
 
             catch (SocketException ex)
             {
-                Console.WriteLine("Failed while recieving the data.\n" + ex.ToString());
+                Console.WriteLine("Failed to receive the data due to a connection error.\n" + ex.Message);
             }
 
-            catch (Exception ex)
+            catch (ArgumentOutOfRangeException)
             {
-                Console.WriteLine("Failed while recieving the data.\n" + ex.ToString());
             }
 
-            finally
+            catch (ObjectDisposedException)
             {
-                try
-                {
-                    Array.Clear(byteData, 0, byteData.Length);
-                    clientSocket.BeginReceiveFrom(byteData, 0, byteData.Length, SocketFlags.None, ref epServer,
-                                               new AsyncCallback(OnReceive), byteData);
-                }
+            }
 
-                catch (Exception)
+            catch (Exception)
+            {
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Process and handle any data received from the client.
+        /// </summary>
+        /// <param name="ar"></param>
+        public void OnReceive()
+        {
+            while ((message = client.ReadMessage()) != null)
+            {
+                switch (message.MessageType)
                 {
+                    case NetIncomingMessageType.Data:
+                        HandleIncomingDataMessage(message);
+                        break;
+
+                    case NetIncomingMessageType.StatusChanged:
+                        SPFClient.UI.UIManager.UISubtitleProxy("status " + message.SenderConnection.Status.ToString());
+                        break;
                 }
             }
         }
 
-        protected virtual void OnChatEvent(EndPoint sender, MessageInfo msg)
+        private void HandleIncomingDataMessage(NetIncomingMessage msg)
         {
-            ChatEvent?.Invoke(sender, msg);
+            var dataType = (NetMessage)message.ReadByte();
+
+            switch (dataType)
+            {
+                case NetMessage.SessionUpdate:
+                    OnSessionUpdate(msg.SenderEndPoint, msg.ReadSessionState());
+                    break;
+                case NetMessage.SessionMessage:
+                    OnSessionMessage(msg.SenderEndPoint, msg.ReadSessionMessage());
+                    break;
+                case NetMessage.SessionEvent:
+                    OnSessionEvent(msg.SenderEndPoint, msg.ReadSessionEvent());
+                    break;
+                case NetMessage.SessionSync:
+                    OnServerSessionSync(msg.SenderEndPoint, msg.ReadSessionSync());
+                    break;
+                case NetMessage.NativeCall:
+                    OnNativeInvoked(msg.SenderEndPoint, msg.ReadNativeCall());
+                    break;
+            }
+        }
+
+        public void SendNativeCallback(NativeCallback cb)
+        {
+            var msg = client.CreateMessage();
+            msg.Write((byte)NetMessage.NativeCallback);
+            msg.Write((short)cb.Type);
+            if (cb.Type != DataType.None && cb.Value != null)
+                msg.Write(Serializer.SerializeObject(cb.Value));
+            client.SendMessage(msg, NetDeliveryMethod.ReliableOrdered);
+        }
+
+        internal void ReturnSessionSync(SessionSync req)
+        {
+            req.ClientTime = NetworkTime.Now;
+            var msg = client.CreateMessage();
+            msg.Write((byte)NetMessage.SessionSync);
+            msg.Write(req);
+            client.SendMessage(msg, NetDeliveryMethod.Unreliable);
         }
 
         protected virtual void OnSessionUpdate(EndPoint sender, SessionState msg)
@@ -268,74 +197,35 @@ namespace SPFClient.Network
             SessionStateEvent?.Invoke(sender, msg);
         }
 
-        protected virtual void OnUserEvent(EndPoint sender, UserEvent msg)
+        protected virtual void OnSessionMessage(EndPoint sender, SessionMessage msg)
         {
-            UserEvent?.Invoke(sender, msg);
+            ChatEvent?.Invoke(sender, msg);
         }
 
-        protected virtual void OnServerHello(EndPoint sender, ServerHello msg)
+        protected virtual void OnServerSessionSync(EndPoint sender, SessionSync msg)
         {
-            SendGenericCallback(new GenericCallback(msg.NetID));
-            ServerHelloEvent?.Invoke(sender, msg);
+            ReturnSessionSync(msg);
+            SessionSyncEvent?.Invoke(sender, msg);
         }
 
-        protected virtual void OnServerTimeSync(EndPoint sender, TimeSync msg)
-        {
-            SendTimeSync(msg);
-            TimeSyncEvent?.Invoke(sender, msg);
-        }
-
-        protected virtual void OnNativeInvoke(EndPoint sender, NativeCall msg)
+        protected virtual void OnNativeInvoked(EndPoint sender, NativeCall msg)
         {
             NativeInvoked?.Invoke(sender, msg);
         }
 
-        public void SendNativeCallback(NativeCallback cb)
+        protected virtual void OnSessionEvent(EndPoint sender, SessionEvent msg)
         {
-            var msgBytes = cb.ToByteArray();
-            clientSocket.BeginSendTo(msgBytes, 0, msgBytes.Length, SocketFlags.None, epServer,
-                new AsyncCallback(OnSend), msgBytes);
+            SessionEvent?.Invoke(sender, msg);
+        }
+     
+        public void Close()
+        {
+            client.Disconnect("NC_GRACEFUL_DISCONNECT");
         }
 
-        public void SendGenericCallback(GenericCallback cb)
+        public void Dispose()
         {
-            var msgBytes = cb.ToByteArray();
-            clientSocket.BeginSendTo(msgBytes, 0, msgBytes.Length, SocketFlags.None, epServer,
-                new AsyncCallback(OnSend), msgBytes);
-        }
-
-        public void SendTimeSync(TimeSync req)
-        {
-            req.ClientTime = PreciseDatetime.Now;
-            var msgBytes = req.ToByteArray();
-            clientSocket.BeginSendTo(msgBytes, 0, msgBytes.Length, SocketFlags.None, epServer,
-                new AsyncCallback(OnSend), msgBytes);
-        }
-
-        private void HandleSimpleCallback(EndPoint sender, GenericCallback callback)
-        {
-            if (pendingCallbacks.ContainsKey(callback.NetID))
-                pendingCallbacks.Remove(callback.NetID);
-        }
-
-        private void OnSend(IAsyncResult ar)
-        {
-            try
-            {
-                clientSocket.EndSend(ar);
-            }
-
-            catch (ObjectDisposedException)
-            { }
-
-            catch (Exception)
-            { }
-        }
-
-        public void StopListening()
-        {
-            //clientSocket.Disconnect(true);
-            clientSocket.Close(50);
+            client.Shutdown("NC_DISCONNECT");
         }
     }
 }

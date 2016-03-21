@@ -1,9 +1,14 @@
 ﻿using System;
-using GTA;
-using GTA.Native;
-using GTA.Math;
 using SPFClient.Types;
 using System.Drawing;
+using SPFLib.Enums;
+using SPFLib.Types;
+using Lidgren.Network;
+using Serializer = SPFLib.Serializer;
+using Vector3 = SPFLib.Types.Vector3;
+using Quaternion = SPFLib.Types.Quaternion;
+using GTA;
+using GTA.Native;
 
 namespace SPFClient
 {
@@ -75,17 +80,16 @@ namespace SPFClient
             return outArg.GetResult<int>();
         }
 
-        public static VehicleSeat CurrentVehicleSeat(this Ped ped)
+        public static GTA.VehicleSeat CurrentVehicleSeat(this Ped ped)
         {
             var vehicle = ped.CurrentVehicle;
 
-            foreach (VehicleSeat seat in Enum.GetValues(typeof(GTA.VehicleSeat)))
+            foreach (GTA.VehicleSeat seat in Enum.GetValues(typeof(GTA.VehicleSeat)))
                 if (vehicle.GetPedOnSeat(seat) == ped)
-                    return (VehicleSeat)seat;
+                    return seat;
             
-            return VehicleSeat.None;
+            return GTA.VehicleSeat.None;
         }
-
 
         /// <summary>
         /// Returns the 1080pixels-based screen resolution while mantaining current aspect ratio.
@@ -246,9 +250,19 @@ namespace SPFClient
             return 0;
         }
 
-        public static Quaternion RotationAxis(Vector3 axis, float angle)
+        public static float Hermite(float start, float end, float value)
         {
-            Quaternion result;
+            return Lerp(start, end, value * value * (3.0f - 2.0f * value));
+        }
+
+        public static float Lerp(float a, float b, float f)
+        {
+            return (a * (1.0f - f)) + (b * f);
+        }
+
+        public static GTA.Math.Quaternion RotationAxis(GTA.Math.Vector3 axis, float angle)
+        {
+            GTA.Math.Quaternion result;
 
             axis.Normalize();
 
@@ -269,12 +283,12 @@ namespace SPFClient
         /// </summary>
         /// <param name="rotation"></param>
         /// <returns></returns>
-        public static Vector3 RotationToDirection(Vector3 rotation)
+        public static GTA.Math.Vector3 RotationToDirection(GTA.Math.Vector3 rotation)
         {
             double retZ = rotation.Z * 0.01745329f;
             double retX = rotation.X * 0.01745329f;
             double absX = Math.Abs(Math.Cos(retX));
-            return new Vector3((float)-(Math.Sin(retZ) * absX), (float)(Math.Cos(retZ) * absX), (float)Math.Sin(retX));
+            return new GTA.Math.Vector3((float)-(Math.Sin(retZ) * absX), (float)(Math.Cos(retZ) * absX), (float)Math.Sin(retX));
         }
 
         public static double Magnitude(this Vector3 vec)
@@ -282,9 +296,9 @@ namespace SPFClient
             return Math.Sqrt(vec.X * vec.X + vec.Y * vec.Y + vec.Z * vec.Z);
         }
 
-        public static Vector3 Hermite(Vector3 value1, Vector3 tangent1, Vector3 value2, Vector3 tangent2, float amount)
+        public static GTA.Math.Vector3 Hermite(GTA.Math.Vector3 value1, GTA.Math.Vector3 tangent1, GTA.Math.Vector3 value2, GTA.Math.Vector3 tangent2, float amount)
         {
-            Vector3 vector;
+            GTA.Math.Vector3 vector;
             float squared = amount * amount;
             float cubed = amount * squared;
             float part1 = ((2.0f * cubed) - (3.0f * squared)) + 1.0f;
@@ -299,9 +313,9 @@ namespace SPFClient
             return vector;
         }
 
-        public static Vector3 CatmullRom(Vector3 value1, Vector3 value2, Vector3 value3, Vector3 value4, float amount)
+        public static GTA.Math.Vector3 CatmullRom(GTA.Math.Vector3 value1, GTA.Math.Vector3 value2, GTA.Math.Vector3 value3, GTA.Math.Vector3 value4, float amount)
         {
-            Vector3 vector;
+            GTA.Math.Vector3 vector;
             float squared = amount * amount;
             float cubed = amount * squared;
 
@@ -320,9 +334,9 @@ namespace SPFClient
             return vector;
         }
 
-        public static Quaternion Slerp(Quaternion q1, Quaternion q2, float t)
+        public static GTA.Math.Quaternion Slerp(GTA.Math.Quaternion q1, GTA.Math.Quaternion q2, float t)
         {
-            Quaternion result;
+            GTA.Math.Quaternion result;
 
             float opposite;
             float inverse;
@@ -357,9 +371,9 @@ namespace SPFClient
             return result;
         }
 
-        public static Vector3 SmoothStep(Vector3 start, Vector3 end, float amount)
+        public static GTA.Math.Vector3 SmoothStep(GTA.Math.Vector3 start, GTA.Math.Vector3 end, float amount)
         {
-            Vector3 vector;
+            GTA.Math.Vector3 vector;
 
             amount = (amount > 1.0f) ? 1.0f : ((amount < 0.0f) ? 0.0f : amount);
             amount = (amount * amount) * (3.0f - (2.0f * amount));
@@ -371,37 +385,18 @@ namespace SPFClient
             return vector;
         }
 
-        public static void ToAngleAxis(this Quaternion q, out float angle, out Vector3 vec)
+        public static void ToAngleAxis(this GTA.Math.Quaternion q, out float angle, out GTA.Math.Vector3 vec)
         {
             angle = (float)(2 * Math.Acos(q.W));
             var factor = Math.Sqrt(1 - q.W * q.W);
-            vec = new Vector3(
+            vec = new GTA.Math.Vector3(
                 (float)(q.X * factor),
                 (float)(q.Y * factor),
                 (float)(q.Z * factor)
                 );
         }
 
-        public static SPFLib.Types.Quaternion Serialize(this Quaternion q)
-        {
-            var retQ = new SPFLib.Types.Quaternion();
-            retQ.X = q.X;
-            retQ.Y = q.Y;
-            retQ.Z = q.Z;
-            retQ.W = q.W;
-            return retQ;
-        }
-
-        public static SPFLib.Types.Vector3 Serialize(this Vector3 vec)
-        {
-            var retVec = new SPFLib.Types.Vector3();
-            retVec.X = vec.X;
-            retVec.Y = vec.Y;
-            retVec.Z = vec.Z;
-            return retVec;
-        }
-
-        public static Quaternion Deserialize(this SPFLib.Types.Quaternion q)
+        public static Quaternion Serialize(this GTA.Math.Quaternion q)
         {
             var retQ = new Quaternion();
             retQ.X = q.X;
@@ -411,9 +406,28 @@ namespace SPFClient
             return retQ;
         }
 
-        public static Vector3 Deserialize(this SPFLib.Types.Vector3 vec)
+        public static  Vector3 Serialize(this GTA.Math.Vector3 vec)
         {
-            var retVec = new Vector3();
+            var retVec = new  Vector3();
+            retVec.X = vec.X;
+            retVec.Y = vec.Y;
+            retVec.Z = vec.Z;
+            return retVec;
+        }
+
+        public static GTA.Math.Quaternion Deserialize(this Quaternion q)
+        {
+            var retQ = new GTA.Math.Quaternion();
+            retQ.X = q.X;
+            retQ.Y = q.Y;
+            retQ.Z = q.Z;
+            retQ.W = q.W;
+            return retQ;
+        }
+
+        public static GTA.Math.Vector3 Deserialize(this  Vector3 vec)
+        {
+            var retVec = new GTA.Math.Vector3();
             retVec.X = vec.X;
             retVec.Y = vec.Y;
             retVec.Z = vec.Z;

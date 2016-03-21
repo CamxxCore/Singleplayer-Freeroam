@@ -14,6 +14,12 @@ namespace SPFClient.Entities
 {
     public sealed class LocalPlayer
     {
+       // public ClientState[] HistoryBuffer {  get { return historyBuffer; } }
+
+      // private int statesCount = 0;
+
+     //   private ClientState[] historyBuffer = new ClientState[32];
+
         public ClientFlags ClientFlags { get { return clientFlags; } }
 
         public NetworkVehicle Vehicle { get; private set; }
@@ -23,6 +29,10 @@ namespace SPFClient.Entities
         private ClientFlags clientFlags;
 
         private float weaponDamage = 0.0f;
+
+        private uint sentPacketCount;
+
+        public uint SentPacketCount {  get { return sentPacketCount; } }
 
         private int localPedHash, localWeaponHash, localVehicleHash;
         private short localPedID, localWeaponID, localVehicleID;
@@ -100,7 +110,7 @@ namespace SPFClient.Entities
             {
                 var hitCoords = result.HitEntity.Position.Serialize();
                 var dmg = (short)GetCurrentWeaponDamage();
-                NetworkSession.CurrentSession.SendWeaponHit(dmg, hitCoords);
+                NetworkSession.Client.SendWeaponData(20, hitCoords);
             }
         }
 
@@ -111,6 +121,7 @@ namespace SPFClient.Entities
 
         private float GetCurrentWeaponDamage()
         {
+            if (Ped == null) return 0.0f;
             return MemoryAccess.GetPedWeaponDamage(Ped.Handle);
         }
 
@@ -169,6 +180,12 @@ namespace SPFClient.Entities
             return Convert.ToByte(Function.Call<int>(Hash.GET_PLAYER_RADIO_STATION_INDEX));
         }
 
+        /*  public IEnumerable<ClientState> GetHistoryBuffer()
+          {
+              for (int i = 0; i < statesCount; i++)
+                  yield return historyBuffer[i];
+          }*/
+
         public ClientState GetClientState()
         {
             var clientState = new ClientState();
@@ -189,7 +206,6 @@ namespace SPFClient.Entities
 
             else
             {
-
                 if ((int)Ped.CurrentVehicleSeat() == -1)
                 {
                     // if the local player is in a vehicle that doesn't exist in the active list...
@@ -203,101 +219,99 @@ namespace SPFClient.Entities
                         }
                     }
 
-                    else
+                    var v = new Vehicle(Vehicle.Handle);
+
+                    clientState.VehicleState = new VehicleState(Vehicle.ID,
+                        Vehicle.Position.Serialize(),
+                        Vehicle.Velocity.Serialize(),
+                        Vehicle.Quaternion.Serialize(),
+                        v.CurrentRPM,
+                        Vehicle.GetWheelRotation(),
+                        v.Steering,
+                        0, Convert.ToInt16(v.Health),
+                        (byte)v.PrimaryColor, (byte)v.SecondaryColor,
+                        GetActiveRadioStation(),
+                        GetVehicleID());
+
+                    clientState.VehicleState.Flags |= VehicleFlags.Driver;
+
+                    if (Function.Call<bool>(Hash.IS_HORN_ACTIVE, v.Handle))
+                        clientState.VehicleState.Flags |= VehicleFlags.HornPressed;
+
+                    if (v.Health <= 0)
+                        clientState.VehicleState.Flags |= VehicleFlags.Exploded;
+
+                    if (Vehicle is NetCar)
                     {
-                        var v = new Vehicle(Vehicle.Handle);
+                        if (v.LeftHeadLightBroken)
+                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.LHeadlight;
 
-                        clientState.VehicleState = new VehicleState(Vehicle.ID,
-                            Vehicle.Position.Serialize(),
-                            Vehicle.Velocity.Serialize(),
-                            Vehicle.Quaternion.Serialize(),
-                            v.CurrentRPM,
-                            Vehicle.GetWheelRotation(),
-                            v.Steering,
-                            0, Convert.ToInt16(v.Health),
-                            (byte)v.PrimaryColor, (byte)v.SecondaryColor,
-                            GetActiveRadioStation(),
-                            GetVehicleID());
+                        if (v.RightHeadLightBroken)
+                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.RHeadlight;
 
-                        clientState.VehicleState.Flags |= VehicleFlags.Driver;
+                        if (v.IsDoorBroken(VehicleDoor.FrontLeftDoor))
+                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.LDoor;
 
-                        if (Function.Call<bool>(Hash.IS_HORN_ACTIVE, v.Handle))
-                            clientState.VehicleState.Flags |= VehicleFlags.HornPressed;
+                        if (v.IsDoorBroken(VehicleDoor.FrontRightDoor))
+                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.RDoor;
 
-                        if (v.Health <= 0)
-                            clientState.VehicleState.Flags |= VehicleFlags.Exploded;
+                        if (v.IsDoorBroken(VehicleDoor.BackLeftDoor))
+                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.BLDoor;
 
-                        if (Vehicle is NetCar)
+                        if (v.IsDoorBroken(VehicleDoor.BackRightDoor))
+                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.BRDoor;
+
+                        if (v.IsDoorBroken(VehicleDoor.Hood))
+                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.Hood;
+                    }
+
+                    else if (Vehicle is NetPlane)
+                    {
+                        if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehicleFlyUnderCarriage))
                         {
-                            if (v.LeftHeadLightBroken)
-                                clientState.VehicleState.ExtraFlags |= (ushort)VDamageFlags.LHeadlightBroken;
-
-                            if (v.RightHeadLightBroken)
-                                clientState.VehicleState.ExtraFlags |= (ushort)VDamageFlags.RHeadlightBroken;
-
-                            if (v.IsDoorBroken(VehicleDoor.FrontLeftDoor))
-                                clientState.VehicleState.ExtraFlags |= (ushort)VDamageFlags.LDoorBroken;
-
-                            if (v.IsDoorBroken(VehicleDoor.FrontRightDoor))
-                                clientState.VehicleState.ExtraFlags |= (ushort)VDamageFlags.RDoorBroken;
-
-                            if (v.IsDoorBroken(VehicleDoor.BackLeftDoor))
-                                clientState.VehicleState.ExtraFlags |= (ushort)VDamageFlags.BLDoorBroken;
-
-                            if (v.IsDoorBroken(VehicleDoor.BackRightDoor))
-                                clientState.VehicleState.ExtraFlags |= (ushort)VDamageFlags.BRDoorBroken;
-
-                            if (v.IsDoorBroken(VehicleDoor.Hood))
-                                clientState.VehicleState.ExtraFlags |= (ushort)VDamageFlags.HoodBroken;
+                            var lgState = Function.Call<int>(Hash._GET_VEHICLE_LANDING_GEAR, Vehicle.Handle);
+                            clientState.VehicleState.ExtraFlags = (ushort)lgState;
                         }
 
-                        else if (Vehicle is NetPlane)
+                        if (Game.IsControlPressed(0, Control.VehicleFlyAttack) || Game.IsControlPressed(0, Control.VehicleFlyAttack2))
                         {
-                            if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehicleFlyUnderCarriage))
+                            var outArg = new OutputArgument();
+                            if (Function.Call<bool>(Hash.GET_CURRENT_PED_VEHICLE_WEAPON, Ped.Handle, outArg))
                             {
-                                var lgState = Function.Call<int>(Hash._GET_VEHICLE_LANDING_GEAR, Vehicle.Handle);
-                                clientState.VehicleState.ExtraFlags = (ushort)lgState;
-                            }
-
-                            if (Game.IsControlPressed(0, Control.VehicleFlyAttack) || Game.IsControlPressed(0, Control.VehicleFlyAttack2))
-                            {
-                                var outArg = new OutputArgument();
-                                if (Function.Call<bool>(Hash.GET_CURRENT_PED_VEHICLE_WEAPON, Ped.Handle, outArg))
+                                unchecked
                                 {
-                                    unchecked
+                                    switch ((WeaponHash)outArg.GetResult<int>())
                                     {
-                                        switch ((WeaponHash)outArg.GetResult<int>())
-                                        {
-                                            case (WeaponHash)0xCF0896E0:
-                                                clientState.VehicleState.Flags |= VehicleFlags.PlaneShoot;
-                                                break;
+                                        case (WeaponHash)0xCF0896E0:
+                                            clientState.VehicleState.Flags |= VehicleFlags.PlaneShoot;
+                                            break;
 
-                                            case (WeaponHash)0xE2822A29:
-                                                clientState.VehicleState.Flags |= VehicleFlags.PlaneGun;
-                                                break;
-                                        }
+                                        case (WeaponHash)0xE2822A29:
+                                            clientState.VehicleState.Flags |= VehicleFlags.PlaneGun;
+                                            break;
                                     }
                                 }
                             }
                         }
+                    }
 
-                        else if (Vehicle is NetBicycle)
+                    else if (Vehicle is NetBicycle)
+                    {
+                        if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehiclePushbikePedal))
                         {
-                            if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehiclePushbikePedal))
-                            {
-                                if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
-                                    clientState.VehicleState.ExtraFlags = (ushort)BicycleState.TuckPedaling;
-                                else clientState.VehicleState.ExtraFlags = (ushort)BicycleState.Pedaling;
-                            }
+                            if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
+                                clientState.VehicleState.ExtraFlags = (ushort)BicycleState.TuckPedaling;
+                            else clientState.VehicleState.ExtraFlags = (ushort)BicycleState.Pedaling;
+                        }
 
-                            else
-                            {
-                                if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
-                                    clientState.VehicleState.ExtraFlags = (ushort)BicycleState.TuckCruising;
-                                else clientState.VehicleState.ExtraFlags = (ushort)BicycleState.Cruising;
-                            }
+                        else
+                        {
+                            if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
+                                clientState.VehicleState.ExtraFlags = (ushort)BicycleState.TuckCruising;
+                            else clientState.VehicleState.ExtraFlags = (ushort)BicycleState.Cruising;
                         }
                     }
+
                 }
 
                 else
@@ -313,12 +327,22 @@ namespace SPFClient.Entities
                 clientState.InVehicle = true;
 
                 //   state.Health = Convert.ToInt16(localPlayer.Ped.Health);
-                clientState.Seat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
+                clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
 
                 clientState.PedID = GetPedID();
                 clientState.WeaponID = GetWeaponID();
             }
 
+            //  for (int i = historyBuffer.Length - 1; i > 0; i--)
+            //      historyBuffer[i] = historyBuffer[i - 1];
+
+            //  historyBuffer[0] = clientState;
+            //  statesCount = Math.Min(statesCount + 1, historyBuffer.Length);
+
+            sentPacketCount++;
+            sentPacketCount %= int.MaxValue;
+
+            ResetClientFlags();
 
             return clientState;
         }

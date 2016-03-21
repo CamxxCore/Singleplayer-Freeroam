@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using SPFLib.Types;
 using SPFLib;
 using SPFClient.Types;
+using SPFClient.UI;
 using Vector3 = GTA.Math.Vector3;
 using Quaternion = GTA.Math.Quaternion;
 
@@ -13,14 +14,14 @@ namespace SPFClient.Entities
         /// <summary>
         /// Minimum amount of snapshots needed before interpolating.
         /// </summary>
-        public const int SnapshotMin = 20;
-        public const int InterpDelay = 200;
+        public const int SnapshotMin = 10;
+        public const int InterpDelay = 300;
 
         public EntitySnapshot GetExtrapolatedPosition(Vector3 curPosition, Quaternion curRotation, EntitySnapshot[] extrpBuffer, int validSnapshots, float lerpFactor = 1.0f, bool forceExtrp = false)
         {
             if (validSnapshots < SnapshotMin) return null;
 
-            var timeNow = PreciseDatetime.Now;
+            var timeNow = SPFLib.NetworkTime.Now;
             var interpolationTime = timeNow - TimeSpan.FromMilliseconds(InterpDelay);
 
             List<EntitySnapshot> deletionQueue = new List<EntitySnapshot>();
@@ -29,7 +30,7 @@ namespace SPFClient.Entities
             {
                 for (int i = 0; i < validSnapshots; i++)
                 {
-                    if (extrpBuffer[i].Timestamp <= interpolationTime || i == extrpBuffer.Length - 1)
+                    if (extrpBuffer[i].Timestamp <= interpolationTime)
                     {
                         EntitySnapshot newState = extrpBuffer[Math.Max(i - 1, 0)];
                         EntitySnapshot lastState = extrpBuffer[i];
@@ -38,12 +39,12 @@ namespace SPFClient.Entities
 
                         float t = 0.0f;
 
-                        var currentTime = interpolationTime - lastState.Timestamp;
-                        var duration = newState.Timestamp - lastState.Timestamp;
+                        var currentTime = (interpolationTime - lastState.Timestamp).TotalMilliseconds / 1000f;
+                        var duration = (newState.Timestamp - lastState.Timestamp).TotalMilliseconds / 1000f;
 
-                        if (duration.TotalMilliseconds > 1)
+                        if (duration > 0.001f)
                         {
-                            t = (float)((float)(currentTime.TotalMilliseconds / 1000f) / (float)(duration.TotalMilliseconds / 1000f));
+                            t = (float)(currentTime / duration);
                         }
 
                         var position = Vector3.Lerp(curPosition, Vector3.Lerp(lastState.Position, newState.Position, t), lerpFactor);
@@ -54,7 +55,8 @@ namespace SPFClient.Entities
 
                         var angles = Vector3.Lerp(lastState.Angles, newState.Angles, t);
 
-                        return new EntitySnapshot(position, velocity, quaternion, angles, lastState.Timestamp + TimeSpan.FromMilliseconds(t * 1000), -1);  // Tuple<Vector3, Quaternion>(position, quaternion);
+
+                        return new EntitySnapshot(position, velocity, quaternion, angles, lastState.Timestamp + TimeSpan.FromMilliseconds(t * 1000));  // Tuple<Vector3, Quaternion>(position, quaternion);
                     }
                 }
 
@@ -63,6 +65,8 @@ namespace SPFClient.Entities
 
             else
             {
+              //  UIManager.UISubtitleProxy("~y~extrp");
+
                 var lastState = extrpBuffer[0];
 
                 float extrapolationLength = ((float)(interpolationTime - lastState.Timestamp).TotalMilliseconds) / 1000.0f;

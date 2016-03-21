@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SPFServer.Types
+namespace SPFServer
 {
     public sealed class ServerVar<T> 
     {

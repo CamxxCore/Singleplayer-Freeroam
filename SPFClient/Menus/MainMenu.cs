@@ -2,7 +2,7 @@
 using System.Windows.Forms;
 using NativeUI;
 using SPFClient.Network;
-using SPFClient.UIManagement;
+using SPFClient.UI;
 using GTA;
 
 namespace SPFClient.Menus
@@ -34,7 +34,7 @@ namespace SPFClient.Menus
         {
             if (!WCFNetworkService.Initialized)
             {
-                UI.Notify(string.Format("~r~Error- ~w~{0}", "Server unavailable."));
+                GTA.UI.Notify(string.Format("~r~Error- ~w~{0}", "Server unavailable."));
                 return;
             }
 

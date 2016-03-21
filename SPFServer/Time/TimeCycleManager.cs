@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Threading;
 
-namespace SPFServer.Weather
+namespace SPFServer
 {
     internal class TimeCycleManager
     {
@@ -36,7 +36,7 @@ namespace SPFServer.Weather
         }
     }
 
-    public class ServerStopwatch
+    internal class ServerStopwatch
     {
         private Stopwatch _stopwatch = null;
         TimeSpan _offsetTimeSpan;
