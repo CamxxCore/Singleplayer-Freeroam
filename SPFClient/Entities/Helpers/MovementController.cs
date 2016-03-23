@@ -86,19 +86,26 @@ namespace SPFClient.Entities
 
             #endregion
 
-            public static readonly Animation Run = new Animation("move_m@generic", "run");
-
-            public static readonly Animation Walk2Run = new Animation("move_m@generic", "walktorun_right");
+            public static readonly Animation Run = new Animation("move_m@multiplayer", "run");
 
             public static readonly Animation RunArmed = new Animation("move_action@p_m_one@armed@core", "run");
 
-            public static readonly Animation Sprint = new Animation("move_m@generic", "sprint");
+            public static readonly Animation Sprint = new Animation("move_m@multiplayer", "sprint");
 
             public static readonly Animation SprintArmed = new Animation("move_action@p_m_one@armed@core", "sprint");
 
-            public static readonly Animation QuickStop1 = new Animation("move_m@generic", "wstop_quick_l_0");
+            public static readonly Animation QuickStop1 = new Animation("move_m@multiplayer", "wstop_quick_l_0");
 
-            public static readonly Animation QuickStop2 = new Animation("move_m@generic", "rstop_quick_l");
+            public static readonly Animation QuickStop2 = new Animation("move_m@multiplayer", "rstop_quick_l");
+
+            public static readonly Animation Run2WalkLeft = new Animation("move_m@multiplayer", "runtowalk_left");
+
+            public static readonly Animation Run2WalkRight = new Animation("move_m@multiplayer", "runtowalk_right");
+
+            public static readonly Animation Walk2RunLeft = new Animation("move_m@multiplayer", "walktorun_left");
+
+            public static readonly Animation Walk2RunRight = new Animation("move_m@multiplayer", "walktorun_right");
+
 
             public static readonly SequenceAnim Jump = new SequenceAnim(
                 new Animation("move_jump", "jump_launch_r"), new Animation("move_jump", "land_stop_l")
@@ -154,28 +161,220 @@ namespace SPFClient.Entities
 
         private bool TransitionActive()
         {
-            return Anims.Walk2Run.IsPlayingOn(ped) || Anims.Roll90Deg.IsPlayingOn(ped);
+            return Anims.Walk2RunLeft.IsPlayingOn(ped) || Anims.Roll90Deg.IsPlayingOn(ped) || Anims.Walk2RunRight.IsPlayingOn(ped);
         }
-
         private void HandleShootAnim()
         {
-            var shootPos = Helpers.SmoothStep(lastAimPos, ped.Position + Helpers.RotationToDirection(pAngles) * 10, 1f);
+            var shootPos = pPosition + Helpers.RotationToDirection(pAngles) * 10;
             lastAimPos = shootPos;
 
-            Function.Call(Hash.TASK_SHOOT_AT_COORD, ped.Handle, 
-                shootPos.X, 
-                shootPos.Y, 
-                shootPos.Z, 
-                1500, 
-                Function.Call<int>(Hash.GET_HASH_KEY, 
+            Function.Call(Hash.SET_PED_SHOOTS_AT_COORD, ped.Handle,
+               shootPos.X,
+               shootPos.Y,
+               shootPos.Z,
+               true);
+
+            Function.Call(Hash.TASK_SHOOT_AT_COORD, ped.Handle,
+                shootPos.X,
+                shootPos.Y,
+                shootPos.Z,
+                -1,
+                Function.Call<int>(Hash.GET_HASH_KEY,
                 "firing_pattern_full_auto"));
         }
 
         private void HandleAimAnim()
         {
-            var aimPos = Helpers.SmoothStep(lastAimPos, pPosition + Helpers.RotationToDirection(pAngles) * 10, 1f);
+            var aimPos = pPosition + Helpers.RotationToDirection(pAngles) * 10;
             Function.Call(Hash.TASK_AIM_GUN_AT_COORD, ped.Handle, aimPos.X, aimPos.Y, aimPos.Z, -1, 0, 0);
             lastAimPos = aimPos;
+        }
+
+        public static Animation GetWeaponAnimation(WeaponHash hash, float pitchToTarget)
+        {
+            var animation = new Animation();
+            if (pitchToTarget < -45)
+            {
+                animation.Name = "fire_low";
+            }
+            else if (pitchToTarget > 30)
+            {
+                animation.Name = "fire_high";
+            }
+            else
+            {
+                animation.Name = "fire_med";
+            }
+
+            animation.Dictionary = "weapons@rifle@hi@";
+            //Heavy
+            if (hash == WeaponHash.GrenadeLauncher)
+            {
+                animation.Dictionary = "weapons@heavy@grenade_launcher";
+            }
+            if (hash == WeaponHash.RPG)
+            {
+                animation.Dictionary = "weapons@heavy@rpg";
+            }
+            if (hash == WeaponHash.Minigun)
+            {
+                animation.Dictionary = "weapons@heavy@minigun";
+            }
+            if (hash == WeaponHash.Firework)
+            {
+                animation.Dictionary = "weapons@heavy@rpg";
+            }
+            if (hash == WeaponHash.Railgun)
+            {
+                animation.Dictionary = "weapons@rifle@lo@pump";
+            }
+
+            //Pistols
+            if (hash == WeaponHash.Pistol)
+            {
+                animation.Dictionary = "weapons@pistol@";
+            }
+            if (hash == WeaponHash.CombatPistol)
+            {
+                animation.Dictionary = "weapons@pistol@";
+            }
+            if (hash == WeaponHash.Pistol50)
+            {
+                animation.Dictionary = "weapons@pistol@pistol_50";
+            }
+            if (hash == WeaponHash.SNSPistol)
+            {
+                animation.Dictionary = "weapons@pistol@";
+            }
+            if (hash == WeaponHash.HeavyPistol)
+            {
+                animation.Dictionary = "weapons@pistol@";
+            }
+            if (hash == WeaponHash.VintagePistol)
+            {
+                animation.Dictionary = "weapons@pistol@";
+            }
+            if (hash == WeaponHash.MarksmanPistol)
+            {
+                animation.Dictionary = "weapons@pistol@";
+            }
+         //   if (hash == WeaponHash.Revolver)
+           // {
+               // animation.Dictionary = "weapons@pistol@";
+           /// }
+            if (hash == WeaponHash.APPistol)
+            {
+                animation.Dictionary = "weapons@pistol@ap_pistol";
+            }
+            if (hash == WeaponHash.StunGun)
+            {
+                animation.Dictionary = "weapons@pistol@";
+            }
+
+            //SMG
+            if (hash == WeaponHash.MicroSMG)
+            {
+                animation.Dictionary = "weapons@submg@micro_smg";
+            }
+          //  if (hash == WeaponHash.MachinePistol)
+           // {
+           //     animation.Dictionary = "weapons@rifle@lo@smg";
+           // }
+            if (hash == WeaponHash.SMG)
+            {
+                animation.Dictionary = "weapons@rifle@lo@smg";
+            }
+            if (hash == WeaponHash.AssaultSMG)
+            {
+                animation.Dictionary = "weapons@submg@assault_smg";
+            }
+            if (hash == WeaponHash.CombatPDW)
+            {
+                animation.Dictionary = "weapons@rifle@lo@smg";
+            }
+            if (hash == WeaponHash.MG)
+            {
+                animation.Dictionary = "weapons@submg@";
+            }
+            if (hash == WeaponHash.CombatMG)
+            {
+                animation.Dictionary = "weapons@submg@";
+            }
+            if (hash == WeaponHash.Gusenberg)
+            {
+                animation.Dictionary = "weapons@rifle@lo@smg";
+            }
+
+            //Shotguns
+            if (hash == WeaponHash.PumpShotgun)
+            {
+                animation.Dictionary = "weapons@rifle@lo@pump";
+            }
+            if (hash == WeaponHash.SawnOffShotgun)
+            {
+                animation.Dictionary = "weapons@rifle@lo@pump";
+            }
+            if (hash == WeaponHash.BullpupShotgun)
+            {
+                animation.Dictionary = "weapons@rifle@lo@shotgun_bullpup";
+            }
+            if (hash == WeaponHash.AssaultShotgun)
+            {
+                animation.Dictionary = "weapons@rifle@lo@shotgun_assault";
+            }
+            if (hash == WeaponHash.Musket)
+            {
+                animation.Dictionary = "weapons@rifle@lo@pump";
+            }
+            if (hash == WeaponHash.HeavyShotgun)
+            {
+                animation.Dictionary = "weapons@rifle@lo@pump";
+            }
+
+            //Rifles
+            if (hash == WeaponHash.AssaultRifle)
+            {
+                animation.Dictionary = "weapons@rifle@hi@";
+            }
+            if (hash == WeaponHash.CarbineRifle)
+            {
+                animation.Dictionary = "weapons@rifle@lo@";
+            }
+            if (hash == WeaponHash.AdvancedRifle)
+            {
+                animation.Dictionary = "weapons@rifle@hi@";
+            }
+            if (hash == WeaponHash.SpecialCarbine)
+            {
+                animation.Dictionary = "weapons@rifle@lo@";
+            }
+            if (hash == WeaponHash.BullpupRifle)
+            {
+                animation.Dictionary = "weapons@rifle@hi@";
+            }
+
+            //Sniper
+            if (hash == WeaponHash.SniperRifle)
+            {
+                animation.Dictionary = "weapons@rifle@hi@sniper_rifle";
+            }
+            if (hash == WeaponHash.HeavySniper)
+            {
+                animation.Dictionary = "weapons@rifle@lo@sniper_heavy";
+            }
+            if (hash == WeaponHash.MarksmanRifle)
+            {
+                animation.Dictionary = "weapons@rifle@hi@sniper_rifle";
+            }
+
+            return animation;
+        }
+
+        public void PlayShootingAnimation(float pitchToTarget)
+        {
+            var animation = GetWeaponAnimation(Game.Player.Character.Weapons.Current.Hash, pitchToTarget);
+
+            PlayAnimation(animation, 48);
         }
 
         public void StopAllAnimations()
@@ -218,7 +417,7 @@ namespace SPFClient.Entities
 
 
             #region ragdoll
-            if (FlagIsSet(ClientFlags.Ragdoll))
+            if (CurrentFlagIsSet(ClientFlags.Ragdoll))
             {
                 ragdoll = true;
                 ped.CanRagdoll = true;
@@ -233,7 +432,7 @@ namespace SPFClient.Entities
             if (jumpWaiter.Ticks > 0 && jumpWaiter > DateTime.Now)
                 return;
 
-            if (FlagIsSet(ClientFlags.Jumping) && !Function.Call<bool>(Hash.IS_PED_JUMPING, ped.Handle))
+            if (CurrentFlagIsSet(ClientFlags.Jumping) && !Function.Call<bool>(Hash.IS_PED_JUMPING, ped.Handle))
             {
                 Function.Call(Hash.TASK_JUMP, ped.Handle, false);
                 jumpWaiter = DateTime.Now + TimeSpan.FromMilliseconds(900);
@@ -242,7 +441,7 @@ namespace SPFClient.Entities
             #endregion
 
             #region diving
-            if (FlagIsSet(ClientFlags.Diving))
+            if (CurrentFlagIsSet(ClientFlags.Diving))
             {
                 if (!Anims.SkydiveJump.IsPlayingOn(ped))
                 {
@@ -316,9 +515,17 @@ namespace SPFClient.Entities
                 }
             }
 
-            if (FlagIsSet(ClientFlags.Shooting)) HandleShootAnim();
+            if (CurrentFlagIsSet(ClientFlags.Shooting))
+            {
+                /*   var shootPos = pPosition + Helpers.RotationToDirection(pAngles) * 10;
+                   var dir = shootPos - Game.Player.Character.GetBoneCoord(Bone.SKEL_R_Hand);
+                   var pitchToTarget = Helpers.DirectionToRotation(dir).X;
+                   PlayShootingAnimation(pitchToTarget);*/
+                HandleShootAnim();
+            }
+               
 
-            else if (FlagIsSet(ClientFlags.Aiming)) HandleAimAnim();
+            else if (CurrentFlagIsSet(ClientFlags.Aiming)) HandleAimAnim();
 
             /*      #region stealth
 
@@ -561,35 +768,41 @@ namespace SPFClient.Entities
 
         public Animation AnimationFromFlags(ClientFlags flags)
         {
-            if (FlagIsSet(ClientFlags.Stopped))
+            if (flags.HasFlag(ClientFlags.Stopped))
             {
-                if (FlagIsSet(ClientFlags.Punch))
+                if (flags.HasFlag(ClientFlags.Punch))
                     return Anims.PunchIdle;
                 else
                     return new Animation("move_m@generic", "idle");
             }
-            if (FlagIsSet(ClientFlags.Walking))
+            if (flags.HasFlag(ClientFlags.Walking))
             {
-                if (FlagIsSet(ClientFlags.Punch))
+                if (flags.HasFlag(ClientFlags.Punch))
                     return Anims.PunchWalkingNoTarget;
                 else
                     return new Animation("move_m@generic", "walk");
             }
-            if (FlagIsSet(ClientFlags.Running))
+            if (flags.HasFlag(ClientFlags.Running))
             {
-                if (FlagIsSet(ClientFlags.Punch))
+
+               // UI.UIManager.UISubtitleProxy("run");
+                if (flags.HasFlag(ClientFlags.Punch))
                     return Anims.PunchRunning;
                 else
                 {
-                    if (mFlags.HasFlag(ClientFlags.Walking))
-                        return Anims.Walk2Run;
+                    if (CurrentFlagIsSet(ClientFlags.Walking))
+                    {
+                        var vel = ped.Velocity;
+                        UI.UIManager.UISubtitleProxy(vel.X < 0 ? "l" : "r");
+                        return vel.X < 0 ? Anims.Walk2RunLeft : Anims.Walk2RunRight;
+                    }
                     else
-                    return new Animation("move_m@generic", "run");
+                        return new Animation("move_m@generic", "run");
                 }
             }
-            if (FlagIsSet(ClientFlags.Sprinting))
+            if (flags.HasFlag(ClientFlags.Sprinting))
             {
-                if (FlagIsSet(ClientFlags.Punch))
+                if (flags.HasFlag(ClientFlags.Punch))
                     return Anims.PunchRunning;
                 else
                     return new Animation("move_m@generic", "sprint");
@@ -598,7 +811,7 @@ namespace SPFClient.Entities
             else return null;
         }
 
-        public bool FlagIsSet(ClientFlags flag)
+        public bool CurrentFlagIsSet(ClientFlags flag)
         {
             return (mFlags & flag) != 0;
         }

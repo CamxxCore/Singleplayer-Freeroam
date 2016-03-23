@@ -24,11 +24,11 @@ namespace SPFClient.Entities
 
         public event NetworkVehicleEventHandler OnSendUpdate;
 
-        private EntitySnapshot[] moveBuffer = new EntitySnapshot[20];
+        private VehicleSnapshot[] moveBuffer = new VehicleSnapshot[20];
 
-        private static ExtrapolationManager extrapolator = new ExtrapolationManager();
+        private static VehicleExtrapolator extrapolator = new VehicleExtrapolator();
 
-        public int LastUpdateTime { get; private set; }
+        public DateTime LastUpdateTime { get; private set; }
 
         private VehicleState lastReceivedState;
 
@@ -96,6 +96,8 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_VEHICLE_FRICTION_OVERRIDE, vehicle.Handle, 0.0f);
 
+            Function.Call(Hash._0xB5C51B5502E85E83, vehicle.Handle, 0, 0);
+
             return vehicle;
         }
 
@@ -113,7 +115,7 @@ namespace SPFClient.Entities
             for (int i = moveBuffer.Length - 1; i > 0; i--)
                 moveBuffer[i] = moveBuffer[i - 1];
 
-            moveBuffer[0] = new EntitySnapshot(position, vel, rotation, svTime);
+            moveBuffer[0] = new VehicleSnapshot(position, vel, rotation, state.CurrentGear, state.WheelRotation, svTime);
             snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
 
             if ((state.Flags & VehicleFlags.DoorsLocked) != (lastReceivedState?.Flags & VehicleFlags.DoorsLocked))
@@ -121,9 +123,15 @@ namespace SPFClient.Entities
                 Function.Call(Hash.SET_VEHICLE_DOORS_LOCKED_FOR_PLAYER, Handle, Game.Player.Handle, state.Flags.HasFlag(VehicleFlags.DoorsLocked));
             }
 
+            if ((state.Flags & VehicleFlags.Exploded) != 0)
+            {
+                Function.Call(Hash.EXPLODE_VEHICLE, Handle, true, true);
+
+            }
+
         //    if (lastReceivedState.PrimaryColor != state.PrimaryColor ||
-          //      lastReceivedState.SecondaryColor != state.SecondaryColor)
-                Function.Call(Hash.SET_VEHICLE_COLOURS, Handle, state.PrimaryColor, state.SecondaryColor);
+        //      lastReceivedState.SecondaryColor != state.SecondaryColor)
+            Function.Call(Hash.SET_VEHICLE_COLOURS, Handle, state.PrimaryColor, state.SecondaryColor);
 
             if ((state.Flags & VehicleFlags.HornPressed) != 0)
             {
@@ -145,7 +153,7 @@ namespace SPFClient.Entities
 
             lastReceivedState = state;
 
-            LastUpdateTime = Game.GameTime;
+            LastUpdateTime = SPFLib.NetworkTime.Now;
 
             OnUpdateRecieved?.Invoke(this, state);
         }
@@ -183,34 +191,43 @@ namespace SPFClient.Entities
                 MemoryAccess.SetWheelRotation(wheelsPtr, i, value);
         }
 
+        public byte GetCurrentGear()
+        {
+            return (byte)MemoryAccess.ReadInt16(vAddress + Offsets.CVehicle.CurrentGear);
+        }
+
+        public void SetCurrentGear(byte gear)
+        {          
+            MemoryAccess.WriteInt16(vAddress + Offsets.CVehicle.CurrentGear, (short)gear);
+        }
+
         public void SetSteering(float value)
         {
-            if (!Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, Model.Hash)) return;
-                MemoryAccess.WriteSingle(vAddress + Offsets.CVehicle.Steering, value);
+            Function.Call(Hash.SET_VEHICLE_STEER_BIAS, Handle, value);
+            //if (!Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, Model.Hash)) return;
+             //   MemoryAccess.WriteSingle(vAddress + Offsets.CVehicle.Steering, value);
         }
 
         public void SetCurrentRPM(float value)
         {
-            var offset = (ushort)((int)Game.Version > 3 ? 0x7D4 : 0x7C4);
-            MemoryAccess.WriteSingle(vAddress + offset, value);
+            MemoryAccess.WriteSingle(vAddress + Offsets.CVehicle.RPM, value);
         }
-
 
         public override void Update()
         {
-            var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 1f);
+            var snapshot = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.882f, SPFLib.NetworkTime.Now.Subtract(LastUpdateTime) > TimeSpan.FromMilliseconds(VehicleExtrapolator.InterpDelay));
 
-            if (entityPosition != null)
+            if (snapshot != null)
             {
-                PositionNoOffset = entityPosition.Position;
-                Quaternion = entityPosition.Rotation;
+                PositionNoOffset = snapshot.Position;
+                Quaternion = snapshot.Rotation;
+                SetWheelRotation(snapshot.WheelRotation);
+                SetCurrentGear(snapshot.CurrentGear);       
             }
 
             SetCurrentRPM(lastReceivedState.CurrentRPM);
 
-            SetWheelRotation(lastReceivedState.WheelRotation);
-
-            //SetSteering(lastReceivedState.Steering);
+            SetSteering(lastReceivedState.Steering);
 
             //IS_VEHICLE_ENGINE_ON
             if (!Function.Call<bool>((Hash)0xAE31E7DF9B5B132E, Handle))

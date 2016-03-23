@@ -5,7 +5,6 @@
     /// </summary>
     public enum CommandType
     {
-        Login = 1,
-        Logout = 2
+        Logout = 1
     }
 }

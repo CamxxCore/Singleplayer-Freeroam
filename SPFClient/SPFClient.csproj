@@ -63,22 +63,23 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Entities\Event Args\EntityChangedEventArgs.cs" />
-    <Compile Include="Entities\Helpers\BicycleAnimController.cs" />
-    <Compile Include="Entities\Helpers\ExtrapolationManager.cs" />
     <Compile Include="Entities\GameEntity.cs" />
+    <Compile Include="Entities\Helpers\BicycleController.cs" />
+    <Compile Include="Entities\Helpers\EntityExtrapolator.cs" />
     <Compile Include="Entities\Helpers\Flares\IRFlare.cs" />
     <Compile Include="Entities\Helpers\Flares\IRFlaresManager.cs" />
     <Compile Include="Entities\Helpers\MovementController.cs" />
     <Compile Include="Entities\Helpers\SequenceAnim.cs" />
+    <Compile Include="Entities\Helpers\VehicleExtrapolator.cs" />
     <Compile Include="Entities\LocalPlayer.cs" />
-    <Compile Include="Entities\Vehicles\NetBicycle.cs" />
-    <Compile Include="Entities\Vehicles\NetCar.cs" />
+    <Compile Include="Entities\Vehicles\NetworkBicycle.cs" />
+    <Compile Include="Entities\Vehicles\NetworkCar.cs" />
     <Compile Include="Entities\NetworkPlayer.cs" />
     <Compile Include="Entities\NetworkVehicle.cs" />
-    <Compile Include="Entities\Vehicles\NetHeli.cs" />
-    <Compile Include="Entities\Vehicles\NetPlane.cs" />
-    <Compile Include="LoopedPTFX.cs" />
-    <Compile Include="Network\Utils\NativeHandler.cs" />
+    <Compile Include="Entities\Vehicles\NetworkHeli.cs" />
+    <Compile Include="Entities\Vehicles\NetworkPlane.cs" />
+    <Compile Include="Entities\Helpers\Flares\LoopedPTFX.cs" />
+    <Compile Include="Network\Helpers\NativeHandler.cs" />
     <Compile Include="Offsets.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="Menus\MainMenu.cs" />
@@ -103,6 +104,7 @@
     <Compile Include="Types\GameClient.cs" />
     <Compile Include="Types\LGearState.cs" />
     <Compile Include="Types\PlaneFlags.cs" />
+    <Compile Include="Types\VehicleSnapshot.cs" />
     <Compile Include="UI\Event Args\UIRankBarEventArgs.cs" />
     <Compile Include="UI\UIBox.cs" />
     <Compile Include="UI\UIChat.cs" />
@@ -125,7 +127,9 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>copy "$(TargetPath)" "C:\Program Files\Rockstar Games\Grand Theft Auto V\scripts\$(ProjectName).dll"
-copy "$(TargetPath)" "\\DESKTOP-V59S3MM\Rockstar Games\scripts\$(ProjectName).dll"</PostBuildEvent>
+copy "$(TargetPath)" "\\DESKTOP-V59S3MM\Rockstar Games\scripts\$(ProjectName).dll"
+copy "C:\Users\Cameron\Documents\Visual Studio 2015\Projects\VNet\Singleplayer-Freeroam\SPFServer\bin\x64\Release\SPFLib.dll" "C:\Program Files\Rockstar Games\Grand Theft Auto V\scripts\SPFLib.dll"
+copy "C:\Users\Cameron\Documents\Visual Studio 2015\Projects\VNet\Singleplayer-Freeroam\SPFServer\bin\x64\Release\SPFLib.dll" "\\DESKTOP-V59S3MM\Rockstar Games\scripts\SPFLib.dll"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

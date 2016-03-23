@@ -25,6 +25,14 @@ namespace SPFClient.Network
 
     public class SessionClient : IDisposable
     {
+        public IPEndPoint ServerEndpoint
+        {
+            get
+            {
+                return serverEP;
+            }
+        }
+
         private IPEndPoint serverEP;
         private NetClient client;
 
@@ -55,14 +63,13 @@ namespace SPFClient.Network
             client = new NetClient(Config);
         }
 
-        public void Login(int uid, string name)
-        {
-            SessionCommand req = new SessionCommand();
+        public void Login(int uid, string username)
+        {          
+            LoginRequest req = new LoginRequest();
             req.UID = uid;
-            req.Name = name;
-            req.Command = CommandType.Login;
+            req.Username = username;
             var msg = client.CreateMessage();
-            msg.Write((byte)NetMessage.SessionCommand);
+            msg.Write((byte)NetMessage.LoginRequest);
             msg.Write(req);
             client.Connect(serverEP, msg);
         }
@@ -96,7 +103,7 @@ namespace SPFClient.Network
             client.SendMessage(msg, NetDeliveryMethod.ReliableSequenced);
         }
 
-        public bool StartListening()
+        public bool Inititate()
         {
             try
             {
@@ -129,23 +136,15 @@ namespace SPFClient.Network
         }
 
         /// <summary>
-        /// Process and handle any data received from the client.
+        /// Process and handle any data received from the server.
         /// </summary>
         /// <param name="ar"></param>
         public void OnReceive()
         {
             while ((message = client.ReadMessage()) != null)
             {
-                switch (message.MessageType)
-                {
-                    case NetIncomingMessageType.Data:
-                        HandleIncomingDataMessage(message);
-                        break;
-
-                    case NetIncomingMessageType.StatusChanged:
-                        SPFClient.UI.UIManager.UISubtitleProxy("status " + message.SenderConnection.Status.ToString());
-                        break;
-                }
+                if (message.MessageType == NetIncomingMessageType.Data)
+                    HandleIncomingDataMessage(message);
             }
         }
 

@@ -25,6 +25,7 @@ namespace SPFClient
         {
             public static readonly ushort WheelsPtr = (ushort)((int)Game.Version > 3 ? 2720 : 2688);
             public static readonly ushort RPM = (ushort)((int)Game.Version > 3 ? 2004 : 1988);
+            public static readonly ushort CurrentGear = (ushort)((int)Game.Version > 3 ? 0x7A2 : 0x792);
             public static readonly ushort Steering = 2212;
             public static readonly ushort LightDamage = 0x77C;
         }

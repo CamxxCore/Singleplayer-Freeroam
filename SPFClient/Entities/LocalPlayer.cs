@@ -14,28 +14,19 @@ namespace SPFClient.Entities
 {
     public sealed class LocalPlayer
     {
-       // public ClientState[] HistoryBuffer {  get { return historyBuffer; } }
+        public NetworkVehicle Vehicle { get; private set; }
 
-      // private int statesCount = 0;
-
-     //   private ClientState[] historyBuffer = new ClientState[32];
+        public readonly int ID = Helpers.GetUserID();
 
         public ClientFlags ClientFlags { get { return clientFlags; } }
 
-        public NetworkVehicle Vehicle { get; private set; }
-
-        internal readonly int ID = Helpers.GetUserID();
-
         private ClientFlags clientFlags;
 
-        private float weaponDamage = 0.0f;
-
-        private uint sentPacketCount;
-
-        public uint SentPacketCount {  get { return sentPacketCount; } }
+       // public uint SentPacketSequence { get; private set; }
 
         private int localPedHash, localWeaponHash, localVehicleHash;
         private short localPedID, localWeaponID, localVehicleID;
+        private float localWeaponDamage = 0.0f;
 
         public Ped Ped
         {
@@ -52,7 +43,7 @@ namespace SPFClient.Entities
 
         internal void Setup()
         {
-            weaponDamage = GetCurrentWeaponDamage();
+            localWeaponDamage = GetCurrentWeaponDamage();
 
             Function.Call((Hash)0x2C2B3493FBF51C71, true);
 
@@ -69,34 +60,6 @@ namespace SPFClient.Entities
             Function.Call(Hash.SET_PED_CONFIG_FLAG, Ped.Handle, 115, 1);
         }
 
-        internal NetworkVehicle NetVehicleFromGameVehicle(Vehicle vehicle)
-        {
-            var uid = SPFLib.Helpers.GenerateUniqueID();
-            var hash = Ped.CurrentVehicle.Model.Hash;
-
-            if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, hash))
-            {
-                return new NetCar(Ped.CurrentVehicle, uid);
-            }
-
-            else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_HELI, hash))
-            {
-                return new NetHeli(Ped.CurrentVehicle, uid);
-            }
-
-            else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_PLANE, hash))
-            {
-                return new NetPlane(Ped.CurrentVehicle, uid);
-            }
-
-            else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, hash))
-            {
-                return new NetBicycle(Ped.CurrentVehicle, uid);
-            }
-
-            else return new NetworkVehicle(Ped.CurrentVehicle, uid);
-        }
-
         private void UpdateWeaponDamage()
         {
             // get range of the current weapon
@@ -110,7 +73,7 @@ namespace SPFClient.Entities
             {
                 var hitCoords = result.HitEntity.Position.Serialize();
                 var dmg = (short)GetCurrentWeaponDamage();
-                NetworkSession.Client.SendWeaponData(20, hitCoords);
+                NetworkSession.Current.SendWeaponData(20, hitCoords);
             }
         }
 
@@ -150,7 +113,7 @@ namespace SPFClient.Entities
             {
                 localWeaponHash = (int)Ped.Weapons.Current.Hash;
                 localWeaponID = Helpers.WeaponHashtoID((WeaponHash)localWeaponHash);
-                weaponDamage = GetCurrentWeaponDamage();
+                localWeaponDamage = GetCurrentWeaponDamage();
             }
             return localWeaponID;
         }
@@ -180,17 +143,12 @@ namespace SPFClient.Entities
             return Convert.ToByte(Function.Call<int>(Hash.GET_PLAYER_RADIO_STATION_INDEX));
         }
 
-        /*  public IEnumerable<ClientState> GetHistoryBuffer()
-          {
-              for (int i = 0; i < statesCount; i++)
-                  yield return historyBuffer[i];
-          }*/
-
         public ClientState GetClientState()
         {
             var clientState = new ClientState();
 
-            // dont serialize this information unless we have to
+        //    clientState.Sequence = SentPacketSequence;
+
             if (!Ped.IsInVehicle())
             {
                 clientState.Position = Ped.Position.Serialize();
@@ -204,21 +162,10 @@ namespace SPFClient.Entities
                 clientState.PedID = GetPedID();
             }
 
-            else
+            else if (Vehicle != null)
             {
                 if ((int)Ped.CurrentVehicleSeat() == -1)
-                {
-                    // if the local player is in a vehicle that doesn't exist in the active list...
-                    if ((Vehicle == null || Ped.CurrentVehicle.Handle != Vehicle.Handle))
-                    {
-                        Vehicle = NetworkManager.VehicleFromLocalHandle(Ped.CurrentVehicle.Handle);
-
-                        if (Vehicle == null)
-                        {
-                            Vehicle = NetVehicleFromGameVehicle(Ped.CurrentVehicle);
-                        }
-                    }
-
+                {                 
                     var v = new Vehicle(Vehicle.Handle);
 
                     clientState.VehicleState = new VehicleState(Vehicle.ID,
@@ -226,6 +173,7 @@ namespace SPFClient.Entities
                         Vehicle.Velocity.Serialize(),
                         Vehicle.Quaternion.Serialize(),
                         v.CurrentRPM,
+                        Vehicle.GetCurrentGear(),
                         Vehicle.GetWheelRotation(),
                         v.Steering,
                         0, Convert.ToInt16(v.Health),
@@ -241,7 +189,7 @@ namespace SPFClient.Entities
                     if (v.Health <= 0)
                         clientState.VehicleState.Flags |= VehicleFlags.Exploded;
 
-                    if (Vehicle is NetCar)
+                    if (Vehicle is NetworkCar)
                     {
                         if (v.LeftHeadLightBroken)
                             clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.LHeadlight;
@@ -265,7 +213,7 @@ namespace SPFClient.Entities
                             clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.Hood;
                     }
 
-                    else if (Vehicle is NetPlane)
+                    else if (Vehicle is NetworkPlane)
                     {
                         if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehicleFlyUnderCarriage))
                         {
@@ -295,7 +243,7 @@ namespace SPFClient.Entities
                         }
                     }
 
-                    else if (Vehicle is NetBicycle)
+                    else if (Vehicle is NetworkBicycle)
                     {
                         if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehiclePushbikePedal))
                         {
@@ -311,7 +259,6 @@ namespace SPFClient.Entities
                             else clientState.VehicleState.ExtraFlags = (ushort)BicycleState.Cruising;
                         }
                     }
-
                 }
 
                 else
@@ -326,21 +273,14 @@ namespace SPFClient.Entities
 
                 clientState.InVehicle = true;
 
-                //   state.Health = Convert.ToInt16(localPlayer.Ped.Health);
                 clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
 
                 clientState.PedID = GetPedID();
                 clientState.WeaponID = GetWeaponID();
             }
 
-            //  for (int i = historyBuffer.Length - 1; i > 0; i--)
-            //      historyBuffer[i] = historyBuffer[i - 1];
-
-            //  historyBuffer[0] = clientState;
-            //  statesCount = Math.Min(statesCount + 1, historyBuffer.Length);
-
-            sentPacketCount++;
-            sentPacketCount %= int.MaxValue;
+        //    SentPacketSequence++;
+          //  SentPacketSequence %= int.MaxValue;
 
             ResetClientFlags();
 
@@ -425,7 +365,23 @@ namespace SPFClient.Entities
             if (Ped.IsShooting)
                 UpdateWeaponDamage();
 
-            if (Vehicle != null && Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, Vehicle.Handle, -1) != Ped.Handle)
+            if (Ped.IsInVehicle())
+            {
+                if ((Vehicle == null || Ped.CurrentVehicle.Handle != Vehicle.Handle))
+                {
+                    Vehicle = NetworkManager.VehicleFromLocalHandle(Ped.CurrentVehicle.Handle);
+
+                    if (Vehicle == null)
+                    {
+                        Vehicle = Helpers.GameVehicleToNetworkVehicle(Ped.CurrentVehicle);
+                    }
+                }
+            }
+
+            // Another player is driving our vehicle, so we need it to move based on updates sent by the player.
+            if (Vehicle != null &&
+                Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, Vehicle.Handle, -1) != Ped.Handle &&
+                Vehicle.Exists())
                 Vehicle.Update();
 
             if (Game.IsControlJustPressed(0, Control.VehicleExit))
@@ -455,7 +411,7 @@ namespace SPFClient.Entities
                 }
             }
 
-            UpdateUserCommands();                    
+            UpdateUserCommands();
         }
     }
 }

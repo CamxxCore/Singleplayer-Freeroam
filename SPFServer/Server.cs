@@ -4,6 +4,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.IO;
 using Assembly = System.Reflection.Assembly;
+using System.Threading;
 
 namespace SPFServer
 {
@@ -19,6 +20,8 @@ namespace SPFServer
 
         static void Main(string[] args)
         {
+            SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
+
             Console.WriteLine("Singleplayer Freeroam Server | BETA Build # " +
                 Assembly.GetExecutingAssembly().GetName().Version.ToString() + 
                 Environment.NewLine);

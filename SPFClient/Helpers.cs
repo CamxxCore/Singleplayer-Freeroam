@@ -3,6 +3,7 @@ using SPFClient.Types;
 using System.Drawing;
 using SPFLib.Enums;
 using SPFLib.Types;
+using SPFClient.Entities;
 using Lidgren.Network;
 using Serializer = SPFLib.Serializer;
 using Vector3 = SPFLib.Types.Vector3;
@@ -14,6 +15,34 @@ namespace SPFClient
 {
     public static class Helpers
     {
+        public static NetworkVehicle GameVehicleToNetworkVehicle(Vehicle vehicle)
+        {
+            var uid = SPFLib.Helpers.GenerateUniqueID();
+            var hash = vehicle.Model.Hash;
+
+            if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, hash))
+            {
+                return new NetworkCar(vehicle, uid);
+            }
+
+            else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_HELI, hash))
+            {
+                return new NetworkHeli(vehicle, uid);
+            }
+
+            else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_PLANE, hash))
+            {
+                return new NetworkPlane(vehicle, uid);
+            }
+
+            else if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, hash))
+            {
+                return new NetworkBicycle(vehicle, uid);
+            }
+
+            else return new NetworkVehicle(vehicle, uid);
+        }
+
         /// <summary>
         /// Returns true if this is a melee weapon or throwable.
         /// </summary>
@@ -384,6 +413,28 @@ namespace SPFClient
 
             return vector;
         }
+
+        public static Vector3 DirectionToRotation(GTA.Math.Vector3 direction)
+        {
+            direction.Normalize();
+
+            var x = Math.Atan2(direction.Z, Math.Sqrt(direction.Y * direction.Y + direction.X * direction.X));
+            var y = 0;
+            var z = -Math.Atan2(direction.X, direction.Y);
+
+            return new Vector3
+            {
+                X = (float)RadToDeg(x),
+                Y = (float)RadToDeg(y),
+                Z = (float)RadToDeg(z)
+            };
+        }
+
+        public static double RadToDeg(double rad)
+        {
+            return rad * 180.0 / Math.PI;
+        }
+
 
         public static void ToAngleAxis(this GTA.Math.Quaternion q, out float angle, out GTA.Math.Vector3 vec)
         {

@@ -64,13 +64,37 @@ namespace SPFLib
             else throw new ArgumentException("t: Not a known type.");
         }
 
+        public static LoginRequest ReadLoginRequest(this NetIncomingMessage message)
+        {
+            var req = new LoginRequest();
+            req.UID = message.ReadInt32();
+            req.Username = message.ReadString();
+            return req;
+        }
+
+        public static void Write(this NetOutgoingMessage message, LoginRequest req)
+        {
+            message.Write(req.UID);
+            message.Write(req.Username);
+        }
+
         public static SessionState ReadSessionState(this NetIncomingMessage message)
         {
             var state = new SessionState();
+            state.Sequence = message.ReadUInt32();
             state.Timestamp = new DateTime(message.ReadInt64());
             var clientCount = message.ReadInt32();
             state.Clients = GetClientStates(message, clientCount).ToArray();
             return state;
+        }
+
+        public static void Write(this NetOutgoingMessage message, SessionState state)
+        {
+            message.Write(state.Sequence);
+            message.Write(state.Timestamp.Ticks);
+            message.Write(state.Clients.Length);
+            foreach (var client in state.Clients)
+                message.Write(client);
         }
 
         private static IEnumerable<ClientState> GetClientStates(this NetIncomingMessage message, int clientCount)
@@ -78,15 +102,6 @@ namespace SPFLib
             ClientState[] clients = new ClientState[clientCount];
             for (int i = 0; i < clientCount; i++)
                 yield return message.ReadClientState();
-        }
-
-        public static void Write(this NetOutgoingMessage message, SessionState state)
-        {
-            message.Write(state.Timestamp.Ticks);
-            message.Write(state.Clients.Length);
-
-            foreach (var client in state.Clients)
-                message.Write(client);
         }
 
         public static WeaponData ReadWeaponData(this NetIncomingMessage message)
@@ -165,17 +180,25 @@ namespace SPFLib
             var na = new NativeArg();
             na.Type = (DataType)message.ReadByte();
             var valueLen = message.ReadInt32();
-            byte[] bytes = message.ReadBytes(valueLen);
-            na.Value = Serializer.DeserializeObject<object>(bytes);
+            if (valueLen > 0)
+            {
+                byte[] bytes = message.ReadBytes(valueLen);
+                na.Value = Serializer.DeserializeObject<object>(bytes);
+            }
             return na;
         }
 
         public static void Write(this NetOutgoingMessage message, NativeArg na)
         {
-            var bytes = Serializer.SerializeObject(na.Value);
             message.Write((byte)na.Type);
-            message.Write(bytes.Length);
-            message.Write(bytes);
+            if (na.Value != null)
+            {
+                var bytes = Serializer.SerializeObject(na.Value);
+                message.Write(bytes.Length);
+                message.Write(bytes);
+            }
+            else
+                message.Write(0);
         }
 
         public static NativeCallback ReadNativeCallback(this NetIncomingMessage message)
@@ -183,17 +206,25 @@ namespace SPFLib
             var nc = new NativeCallback();
             nc.Type = (DataType)message.ReadByte();
             var valueLen = message.ReadInt32();
-            byte[] bytes = message.ReadBytes(valueLen);
-            nc.Value = Serializer.DeserializeObject<object>(bytes);
+            if (valueLen > 0)
+            {
+                byte[] bytes = message.ReadBytes(valueLen);
+                nc.Value = Serializer.DeserializeObject<object>(bytes);
+            }
             return nc;
         }
 
         public static void Write(this NetOutgoingMessage message, NativeCallback nc)
         {
-            var bytes = Serializer.SerializeObject(nc.Value);
             message.Write((byte)nc.Type);
-            message.Write(bytes.Length);
-            message.Write(bytes);
+            if (nc.Value != null)
+            {
+                var bytes = Serializer.SerializeObject(nc.Value);
+                message.Write(bytes.Length);
+                message.Write(bytes);
+            }
+
+            else message.Write(0);
         }
 
         public static SessionEvent ReadSessionEvent(this NetIncomingMessage message)
@@ -224,73 +255,79 @@ namespace SPFLib
 
         public static ClientState ReadClientState(this NetIncomingMessage message)
         {
-            var state = new ClientState();
-
-            state.InVehicle = message.ReadBoolean();
-            state.PedID = message.ReadInt16();
-            state.WeaponID = message.ReadInt16();
-            state.Health = message.ReadInt16();
-            state.VehicleSeat = (VehicleSeat)message.ReadInt16();
-
-            if (!state.InVehicle)
+            try
             {
-                state.MovementFlags = (ClientFlags)message.ReadInt16();
-                state.ActiveTask = (ActiveTask)message.ReadInt16();
-                state.Position = message.ReadVector3();
-                state.Velocity = message.ReadVector3();
-                state.Angles = message.ReadVector3();
-                state.Rotation = message.ReadQuaternion();
+                var state = new ClientState();
+                state.InVehicle = message.ReadBoolean();
+                state.PedID = message.ReadInt16();
+                state.WeaponID = message.ReadInt16();
+                state.Health = message.ReadInt16();
+
+                if (!state.InVehicle)
+                {
+                    state.MovementFlags = (ClientFlags)message.ReadInt16();
+                    state.ActiveTask = (ActiveTask)message.ReadInt16();
+                    state.Position = message.ReadVector3();
+                    state.Velocity = message.ReadVector3();
+                    state.Angles = message.ReadVector3();
+                    state.Rotation = message.ReadVector3().ToQuaternion();
+                }
+
+                state.ClientID = message.ReadInt32();
+
+                if (state.InVehicle)
+                {
+                    state.VehicleSeat = (VehicleSeat)message.ReadInt16();
+
+                    state.VehicleState = new VehicleState();
+
+                    state.VehicleState.Position = message.ReadVector3();
+
+                    // state.VehicleState.Velocity = message.ReadVector3();
+
+                    state.VehicleState.Rotation = message.ReadQuaternion();
+
+                    state.VehicleState.CurrentRPM = message.ReadInt16().Deserialize();
+
+                    state.VehicleState.CurrentGear = message.ReadByte();
+
+                    state.VehicleState.WheelRotation = message.ReadInt16().Deserialize();
+
+                    state.VehicleState.Steering = message.ReadInt16().Deserialize();
+
+                    state.VehicleState.Health = message.ReadInt16();
+
+                    state.VehicleState.VehicleID = message.ReadInt16();
+
+                    state.VehicleState.PrimaryColor = message.ReadByte();
+
+                    state.VehicleState.SecondaryColor = message.ReadByte();
+
+                    state.VehicleState.RadioStation = message.ReadByte();
+
+                    state.VehicleState.Flags = (VehicleFlags)message.ReadByte();
+
+                    state.VehicleState.ExtraFlags = message.ReadUInt16();
+
+                    state.VehicleState.ID = message.ReadInt32();
+                }
+
+                return state;
             }
 
-            state.ClientID = message.ReadInt32();
-
-            bool nameSent = message.ReadBoolean();
-
-            state.Name = nameSent ? message.ReadString() : null;
-
-            if (state.InVehicle)
+            catch
             {
-                state.VehicleState = new VehicleState();
-                // Console.WriteLine("wrote");
-                state.VehicleState.Position = message.ReadVector3();
-
-                state.VehicleState.Velocity = message.ReadVector3();
-
-                state.VehicleState.Rotation = message.ReadQuaternion();
-
-                state.VehicleState.CurrentRPM = message.ReadInt16().Deserialize();
-
-                state.VehicleState.WheelRotation = message.ReadInt16().Deserialize();
-
-                state.VehicleState.Steering = message.ReadInt16().Deserialize();
-
-                state.VehicleState.Health = message.ReadInt16();
-
-                state.VehicleState.VehicleID = message.ReadInt16();
-
-                state.VehicleState.PrimaryColor = message.ReadByte();
-
-                state.VehicleState.SecondaryColor = message.ReadByte();
-
-                state.VehicleState.RadioStation = message.ReadByte();
-
-                state.VehicleState.Flags = (VehicleFlags)message.ReadInt16();
-
-                state.VehicleState.ExtraFlags = message.ReadUInt16();
-
-                state.VehicleState.ID = message.ReadInt32();
+                return null;
             }
-
-            return state;
         }
 
         public static void Write(this NetOutgoingMessage message, ClientState state)
         {
             message.Write(state.InVehicle);
+
             message.Write(state.PedID);
             message.Write(state.WeaponID);
             message.Write(state.Health);
-            message.Write((short)state.VehicleSeat);
 
             if (!state.InVehicle)
             {
@@ -299,25 +336,24 @@ namespace SPFLib
                 message.Write(state.Position);
                 message.Write(state.Velocity);
                 message.Write(state.Angles);
-                message.Write(state.Rotation);
+                message.Write(state.Rotation.ToVector3());
             }
 
             message.Write(state.ClientID);
 
-            message.Write(state.Name != null);
-
-            if (state.Name != null)
-                message.Write(state.Name);
-
             if (state.InVehicle)
             {
-                //   message.Write(state.VehicleState.Position);
+                message.Write((short)state.VehicleSeat);
+
                 message.Write(state.VehicleState.Position);
 
-                message.Write(state.VehicleState.Velocity);
+              //  message.Write(state.VehicleState.Velocity);
+
                 message.Write(state.VehicleState.Rotation);
 
                 message.Write(state.VehicleState.CurrentRPM.Serialize());
+
+                message.Write(state.VehicleState.CurrentGear);
 
                 message.Write(state.VehicleState.WheelRotation.Serialize());
 
@@ -333,7 +369,7 @@ namespace SPFLib
 
                 message.Write(state.VehicleState.RadioStation);
 
-                message.Write((short)state.VehicleState.Flags);
+                message.Write((byte)state.VehicleState.Flags);
 
                 message.Write(state.VehicleState.ExtraFlags);
 
@@ -357,6 +393,8 @@ namespace SPFLib
             message.Write(q.Y);
             message.Write(q.Z);
             message.Write(q.W);
+
+        //    return new Quaternion(vec.X, vec.Y, vec.Z, (float)Math.Sqrt(Math.Pow(1 - vec.X, 2) - Math.Pow(vec.Y, 2) - Math.Pow(vec.Z, 2)));
         }
 
         public static Vector3 ReadVector3(this NetIncomingMessage message)
@@ -383,6 +421,25 @@ namespace SPFLib
         public static float Deserialize(this short us)
         {
             return (us / 256f);
+        }
+
+        public static bool ValidateSequence(uint s1, uint s2, uint max)
+        {
+            return (s1 > s2) && (s1 - s2 <= max / 2) || (s2 > s1) && (s2 - s1 > max / 2);
+        }
+
+        public static Vector3 ToVector3(this Quaternion q)
+        {
+            q.Normalize();
+            if (q.W < 0)
+                return (new Vector3(-q.X, -q.Y, -q.Z));
+            else
+            return new Vector3(q.X, q.Y, q.Z);
+        }
+
+        public static Quaternion ToQuaternion(this Vector3 vec)
+        {
+            return new Quaternion(vec.X, vec.Y, vec.Z, (float)Math.Sqrt(Math.Pow(1 - vec.X, 2) - Math.Pow(vec.Y, 2) - Math.Pow(vec.Z, 2)));
         }
     }
 }

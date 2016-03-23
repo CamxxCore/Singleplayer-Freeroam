@@ -25,8 +25,11 @@ namespace SPFClient.UI
         private static UIRankBar rankBar = new UIRankBar();
 
 #if debug
-        private static UIText debugText = new UIText(string.Format("SPFClient | Beta Build # {0}", 
-            Assembly.GetExecutingAssembly().GetName().Version.ToString()), 
+        private static UIText debugText = new UIText(string.Format("SPFClient | Beta Build # {0}\nConnected At: {1} Port: {2}", 
+            Assembly.GetExecutingAssembly().GetName().Version.ToString(), 
+            Network.NetworkSession.Current == null ? "N/A" : 
+            Network.NetworkSession.Current.ServerEndpoint.Address.ToString(), 
+            Network.NetworkSession.Current?.ServerEndpoint.Port ),
             new Point((GTA.UI.WIDTH / Game.ScreenResolution.Width) * 1080, 20),
             0.6f,
             Color.White,

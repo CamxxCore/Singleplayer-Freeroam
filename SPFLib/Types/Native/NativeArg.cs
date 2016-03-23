@@ -13,6 +13,12 @@ namespace SPFLib.Types
             Value = value;
         }
 
+        public NativeArg(DataType type)
+        {
+            Type = type;
+            Value = null;
+        }
+
         public NativeArg()
         {
         }

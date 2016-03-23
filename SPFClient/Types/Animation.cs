@@ -5,8 +5,12 @@ namespace SPFClient.Types
 {
     public class Animation
     {
-        public string Dictionary { get; private set; }
-        public string Name { get; private set; }
+        public string Dictionary { get; set; }
+        public string Name { get; set; }
+
+        public Animation()
+        {
+        }
 
         public Animation(string dict, string name)
         {

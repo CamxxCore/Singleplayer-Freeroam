@@ -149,7 +149,7 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Get number of seconds since the application started
 		/// </summary>
-		public static double Now { get { return (double)(Stopwatch.GetTimestamp() - s_timeInitialized) * s_dInvFreq; } }
+		public static double Now { get { return (Stopwatch.GetTimestamp() - s_timeInitialized) * s_dInvFreq; } }
 	}
 }
 #endif

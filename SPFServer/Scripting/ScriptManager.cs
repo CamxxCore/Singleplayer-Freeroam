@@ -24,7 +24,7 @@ namespace SPFServer
 
         public ScriptManager(string scriptDirectory)
         {
-            this.scriptDir = scriptDirectory;
+            scriptDir = scriptDirectory;
             runningScripts = EnumerateScripts(scriptDir);
         }
 
@@ -112,16 +112,13 @@ namespace SPFServer
                     compiler = new VBCodeProvider();
                 }
 
-                else
-                {
-                    continue;
-                }
-
+                else continue;
+              
                 CompilerResults compilerResult = compiler.CompileAssemblyFromFile(compilerOptions, filepath);
 
                 if (!compilerResult.Errors.HasErrors)
                 {
-                    Logger.Log("[DEBUG]" + "Successfully compiled " + System.IO.Path.GetFileName(filepath) + "'.");
+                    Logger.Log("[DEBUG]" + "Successfully compiled " + Path.GetFileName(filepath) + "'.");
                 }
 
                 else
@@ -177,7 +174,9 @@ namespace SPFServer
 
                         if (scrInstance != null)
                         {
-                            scripts.Add(new Tuple<ScriptBase, Thread>(scrInstance, new Thread(() => { while (true) { arEvent.WaitOne(); scrInstance.OnTick(); } })));
+                            scripts.Add(new Tuple<ScriptBase, Thread>(scrInstance, 
+                                new Thread(() => { while (true) { arEvent.WaitOne();
+                                        scrInstance.OnTick(); }})));
                         }
                     }
 

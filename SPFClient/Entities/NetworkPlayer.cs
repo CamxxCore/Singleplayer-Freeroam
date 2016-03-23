@@ -27,19 +27,19 @@ namespace SPFClient.Entities
             get; set;
         }
 
-        private int currentPedHash;
-        private static int currentPedID;
-
         private int lastWeaponID;
         private int snapshotCount;
         private bool frozen = false;
 
+        private int currentPedHash;
+        private static int currentPedID;
+
         private static UIResText playerName;
 
         private static MovementController animationManager;
-        private static BicyleAnimController bicyleController;
+        private static BicyleController bicyleController;
 
-        private ExtrapolationManager extrapolator = new ExtrapolationManager();
+        private EntityExtrapolator extrapolator = new EntityExtrapolator();
         private EntitySnapshot[] moveBuffer = new EntitySnapshot[20];
         private ClientState lastReceivedState;
 
@@ -63,8 +63,6 @@ namespace SPFClient.Entities
             var position = state.InVehicle ? state.VehicleState.Position.Deserialize() : state.Position.Deserialize();
             var rotation = state.InVehicle ? state.VehicleState.Rotation.Deserialize() : state.Rotation.Deserialize();
 
-            // handle the ped
-
             var spawnPos = position + new Vector3(0, 0, -1f);
 
             var ped = new Ped(Function.Call<int>(Hash.CREATE_PED, 26, pedModel.Hash, spawnPos.X, spawnPos.Y, spawnPos.Z, 0f, false, true));
@@ -79,20 +77,24 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 189, 1);
             Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 407, 1);
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 410, 1);
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 411, 1);
+
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 342, 1);
+
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 122, 1);
+
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 134, 1);
+
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 115, 1);
+
 
             Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
 
             Function.Call(Hash._0x26695EC767728D84, ped.Handle, 1);
             Function.Call(Hash._0x26695EC767728D84, ped.Handle, 16);
 
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 410, 1);
-//            Function.Call(Hash.SET_ENTITY_ALPHA, ped.Handle, 255, 0);
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 411, 1);
-
             Function.Call(Hash.SET_PED_MOVE_ANIMS_BLEND_OUT, ped.Handle);
-
-         //   Function.Call((Hash)0xFF300C7649724A0B, Game.Player.Handle, 0);
 
             var dt = DateTime.Now + TimeSpan.FromMilliseconds(250);
 
@@ -104,15 +106,7 @@ namespace SPFClient.Entities
             ped.BlockPermanentEvents = true;
 
             ped.CanRagdoll = false;
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 342, 1);
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 122, 1);
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 134, 1);
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 115, 1);
-
+          
             Function.Call(Hash.SET_PED_CAN_BE_DRAGGED_OUT, ped.Handle, true);
 
             Function.Call((Hash)0x687C0B594907D2E8, ped.Handle);
@@ -129,7 +123,7 @@ namespace SPFClient.Entities
 
             animationManager = new MovementController(ped);
 
-            bicyleController = new BicyleAnimController(ped);
+            bicyleController = new BicyleController(ped);
 
             var blip = ped.AddBlip();
             blip.Color = BlipColor.White;
@@ -152,7 +146,6 @@ namespace SPFClient.Entities
         {
             if (!state.InVehicle)
             {
-                // update client information from the queue.
                 if (lastReceivedState.InVehicle && !state.InVehicle)
                 {
                     Function.Call(Hash.TASK_LEAVE_ANY_VEHICLE, Handle, 0, 0);
@@ -178,7 +171,7 @@ namespace SPFClient.Entities
                 for (int i = moveBuffer.Length - 1; i > 0; i--)
                     moveBuffer[i] = moveBuffer[i - 1];
 
-                moveBuffer[0] = new EntitySnapshot(position, vel, rotation, angles, svTime);
+                moveBuffer[0] = new EntitySnapshot(position, vel, rotation, angles, state.ActiveTask, state.MovementFlags, svTime);
                 snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
 
                 if (state.Health <= 0) Health = -1;
@@ -186,7 +179,6 @@ namespace SPFClient.Entities
                     Health = state.Health;
 
                 animationManager.UpdateAnimationFlags(state.MovementFlags, state.ActiveTask);
-
             }
 
             lastReceivedState = state;
@@ -207,7 +199,7 @@ namespace SPFClient.Entities
 
             else
             {
-                var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.4f);
+                var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 1f);
 
                 if (entityPosition != null)
                 {
@@ -228,6 +220,7 @@ namespace SPFClient.Entities
                         PositionNoOffset = entityPosition.Position;
                         Quaternion = entityPosition.Rotation;
                         Velocity = entityPosition.Velocity;
+                        animationManager.UpdateAnimationFlags(entityPosition.MovementFlags, entityPosition.ActiveTask);
                         animationManager.UpdateLocalAngles(entityPosition.Position, entityPosition.Angles);
                     }
                 }

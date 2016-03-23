@@ -21,34 +21,28 @@ namespace SPFServer
         public ClientInfo Info { get; }      
         public TimeSpan Ping { get; set; }
         public NetConnection Connection { get; set; }
-        public Vector3 Position { get { return ReceivedStates[0].Position; } }
-        public Quaternion Rotation { get { return ReceivedStates[0].Rotation; } }
         public short Health { get; private set; }
-        internal int ReceivedStatesCount;
         internal List<TimeSpan> AvgPing;
         internal TimeSpan TimeDiff;
         internal DateTime LastUpd;
         internal DateTime LastSync;
         internal bool WaitForRespawn;
-        internal ClientState[] ReceivedStates { get; private set; }
+        internal ClientState State { get; private set; }
 
         public GameClient(NetConnection connection, ClientInfo info)
         {
             Connection = connection;
             Info = info;
-            ReceivedStates = new ClientState[100];
-            ReceivedStates[0] = new ClientState();
+            State = new ClientState();
             AvgPing = new List<TimeSpan>();
             Health = 100;
         }
 
         internal void UpdateState(ClientState state, DateTime currentTime)
         {
-            for (int i = ReceivedStates.Length - 1; i > 0; i--)
-                ReceivedStates[i] = ReceivedStates[i - 1];
-            ReceivedStates[0] = state;
-            ReceivedStates[0].ClientID = Info.UID;
-            ReceivedStatesCount = Math.Min(ReceivedStatesCount + 1, ReceivedStates.Length);
+            State = state;
+            State.ClientID = Info.UID;
+            State.Health = Health;
             LastUpd = currentTime;
         }
 
@@ -63,9 +57,9 @@ namespace SPFServer
 
     public sealed class SessionServer
     {
-        public WeatherManager WeatherManager {  get { return weatherMgr; } }
+        public WeatherManager WeatherManager { get { return weatherMgr; } }
 
-        public GameClient[] ActiveClients {  get { return activeClients.ToArray(); } }
+        public GameClient[] ActiveClients { get { return activeClients.ToArray(); } }
 
         private NetServer server;
 
@@ -75,13 +69,9 @@ namespace SPFServer
 
         private ServerVarCollection<int> serverVars;
 
-        private const int SVTickRate = 10; // updates / sec
+        private const int SVTickRate = 12; // updates / sec
         private const int SVPingRate = 10000; // master server ping interval (10 sec)
         private const int MinTimeSamples = 5;
-
-        private const int TimerInterval = 1000 / SVTickRate;
-
-        private readonly int PingInterval = SVPingRate / TimerInterval;
 
         private readonly int SessionID;
 
@@ -93,11 +83,7 @@ namespace SPFServer
 
         private Dictionary<EndPoint, DateTime> stressMitigation = new Dictionary<EndPoint, DateTime>();
 
-        private List<int> pendingCallbacks = new List<int>();
-
-        private List<int> nativeCallbacks = new List<int>();
-
-        private ThreadQueue threadQueue = new ThreadQueue(24);
+        private ThreadQueue threadQueue = new ThreadQueue(42);
 
         private object syncObj = new object();
         private byte[] byteData = new byte[1024];
@@ -106,7 +92,9 @@ namespace SPFServer
 
         private readonly NetPeerConfiguration Config;
 
-        SessionState state = new SessionState();
+        private SessionState state = new SessionState();
+
+        private uint tickCount;
 
         /// <summary>
         /// Ctor
@@ -118,9 +106,13 @@ namespace SPFServer
             Config.EnableMessageType(NetIncomingMessageType.ConnectionApproval);
             Config.Port = 27852;
             server = new NetServer(Config);
-            timeMgr = new TimeCycleManager(igTime);
-            weatherMgr = new WeatherManager(weatherType);
-            weatherMgr.OnServerWeatherChanged += OnServerWeatherChanged;
+            serverVars = new ServerVarCollection<int>(
+                new ServerVar<int>("sv_maxplayers", maxPlayers),
+                new ServerVar<int>("sv_maxping", maxPing),
+                new ServerVar<int>("sv_tickrate", SVTickRate),
+                new ServerVar<int>("sv_pingrate", SVPingRate),
+                new ServerVar<int>("sv_mintimesamples", MinTimeSamples)
+                 );
             commands.Add("status", GetStatus);
             commands.Add("vstatus", GetVehicleStatus);
             commands.Add("forcesync", ForceSync);
@@ -130,13 +122,15 @@ namespace SPFServer
             commands.Add("kick", KickClient);
             commands.Add("getpos", GetPosition);
             commands.Add("getposition", GetPosition);
+            commands.Add("tp", TeleportClient);
+            commands.Add("teleport", TeleportClient);
+            commands.Add("tp2", TeleportToClient);
+            commands.Add("tpto", TeleportToClient);
             commands.Add("help", ShowHelp);
             commands.Add("?", ShowHelp);
-            serverVars = new ServerVarCollection<int>(
-                new ServerVar<int>("sv_maxplayers", maxPlayers),
-                new ServerVar<int>("sv_maxping", maxPing),
-                new ServerVar<int>("sv_tickrate", 10),
-                new ServerVar<int>("sv_mtrpingrate", 10000));
+            timeMgr = new TimeCycleManager(igTime);
+            weatherMgr = new WeatherManager(weatherType);
+            weatherMgr.OnServerWeatherChanged += OnServerWeatherChanged;
         }
 
         public SessionServer(int sessionID) : this(sessionID, 12, 999, DateTime.Now, WeatherType.Clear)
@@ -147,22 +141,18 @@ namespace SPFServer
         /// </summary>
         internal void StartListening()
         {
-            SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
-
             server.Start();
 
             server.RegisterReceivedCallback(new SendOrPostCallback(OnReceive), SynchronizationContext.Current);
 
             Console.WriteLine("[INIT] Listening for clients\n");
 
-            Thread thread = new Thread(() => Main());
-
-            thread.Start();
+            new Thread(() => Main()).Start();
         }
 
         int validStates;
 
-        SessionState[] stateBuffer = new SessionState[20];
+        SessionState[] historyBuffer = new SessionState[20];
 
 #if DEBUG
         Stopwatch sw1 = new Stopwatch();
@@ -176,53 +166,57 @@ namespace SPFServer
         {
             while (true)
             {
+                tickCount += 1;
+                tickCount %= uint.MaxValue;
+
                 Server.ScriptManager?.DoTick();
+
+                state.Sequence = tickCount;
 
                 state.Clients = GetClientStates();
 
-                for (int i = stateBuffer.Length - 1; i > 0; i--)
-                    stateBuffer[i] = stateBuffer[i - 1];
+                for (int i = historyBuffer.Length - 1; i > 0; i--)
+                    historyBuffer[i] = historyBuffer[i - 1];
 
                 var timeNow = NetworkTime.Now;
 
-                stateBuffer[0] = state;
+                historyBuffer[0] = state;
 
-                validStates = Math.Min(validStates + 1, stateBuffer.Length);
+                validStates = Math.Min(validStates + 1, historyBuffer.Length);
 
                 lock (syncObj)
                 {
                     foreach (var client in activeClients)
                     {
-                        if (client.AvgPing.Count < MinTimeSamples && 
-                            NetworkTime.Now - client.LastSync > TimeSpan.FromMilliseconds(100))
-                        {
-                            SendSynchronizationRequest(client.Connection);
-                            client.LastSync = NetworkTime.Now;
-                        }
-
-                        if (client.LastUpd.Ticks <= 0) continue;
-
-                        if ((NetworkTime.Now - client.LastUpd) > TimeSpan.FromMilliseconds(5000))
+                        if (client.LastUpd.Ticks > 0 && (NetworkTime.Now - client.LastUpd) > TimeSpan.FromMilliseconds(1000))
                         {
                             removalList.Add(client);
                             continue;
                         }
 
+                        if (client.AvgPing.Count < MinTimeSamples &&
+                            NetworkTime.Now - client.LastSync > TimeSpan.FromMilliseconds(100))
+                        {
+                            SendSynchronizationRequest(client.Connection);
+                            client.LastSync = NetworkTime.Now;
+                            continue;
+                        }
+
                         state.Timestamp = timeNow.Subtract(client.TimeDiff);
 
-                        if (client.ReceivedStatesCount > 0)
+                        if (client.State != null)
                         {
-                            if (client.ReceivedStates[0].MovementFlags.HasFlag(ClientFlags.Dead) && !client.WaitForRespawn)
+                            if (client.State.MovementFlags.HasFlag(ClientFlags.Dead) && !client.WaitForRespawn)
                             {
                                 client.WaitForRespawn = true;
 
                                 threadQueue.AddTask(() =>
                                 {
                                     Thread.Sleep(8900); //8.7 seconds to allow respawn
-                                    client.SetHealth(100);
+                                        client.SetHealth(100);
                                     client.WaitForRespawn = false;
                                 });
-                            }           
+                            }
                         }
 
                         var message = server.CreateMessage();
@@ -231,7 +225,7 @@ namespace SPFServer
 
                         message.Write(state);
 
-                        server.SendMessage(message, client.Connection, NetDeliveryMethod.UnreliableSequenced);
+                        server.SendMessage(message, client.Connection, NetDeliveryMethod.ReliableSequenced);
                     }
                 }
 
@@ -242,7 +236,10 @@ namespace SPFServer
                     RemoveClient(client);
                 }
 
-                if (NetworkTime.Now > lastMasterUpdate + TimeSpan.FromMilliseconds(PingInterval))
+                removalList.Clear();
+
+                if (NetworkTime.Now > lastMasterUpdate + 
+                    TimeSpan.FromMilliseconds(serverVars.GetVar<int>("sv_mtrpingrate")))
                 {
                     var maxPlayers = serverVars.GetVar<int>("sv_maxplayers");
 
@@ -256,11 +253,6 @@ namespace SPFServer
                     threadQueue.AddTask(() => SendSessionUpdate(sessionInfo));
                     lastMasterUpdate = NetworkTime.Now;
                 }
-
-                removalList.Clear();
-
-                Thread.Sleep(TimerInterval);
-
 #if DEBUG
                     Console.WriteLine(((float)sw1.ElapsedMilliseconds / 1000f).ToString());
 
@@ -268,9 +260,10 @@ namespace SPFServer
                     sw1.Start();
 #endif
 
+                Thread.Sleep(1000 / serverVars.GetVar<int>("sv_tickrate"));
             }
-        }   
-     
+        }
+
         NetIncomingMessage message;
 
         /// <summary>
@@ -283,19 +276,19 @@ namespace SPFServer
 
             switch (message.MessageType)
             {
-                case NetIncomingMessageType.ConnectionApproval:
-                    message.SenderConnection.Approve();
-                    message.ReadByte();
-                    HandleSessionCommand(message.SenderConnection, message.ReadSessionCommand());
-                    break;
                 case NetIncomingMessageType.Data:
                     HandleIncomingDataMessage(message);
                     break;
-
+                case NetIncomingMessageType.ConnectionApproval:
+                    if (message.ReadByte() == (byte)NetMessage.LoginRequest)
+                    {
+                        message.SenderConnection.Approve();
+                        HandleLoginRequest(message.SenderConnection, message.ReadLoginRequest());
+                    }
+                    break;
                 case NetIncomingMessageType.StatusChanged:
                     // Console.WriteLine(message.SenderConnection.ToString() + " status changed. " + (NetConnectionStatus)message.SenderConnection.Status);                         
                     break;
-
                 case NetIncomingMessageType.WarningMessage:
                 case NetIncomingMessageType.ErrorMessage:
                     Console.WriteLine(message.ReadString());
@@ -304,11 +297,12 @@ namespace SPFServer
                     Console.WriteLine("Unhandled type: " + message.MessageType);
                     break;
             }
-
-        }      
+        }
 
         private void HandleIncomingDataMessage(NetIncomingMessage message)
         {
+            if (message.LengthBits <= 0) return;
+
             var dataType = (NetMessage)message.ReadByte();
 
             switch (dataType)
@@ -322,7 +316,7 @@ namespace SPFServer
                 case NetMessage.SessionCommand:
                     threadQueue.AddTask(() => HandleSessionCommand(message.SenderConnection, message.ReadSessionCommand()));
                     break;
-                case NetMessage.SessionSync:                   
+                case NetMessage.SessionSync:
                     threadQueue.AddTask(() => HandleSessionSync(message.SenderConnection, message.ReadSessionSync()));
                     break;
                 case NetMessage.NativeCallback:
@@ -336,22 +330,24 @@ namespace SPFServer
 
         private bool StressMitigationCheck(NetConnection sender, int msInterval)
         {
-            DateTime lastReceived;
+            /*  DateTime lastReceived;
 
-            if (!stressMitigation.TryGetValue(sender.RemoteEndPoint, out lastReceived))
-            {
-                stressMitigation.Add(sender.RemoteEndPoint, NetworkTime.Now);
-                return false;
-            }
+              if (!stressMitigation.TryGetValue(sender.RemoteEndPoint, out lastReceived))
+              {
+                  stressMitigation.Add(sender.RemoteEndPoint, NetworkTime.Now);
+                  return false;
+              }
 
-            else
-            {
-                var value = (NetworkTime.Now - lastReceived < TimeSpan.FromMilliseconds(msInterval));
+              else
+              {
+                  var value = (NetworkTime.Now - lastReceived < TimeSpan.FromMilliseconds(msInterval));
 
-                if (!value) stressMitigation[sender.RemoteEndPoint] = NetworkTime.Now;
+                  if (!value) stressMitigation[sender.RemoteEndPoint] = NetworkTime.Now;
 
-                return value;
-            }
+                  return value;
+              }*/
+
+            return false;
         }
 
         private void OnServerWeatherChanged(WeatherType lastWeather, WeatherType newWeather)
@@ -392,7 +388,7 @@ namespace SPFServer
             msg.Write(req.ServerTime.Ticks);
             msg.Write(req.ClientTime.Ticks);
 
-            server.SendMessage(msg, client, NetDeliveryMethod.Unreliable);
+            server.SendMessage(msg, client, NetDeliveryMethod.ReliableUnordered);
         }
 
         /// <summary>
@@ -406,7 +402,7 @@ namespace SPFServer
             sEvent.SenderID = client.Info.UID;
             sEvent.SenderName = client.Info.Name;
             sEvent.EventType = type;
-      
+
             if (sendToOthers)
             {
                 foreach (var cl in activeClients)
@@ -432,7 +428,7 @@ namespace SPFServer
                     server.SendMessage(msg, cl.Connection, NetDeliveryMethod.ReliableOrdered);
                 }
             }
-        }      
+        }
 
         /// <summary>
         /// Invoke a native on the client with return type void.
@@ -445,7 +441,7 @@ namespace SPFServer
             var msg = server.CreateMessage();
             msg.Write((byte)NetMessage.NativeCall);
             msg.Write(native);
-            server.SendMessage(msg, client.Connection, NetDeliveryMethod.ReliableOrdered);         
+            server.SendMessage(msg, client.Connection, NetDeliveryMethod.ReliableOrdered);
         }
 
         /// <summary>
@@ -461,8 +457,6 @@ namespace SPFServer
             msg.WriteAllProperties(native);
 
             server.SendMessage(msg, client.Connection, NetDeliveryMethod.ReliableOrdered);
-
-            nativeCallbacks.Add(native.NetID);
         }
 
         /// <summary>
@@ -506,9 +500,9 @@ namespace SPFServer
         /// <param name="endpoint"></param>
         /// <param name="client"></param>
         /// <returns></returns>
-        internal bool ClientExists(int clientID)
+        internal bool ClientExists(NetConnection conn)
         {
-            return activeClients.Select(x => x.Info.UID).Contains(clientID);
+            return server.Connections.Contains(conn);
         }
 
         /// <summary>
@@ -540,7 +534,7 @@ namespace SPFServer
         /// <returns></returns>
         internal VehicleState[] GetVehicleStates()
         {
-            return activeClients.Select(x => x.ReceivedStates[0].VehicleState).Where(y => y != null).ToArray();
+            return activeClients.Select(x => x.State.VehicleState).Where(y => y != null).ToArray();
         }
 
         /// <summary>
@@ -549,9 +543,8 @@ namespace SPFServer
         /// <returns></returns>
         private ClientState[] GetClientStates()
         {
-            return activeClients.Select(x => x.ReceivedStates[0]).ToArray();
+            return activeClients.Select(x => x.State).ToArray();
         }
-
 
         #region received msgs
 
@@ -564,8 +557,6 @@ namespace SPFServer
         private void HandleChatMessage(NetConnection sender, SessionMessage message)
         {
             if (StressMitigationCheck(sender, 1500)) return;
-
-         //   SendGenericAck(sender, msg.NetID);
 
             GameClient client;
 
@@ -594,7 +585,7 @@ namespace SPFServer
             else
             {
                 Server.WriteToConsole("Cannot send a message, the sender doesn't exist.");
-            }        
+            }
         }
 
         /// <summary>
@@ -633,27 +624,10 @@ namespace SPFServer
             GameClient client;
 
             switch (cmd.Command)
-            {
-                case CommandType.Login:
-                    if (!GetClient(sender, out client))
-                    {
-                        if (activeClients.Count > serverVars.GetVar<int>("sv_maxplayers")) return;
-
-                        client = new GameClient(sender, new ClientInfo(cmd.UID, cmd.Name));
-
-                        activeClients.Add(client);
-
-                        // notify other clients in the session
-                        RaiseSessionEvent(client, EventType.PlayerLogon);   
-                    }
-                    break;
-
-
+            {          
                 case CommandType.Logout:
                     if (GetClient(sender, out client))
                     {
-                        threadQueue.AddTask(() => Server.WriteToConsole(string.Format("User \"{0}\" left the session.", client.Info.Name)));
-
                         RemoveClient(client);
 
                         RaiseSessionEvent(client, EventType.PlayerLogout);
@@ -661,10 +635,45 @@ namespace SPFServer
                         Server.ScriptManager.DoClientDisconnect(client, NetworkTime.Now);
 
                         threadQueue.AddTask(() => Server.WriteToConsole(string.Format("User \"{0}\" left the session.", cmd.Name, cmd.UID)));
-                    }            
+                    }
                     break;
             }
         }
+
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        private void HandleLoginRequest(NetConnection sender, LoginRequest req)
+        {
+            if (StressMitigationCheck(sender, 5000) ||
+                activeClients.Count > serverVars.GetVar<int>("sv_maxplayers") ||
+                req == null ||
+                req.Username == null ||
+                req.UID == 0)
+                return;
+
+            Console.WriteLine(req.UID + "name: " + req.Username);
+
+            GameClient client;
+
+            if (!ClientExists(sender))
+            {
+                client = new GameClient(sender, new ClientInfo(req.UID, req.Username));
+
+                client.LastUpd = NetworkTime.Now;
+
+                client.LastSync = NetworkTime.Now;
+
+                activeClients.Add(client);
+            }
+
+            else
+            {
+                if (GetClient(sender, out client))
+                {
+                    RemoveClient(client);
+                }
+            }
+        }
+    
 
         /// <summary>
         /// This method handles the time synchronization echo from the client.
@@ -679,6 +688,8 @@ namespace SPFServer
 
             GameClient client;
 
+
+
             if (GetClient(sender, out client))
             {
                 // total time for the roundtrip (server > client > server)
@@ -686,7 +697,7 @@ namespace SPFServer
 
                 // clock offset based on local client time and half the ping time.
                 var timeDiff = (currentTime - req.ClientTime) - TimeSpan.FromMilliseconds(client.Ping.TotalMilliseconds / 2);
-
+                Console.WriteLine("ss " + timeDiff.ToString());
                 if (client.TimeDiff == null)
                 {               
                     client.TimeDiff = timeDiff;
@@ -713,6 +724,11 @@ namespace SPFServer
 
                         RaiseSessionEvent(client, EventType.PlayerSynced, false);
 
+                        RaiseSessionEvent(client, EventType.PlayerLogon);
+
+                        Server.ScriptManager.DoClientConnect(client, NetworkTime.Now);
+                        // notify other clients in the session
+      
                         // setup local world -->
                         InvokeClientNative(client, "SET_WEATHER_TYPE_NOW", new NativeArg(weatherMgr.CurrentWeather.ToString()));
 
@@ -736,15 +752,14 @@ namespace SPFServer
         [MethodImpl(MethodImplOptions.Synchronized)]
         private void HandleBulletImpact(NetConnection sender, WeaponData wh)
         {
-          //  SendGenericAck(sender, wh.NetID);
-
             GameClient killer, target;
             if (GetClient(sender, out killer))
             {
                 var playbackTime = wh.Timestamp.Add(killer.TimeDiff);
 
                 // get the game state from when this bullet was fired.
-                var recentStates = stateBuffer.Where(x => x.Timestamp <= playbackTime).FirstOrDefault();
+                var recentStates = historyBuffer.Where(x => x.Timestamp <= playbackTime).FirstOrDefault();
+
 
                 for (int i = 0; i < recentStates.Clients.Length; i++)
                 {
@@ -766,6 +781,8 @@ namespace SPFServer
                             {
                                 // modify health
                                 target.SetHealth(target.Health - wh.WeaponDamage);
+
+                                Console.WriteLine(target.Health);
                             }
                         }
                     }
@@ -791,11 +808,6 @@ namespace SPFServer
         }
 
         #endregion
-
-        private static bool ValidateSequence(uint s1, uint s2, uint max)
-        {
-            return (s1 > s2) && (s1 - s2 <= max / 2) || (s2 > s1) && (s2 - s1 > max / 2);
-        }
 
         #region command line functions
 
@@ -1004,7 +1016,53 @@ namespace SPFServer
         }
 
         /// <summary>
-        /// Set weather for all players
+        /// Teleport a client.
+        /// </summary>
+        public void TeleportClient(GameClient client, Vector3 position)
+        {
+            InvokeClientNative(client, "SET_ENTITY_COORDS_NO_OFFSET", new NativeArg(DataType.LocalHandle), position.X, position.Y, position.Z, 1, 1, 1);
+        }
+
+        /// <summary>
+        /// Teleport a client to another.
+        /// </summary>
+        public void TeleportClient(GameClient client, GameClient destClient)
+        {
+            var dest = destClient.State.Position;
+            InvokeClientNative(client, "SET_ENTITY_COORDS_NO_OFFSET", new NativeArg(DataType.LocalHandle), dest.X, dest.Y, dest.Z, 1, 1, 1);
+        }
+
+        /// <summary>
+        /// Teleport a client.
+        /// </summary>
+        internal string TeleportClient(params string[] args)
+        {
+            var client = activeClients.ElementAt(Convert.ToInt32(args[0]));
+
+            var posX = Convert.ToSingle(args[1]);
+            var posY = Convert.ToSingle(args[2]);
+            var posZ = Convert.ToSingle(args[3]);
+
+            TeleportClient(client, new Vector3(posX, posY, posZ));
+
+            return null;
+        }
+
+        /// <summary>
+        /// Teleport a client.
+        /// </summary>
+        internal string TeleportToClient(params string[] args)
+        {
+            var client = activeClients.ElementAt(Convert.ToInt32(args[0]));
+            var client1 = activeClients.ElementAt(Convert.ToInt32(args[1]));
+
+            TeleportClient(client, client1);
+
+            return null;
+        }
+
+        /// <summary>
+        /// Get a player position
         /// </summary>
         /// <param name="weather">Weather type as string</param>
         internal string GetPosition(params string[] args)
@@ -1012,9 +1070,9 @@ namespace SPFServer
             var client = activeClients.ElementAt(Convert.ToInt32(args[0]));
 
             Console.WriteLine("{0}'s position: {1} {2} {3}", client.Info.Name,
-                client.ReceivedStates[0].Position.X,
-                client.ReceivedStates[0].Position.Y,
-                client.ReceivedStates[0].Position.Z);
+                client.State.Position.X,
+                client.State.Position.Y,
+                client.State.Position.Z);
 
             return null;
         }

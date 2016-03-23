@@ -4,12 +4,12 @@ namespace SPFLib.Types
 {
     public class SessionState
     {
+        public uint Sequence { get; set; }
         public DateTime Timestamp { get; set; }
         public ClientState[] Clients { get; set; }
 
         public SessionState()
         {
-            Timestamp = default(DateTime);
         }   
     }
 }

@@ -3,6 +3,7 @@
     public enum DataType
     {
         None,
+        LocalHandle,
         Int,
         Bool,
         String,
