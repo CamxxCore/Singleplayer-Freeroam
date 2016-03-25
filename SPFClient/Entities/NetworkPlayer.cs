@@ -2,6 +2,7 @@
 using GTA.Native;
 using SPFLib.Types;
 using SPFClient.Types;
+using SPFLib;
 using System;
 using Vector3 = GTA.Math.Vector3;
 using UIResText = NativeUI.UIResText;
@@ -30,9 +31,10 @@ namespace SPFClient.Entities
         private int lastWeaponID;
         private int snapshotCount;
         private bool frozen = false;
-
         private int currentPedHash;
         private static int currentPedID;
+
+        private DateTime lastUpdateTime;
 
         private static UIResText playerName;
 
@@ -51,6 +53,7 @@ namespace SPFClient.Entities
             ID = state.ClientID;
             Name = state.Name;
             lastReceivedState = state;
+            lastUpdateTime = NetworkTime.Now;
         }
 
         static Ped SetupPed(ClientState state)
@@ -61,6 +64,7 @@ namespace SPFClient.Entities
                 pedModel.Request(1000);
 
             var position = state.InVehicle ? state.VehicleState.Position.Deserialize() : state.Position.Deserialize();
+
             var rotation = state.InVehicle ? state.VehicleState.Rotation.Deserialize() : state.Rotation.Deserialize();
 
             var spawnPos = position + new Vector3(0, 0, -1f);
@@ -88,6 +92,8 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 115, 1);
 
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 185, 1);
+
 
             Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
 
@@ -103,23 +109,29 @@ namespace SPFClient.Entities
 
             ped.Quaternion = rotation;
 
-            ped.BlockPermanentEvents = true;
+          //  ped.BlockPermanentEvents = true;
 
             ped.CanRagdoll = false;
-          
+
+            Function.Call(Hash.SET_PED_CAN_EVASIVE_DIVE, ped.Handle, false);
+
             Function.Call(Hash.SET_PED_CAN_BE_DRAGGED_OUT, ped.Handle, true);
 
             Function.Call((Hash)0x687C0B594907D2E8, ped.Handle);
 
             Function.Call(Hash.SET_PLAYER_VEHICLE_DEFENSE_MODIFIER, Game.Player.Handle, 0.5);
 
-            Function.Call(Hash.SET_PED_CAN_EVASIVE_DIVE, ped.Handle, false);
+            Function.Call((Hash)0x26695EC767728D84, ped.Handle, 8208);
 
             Function.Call(Hash.SET_PED_SUFFERS_CRITICAL_HITS, ped.Handle, false);
 
             Function.Call(Hash.SET_PED_CAN_BE_KNOCKED_OFF_VEHICLE, ped.Handle, 1);
 
-            ped.Weapons.Give(Helpers.WeaponIDToHash(state.WeaponID), -1, true, true);
+            var curWeaponHash = Helpers.WeaponIDToHash(state.WeaponID);
+
+            ped.Weapons.Give(curWeaponHash, -1, true, true);
+
+            Function.Call(Hash.SET_PED_INFINITE_AMMO_CLIP, ped.Handle, true);
 
             animationManager = new MovementController(ped);
 
@@ -156,12 +168,6 @@ namespace SPFClient.Entities
                         Script.Yield();
                 }
 
-                var position = state.Position.Deserialize();
-                var vel = state.Velocity.Deserialize();
-                var rotation = state.Rotation.Deserialize();
-
-                var angles = state.Angles.Deserialize();
-
                 if (lastWeaponID != state.WeaponID)
                 {
                     new Ped(Handle).Weapons.Give(Helpers.WeaponIDToHash(state.WeaponID), 100, true, true);
@@ -171,7 +177,14 @@ namespace SPFClient.Entities
                 for (int i = moveBuffer.Length - 1; i > 0; i--)
                     moveBuffer[i] = moveBuffer[i - 1];
 
-                moveBuffer[0] = new EntitySnapshot(position, vel, rotation, angles, state.ActiveTask, state.MovementFlags, svTime);
+                moveBuffer[0] = new EntitySnapshot(state.Position.Deserialize(), 
+                    state.Velocity.Deserialize(), 
+                    state.Rotation.Deserialize(), 
+                    state.Angles.Deserialize(), 
+                    state.ActiveTask, 
+                    state.MovementFlags, 
+                    svTime);
+
                 snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
 
                 if (state.Health <= 0) Health = -1;
@@ -182,10 +195,18 @@ namespace SPFClient.Entities
             }
 
             lastReceivedState = state;
+            lastUpdateTime = NetworkTime.Now;
         }
 
         public override void Update()
         {
+            if (NetworkTime.Now - lastUpdateTime > TimeSpan.FromMilliseconds(1000))
+            {
+                if (Exists())
+                    Dispose();
+                return;
+            }
+
             if (Health <= 0)
             {
                 if (!IsDead) Health = -1;

@@ -2,13 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Globalization;
 using System.Net;
 using GTA;
 using GTA.Native;
 using ASUPService;
 using SPFLib.Types;
-using SPFLib.Enums;
 using SPFClient.Entities;
 using SPFClient.Types;
 using System.Threading;
@@ -24,7 +22,7 @@ namespace SPFClient.Network
         /// <summary>
         /// Update rate for local packets sent to the server.
         /// </summary>
-        private const int ClUpdateRate = 10;
+        private const int ClUpdateRate = 12;
 
         /// <summary>
         /// Total idle time before the client is considered to have timed out from the server.
@@ -45,8 +43,6 @@ namespace SPFClient.Network
         private static bool isSynced = false;
         private static int lastSync = 0;
 
-        private static uint lastSequence = 0;
-
         public static SessionClient Current { get { return current; } }
         private static SessionClient current;
 
@@ -57,8 +53,11 @@ namespace SPFClient.Network
         private static Queue<SessionMessage> msgQueue =
             new Queue<SessionMessage>();
 
+        private static uint lastSequence;
+
         public NetworkSession()
         {
+            SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
             UIChat.MessageSent += MessageSent;
             Tick += OnTick;
         }
@@ -89,6 +88,7 @@ namespace SPFClient.Network
                     });
 
                 Function.Call((Hash)0x231C8F89D0539D8F, 0, 1);
+
                 NetworkManager.LocalPlayer.Setup();
                 // wait for server callback and handle initialization there.
             }
@@ -127,8 +127,10 @@ namespace SPFClient.Network
 
             Function.Call(Hash.PAUSE_CLOCK, false);
 
-            // reset timers to zero
             disconnectTimeout = new DateTime();
+
+            lastSequence = 0;
+
             isSynced = false;
         }
 
@@ -151,7 +153,8 @@ namespace SPFClient.Network
                 lastSequence = e.Sequence;
             }
 
-            else UIManager.UISubtitleProxy("lost packet");
+            else { UIManager.UISubtitleProxy("lost packet"); }
+              
 
             disconnectTimeout = DateTime.Now + TimeSpan.FromMilliseconds(ClTimeout);
         }
@@ -175,8 +178,7 @@ namespace SPFClient.Network
         /// <param name="message"></param>
         private void MessageSent(UIChat sender, string message)
         {
-            if (!Initialized)
-                return;
+            if (!Initialized) return;
             current.Say(message);
         }
 
@@ -193,7 +195,7 @@ namespace SPFClient.Network
                 case EventType.PlayerSynced:
                     isSynced = true;
                     Initialized = true;
-                    UIManager.UINotifyProxy("~y~Successfully Connected.");
+                    UIManager.UINotifyProxy("Successfully Connected.");
                     break;
 
                 case EventType.PlayerLogon:
@@ -205,9 +207,9 @@ namespace SPFClient.Network
                     if (e.SenderID == UID) return;
                     if (client != null)
                     {
-                        if (client.ActiveVehicle != null)
-                            NetworkManager.DeleteVehicle(client.ActiveVehicle);
                         NetworkManager.DeleteClient(client);
+                        if (client.ActiveVehicle != null)
+                            NetworkManager.DeleteVehicle(client.ActiveVehicle);           
                     }
                     UIManager.UINotifyProxy(e.SenderName + " left.");
                     break;
@@ -238,8 +240,6 @@ namespace SPFClient.Network
         /// <param name="e"></param>
         private void OnTick(object sender, EventArgs e)
         {
-            current?.OnReceive();
-
             if (!Initialized) return;
 
             if (disconnectTimeout.Ticks > 0 && DateTime.Now >= disconnectTimeout)
@@ -255,8 +255,6 @@ namespace SPFClient.Network
                 var state = localPlayer.GetClientState();
 
                 current.UpdateUserData(state);
-
-                localPlayer.ResetClientFlags();
 
                 lastSync = Game.GameTime;
             }
@@ -344,15 +342,20 @@ namespace SPFClient.Network
                 // dequeue the client that needs an update.
                 var remoteClient = updateQueue.Dequeue();
 
+                var clientState = remoteClient.Key;
+
+
                 // make sure the client position is valid
-                if ((!remoteClient.Key.InVehicle && remoteClient.Key.Position?.X == 0 &&
-                        remoteClient.Key.Position.Y == 0 &&
-                        remoteClient.Key.Position.Z == 0))
+                if (clientState == null ||
+                    (!clientState.InVehicle && 
+                    clientState.Position != null &&
+                    clientState.Position.X == 0 &&
+                    clientState.Position.Y == 0 &&
+                    clientState.Position.Z == 0))
                 {
                     continue;
                 }
 
-                var clientState = remoteClient.Key;
 
                 NetworkPlayer client = PlayerFromID(clientState.ClientID);
 
@@ -363,70 +366,78 @@ namespace SPFClient.Network
                     AddClient(client);
                 }
 
-                if (clientState.PedID != 0 && client.GetPedID() != clientState.PedID ||
-                    clientState.Health > 0 && client.Health <= 0 ||
-                    !client.Exists())
+                else
                 {
-                    DeleteClient(client);
-                    continue;
-                }
-
-                // vehicle exists. queue for update.
-                if (clientState.InVehicle && clientState.VehicleState != null)
-                {
-                    var vehicleState = clientState.VehicleState;
-
-                    NetworkVehicle vehicle;
-
-                    // network player is in our vehicle, so use the reference in LocalPlayer instead
-                    if (vehicleState.ID == localPlayer.Vehicle?.ID)
+                    if (clientState.PedID != 0 && client.GetPedID() != clientState.PedID ||
+                        clientState.Health > 0 && client.Health <= 0 || !client.Exists())
                     {
-                        vehicle = localPlayer.Vehicle;
+                        DeleteClient(client);
+                        continue;
                     }
 
-                    else
+                    // vehicle exists. queue for update.
+                    if (clientState.InVehicle && clientState.VehicleState != null)
                     {
-                        vehicle = VehicleFromID(vehicleState.ID);
+                        var vehicleState = clientState.VehicleState;
 
-                        if (vehicle == null)
+                        NetworkVehicle vehicle;
+
+                        // network player is in our vehicle, so use the reference in LocalPlayer instead
+                        if (vehicleState.ID == localPlayer.Vehicle?.ID)
                         {
-                            vehicle = CreateAndAddVehicle(vehicleState);
-                            client.ActiveVehicle = vehicle;
+                            vehicle = localPlayer.Vehicle;
+                        }
 
+                        else
+                        {
+                            vehicle = VehicleFromID(vehicleState.ID);
+
+                            if (vehicle == null)
+                            {
+                                vehicle = CreateAndAddVehicle(vehicleState);
+                                client.ActiveVehicle = vehicle;
+
+                                if (!Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
+                                {
+                                    Function.Call(Hash.TASK_ENTER_VEHICLE,
+                                   client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 3, 0);
+
+                                    var dt = DateTime.Now + TimeSpan.FromMilliseconds(1800);
+
+                                    while (DateTime.Now < dt)
+                                        Yield();
+
+                                    Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 16, 0);
+                                }
+                            }
+                        }
+
+                        if (!Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
+                        {
                             Function.Call(Hash.TASK_ENTER_VEHICLE,
-                                client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 16, 0);
+                           client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 3, 0);
 
                             var dt = DateTime.Now + TimeSpan.FromMilliseconds(1800);
 
                             while (DateTime.Now < dt)
                                 Yield();
+
+                            Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 16, 0);
                         }
+
+                        if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, vehicle.Model.Hash))
+                        {
+                            client.SetBicycleState((BicycleState)vehicleState.ExtraFlags);
+                        }
+
+                        // if it isnt the driver, we don't need to handle the update.
+                        if (clientState.VehicleSeat == SPFLib.Enums.VehicleSeat.Driver)
+                            vehicle.HandleUpdatePacket(vehicleState, remoteClient.Value);
                     }
 
-                    if (!Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
-                    {
-                        Function.Call(Hash.TASK_ENTER_VEHICLE,
-                       client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 3, 0);
+                    client.HandleUpdatePacket(clientState, remoteClient.Value);
 
-                        var dt = DateTime.Now + TimeSpan.FromMilliseconds(1800);
-
-                        while (DateTime.Now < dt)
-                            Yield();
-
-                        Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 16, 0);
-                    }
-
-                    if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, vehicle.Model.Hash))
-                    {
-                        client.SetBicycleState((BicycleState)vehicleState.ExtraFlags);
-                    }
-
-                    // if (vehicleState.Flags.HasFlag(VehicleFlags.Driver))
-                    vehicle.HandleUpdatePacket(vehicleState, remoteClient.Value);
                 }
-
-                client.HandleUpdatePacket(clientState, remoteClient.Value);
-
             }
 
             while (localClientQueue.Count > 0)
@@ -436,10 +447,11 @@ namespace SPFClient.Network
                 if (clientUpdate.Health <= 0 && Game.Player.Character.Health > -1)
                     Game.Player.Character.Health = -1;
 
-                else
+                else if (clientUpdate.Health != Game.Player.Character.Health)
                 {
                     Game.Player.Character.Health = clientUpdate.Health;
                 }
+                
             }
 
             if (localPlayer != null)

@@ -111,13 +111,25 @@ namespace SPFClient
 
         public static GTA.VehicleSeat CurrentVehicleSeat(this Ped ped)
         {
-            var vehicle = ped.CurrentVehicle;
+            Vehicle vehicle;
 
-            foreach (GTA.VehicleSeat seat in Enum.GetValues(typeof(GTA.VehicleSeat)))
-                if (vehicle.GetPedOnSeat(seat) == ped)
-                    return seat;
-            
+            if (ped.IsGettingIntoAVehicle)
+            {
+                vehicle = new Vehicle(Function.Call<int>((Hash)0x814FA8BE5449445D, ped.Handle));
+                return (GTA.VehicleSeat)Function.Call<int>((Hash)0x6F4C85ACD641BCD2, ped.Handle);
+            }
+
+            else if (ped.IsInVehicle())
+            {
+                vehicle = ped.CurrentVehicle;
+
+                foreach (GTA.VehicleSeat seat in Enum.GetValues(typeof(GTA.VehicleSeat)))
+                    if (vehicle.GetPedOnSeat(seat) == ped)
+                        return seat;
+            }
+
             return GTA.VehicleSeat.None;
+
         }
 
         /// <summary>

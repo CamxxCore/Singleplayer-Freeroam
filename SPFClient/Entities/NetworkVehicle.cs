@@ -15,7 +15,6 @@ namespace SPFClient.Entities
     public class NetworkVehicle : GameEntity
     {
         public readonly int ID;
-
         private int snapshotCount;
         private int currentRadioStation;
         private readonly ulong vAddress, wheelsPtr;
@@ -79,7 +78,7 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_VEHICLE_COLOURS, vehicle.Handle, primaryColor, secondaryColor);
 
-            var dt = DateTime.Now + TimeSpan.FromMilliseconds(100);
+            var dt = DateTime.Now + TimeSpan.FromMilliseconds(300);
 
             while (DateTime.Now < dt)
                 Script.Yield();
@@ -115,7 +114,7 @@ namespace SPFClient.Entities
             for (int i = moveBuffer.Length - 1; i > 0; i--)
                 moveBuffer[i] = moveBuffer[i - 1];
 
-            moveBuffer[0] = new VehicleSnapshot(position, vel, rotation, state.CurrentGear, state.WheelRotation, svTime);
+            moveBuffer[0] = new VehicleSnapshot(position, vel, rotation, state.WheelRotation, svTime);
             snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
 
             if ((state.Flags & VehicleFlags.DoorsLocked) != (lastReceivedState?.Flags & VehicleFlags.DoorsLocked))
@@ -123,10 +122,10 @@ namespace SPFClient.Entities
                 Function.Call(Hash.SET_VEHICLE_DOORS_LOCKED_FOR_PLAYER, Handle, Game.Player.Handle, state.Flags.HasFlag(VehicleFlags.DoorsLocked));
             }
 
-            if ((state.Flags & VehicleFlags.Exploded) != 0)
+            if ((state.Flags & VehicleFlags.Exploded) != 0 && IsAlive)
             {
-                Function.Call(Hash.EXPLODE_VEHICLE, Handle, true, true);
-
+                IsInvincible = false;
+                Function.Call(Hash.EXPLODE_VEHICLE, Handle, true, false);
             }
 
         //    if (lastReceivedState.PrimaryColor != state.PrimaryColor ||
@@ -160,6 +159,8 @@ namespace SPFClient.Entities
 
          private static ulong GetWheelPointer(ulong baseAddress)
           {
+            if (baseAddress <= 0) return 0;
+
               var wheelsAddr = MemoryAccess.ReadUInt64(baseAddress + Offsets.CVehicle.WheelsPtr);
 
               if (baseAddress > wheelsAddr)
@@ -181,53 +182,57 @@ namespace SPFClient.Entities
 
         public float GetWheelRotation()
         {
+            if (wheelsPtr <= 0) return 0;
             return MemoryAccess.GetWheelRotation(wheelsPtr, 0);
         }
 
         public void SetWheelRotation(float value)
         {
-            if (!Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, Model.Hash)) return;
+            if (!Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, Model.Hash) || wheelsPtr <= 0) return;
             for (int i = 0; i < 4; i++)
                 MemoryAccess.SetWheelRotation(wheelsPtr, i, value);
         }
 
         public byte GetCurrentGear()
         {
+            if (vAddress <= 0) return 0;
             return (byte)MemoryAccess.ReadInt16(vAddress + Offsets.CVehicle.CurrentGear);
         }
 
         public void SetCurrentGear(byte gear)
-        {          
+        {
+            if (vAddress <= 0) return;
             MemoryAccess.WriteInt16(vAddress + Offsets.CVehicle.CurrentGear, (short)gear);
         }
 
         public void SetSteering(float value)
         {
             Function.Call(Hash.SET_VEHICLE_STEER_BIAS, Handle, value);
-            //if (!Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, Model.Hash)) return;
+            //if (!Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, Model.Hash) || vAddress <= 0) return;
              //   MemoryAccess.WriteSingle(vAddress + Offsets.CVehicle.Steering, value);
         }
 
         public void SetCurrentRPM(float value)
         {
+            if (vAddress <= 0) return;
             MemoryAccess.WriteSingle(vAddress + Offsets.CVehicle.RPM, value);
         }
 
         public override void Update()
         {
-            var snapshot = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.882f, SPFLib.NetworkTime.Now.Subtract(LastUpdateTime) > TimeSpan.FromMilliseconds(VehicleExtrapolator.InterpDelay));
+            if (SPFLib.NetworkTime.Now - LastUpdateTime > TimeSpan.FromSeconds(1)) return;
+
+            var snapshot = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 1f, false);
 
             if (snapshot != null)
             {
                 PositionNoOffset = snapshot.Position;
                 Quaternion = snapshot.Rotation;
-                SetWheelRotation(snapshot.WheelRotation);
-                SetCurrentGear(snapshot.CurrentGear);       
+                Velocity = snapshot.Velocity;
+                SetWheelRotation(snapshot.WheelRotation);    
             }
 
             SetCurrentRPM(lastReceivedState.CurrentRPM);
-
-            SetSteering(lastReceivedState.Steering);
 
             //IS_VEHICLE_ENGINE_ON
             if (!Function.Call<bool>((Hash)0xAE31E7DF9B5B132E, Handle))

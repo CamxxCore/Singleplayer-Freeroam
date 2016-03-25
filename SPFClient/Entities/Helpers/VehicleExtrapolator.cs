@@ -15,7 +15,7 @@ namespace SPFClient.Entities
         /// Minimum amount of snapshots needed before interpolating.
         /// </summary>
         public const int SnapshotMin = 15;
-        public const int InterpDelay = 250;
+        public const int InterpDelay = 300;
 
         public VehicleSnapshot GetExtrapolatedPosition(Vector3 curPosition, Quaternion curRotation, VehicleSnapshot[] extrpBuffer, int validSnapshots, float lerpFactor = 1.0f, bool forceExtrp = false)
         {
@@ -23,8 +23,6 @@ namespace SPFClient.Entities
 
             var timeNow = NetworkTime.Now;
             var interpolationTime = timeNow - TimeSpan.FromMilliseconds(InterpDelay);
-
-            List<VehicleSnapshot> deletionQueue = new List<VehicleSnapshot>();
 
             if (extrpBuffer[0].Timestamp > interpolationTime && !forceExtrp)
             {
@@ -55,7 +53,7 @@ namespace SPFClient.Entities
 
                         var wRot = lastState.WheelRotation * (1.0f - t) + newState.WheelRotation * t;
 
-                        return new VehicleSnapshot(position, velocity, quaternion, lastState.CurrentGear, wRot);  // Tuple<Vector3, Quaternion>(position, quaternion);
+                        return new VehicleSnapshot(position, velocity, quaternion, wRot);  // Tuple<Vector3, Quaternion>(position, quaternion);
                     }
                 }
 
@@ -64,41 +62,41 @@ namespace SPFClient.Entities
 
             else
             {
-                  UIManager.UISubtitleProxy("~y~extrp");
+                UIManager.UISubtitleProxy("~y~extrp");
 
                 var lastState = extrpBuffer[0];
 
                 float extrapolationLength = ((float)(interpolationTime - lastState.Timestamp).TotalMilliseconds) / 1000.0f;
 
-                if (extrapolationLength < 0.70)
-                {
-                    var rot = lastState.Rotation * Quaternion.Invert(extrpBuffer[1].Rotation);
+                //    if (extrapolationLength < 0.70)
+                //    {
+                var rot = lastState.Rotation * Quaternion.Invert(extrpBuffer[1].Rotation);
 
-                    rot.Normalize();
+                rot.Normalize();
 
-                    float angle; Vector3 axis;
+                float angle; Vector3 axis;
 
-                    rot.ToAngleAxis(out angle, out axis);
+                rot.ToAngleAxis(out angle, out axis);
 
-                    var currentTime = interpolationTime - lastState.Timestamp;
+                var currentTime = interpolationTime - lastState.Timestamp;
 
-                    var t = (float)(currentTime.TotalMilliseconds / 1000) / extrapolationLength;
+                var t = (float)(currentTime.TotalMilliseconds / 1000) / extrapolationLength;
 
-                    if (angle > 180) angle -= 360;
+                if (angle > 180) angle -= 360;
 
-                    angle = angle * (float)t % 360;
+                angle = angle * (float)t % 360;
 
-                    var position = Vector3.Lerp(curPosition, Vector3.Lerp(lastState.Position, lastState.Position + lastState.Velocity * extrapolationLength, t), lerpFactor);
+                var position = lastState.Position + lastState.Velocity * extrapolationLength;
 
-                    var quaternion = Helpers.Slerp(lastState.Rotation, Helpers.RotationAxis(axis, angle) * extrpBuffer[1].Rotation, t);
+                var quaternion = Helpers.RotationAxis(axis, angle) * extrpBuffer[1].Rotation;
 
-                    var velocity = lastState.Velocity;
+                var velocity = lastState.Velocity;
 
 
-                    return new VehicleSnapshot(position, velocity, quaternion);
-                }
+                return new VehicleSnapshot(position, velocity, quaternion);
+                //  }
 
-                else return null;
+                //   else return null;
             }
         }
     }

@@ -108,6 +108,7 @@ namespace SPFClient.Network
             try
             {
                 client.Start();
+                client.RegisterReceivedCallback(new SendOrPostCallback(OnReceive), SynchronizationContext.Current);
                 return true;
             }
 
@@ -139,7 +140,7 @@ namespace SPFClient.Network
         /// Process and handle any data received from the server.
         /// </summary>
         /// <param name="ar"></param>
-        public void OnReceive()
+        public void OnReceive(object state)
         {
             while ((message = client.ReadMessage()) != null)
             {
@@ -156,19 +157,19 @@ namespace SPFClient.Network
             {
                 case NetMessage.SessionUpdate:
                     OnSessionUpdate(msg.SenderEndPoint, msg.ReadSessionState());
-                    break;
+                    return;
                 case NetMessage.SessionMessage:
                     OnSessionMessage(msg.SenderEndPoint, msg.ReadSessionMessage());
-                    break;
+                    return;
                 case NetMessage.SessionEvent:
                     OnSessionEvent(msg.SenderEndPoint, msg.ReadSessionEvent());
-                    break;
+                    return;
                 case NetMessage.SessionSync:
                     OnServerSessionSync(msg.SenderEndPoint, msg.ReadSessionSync());
-                    break;
+                    return;
                 case NetMessage.NativeCall:
                     OnNativeInvoked(msg.SenderEndPoint, msg.ReadNativeCall());
-                    break;
+                    return;
             }
         }
 
@@ -219,11 +220,13 @@ namespace SPFClient.Network
      
         public void Close()
         {
+            client.UnregisterReceivedCallback(new SendOrPostCallback(OnReceive));
             client.Disconnect("NC_GRACEFUL_DISCONNECT");
         }
 
         public void Dispose()
         {
+            client.UnregisterReceivedCallback(new SendOrPostCallback(OnReceive));
             client.Shutdown("NC_DISCONNECT");
         }
     }

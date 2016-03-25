@@ -97,10 +97,10 @@
     <Compile Include="Network\WCF Service\WCFNetworkService.cs" />
     <Compile Include="Network\WCF Service\WCFServiceClient.cs" />
     <Compile Include="Types\BicycleState.cs" />
-    <Compile Include="Types\EntitySnapshot.cs" />
     <Compile Include="Network\SessionClient.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Types\Animation.cs" />
+    <Compile Include="Types\EntitySnapshot.cs" />
     <Compile Include="Types\GameClient.cs" />
     <Compile Include="Types\LGearState.cs" />
     <Compile Include="Types\PlaneFlags.cs" />

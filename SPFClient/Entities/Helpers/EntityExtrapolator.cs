@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using SPFLib.Types;
 using SPFLib;
 using SPFClient.Types;
 using SPFClient.UI;
-using Vector3 = GTA.Math.Vector3;
-using Quaternion = GTA.Math.Quaternion;
+using GTA.Math;
 
 namespace SPFClient.Entities
 {
@@ -24,8 +22,6 @@ namespace SPFClient.Entities
             var timeNow = NetworkTime.Now;
 
             var interpolationTime = timeNow - TimeSpan.FromMilliseconds(InterpDelay);
-
-            List<EntitySnapshot> deletionQueue = new List<EntitySnapshot>();
 
             if (extrpBuffer[0].Timestamp > interpolationTime && !forceExtrp)
             {
@@ -65,8 +61,6 @@ namespace SPFClient.Entities
 
             else
             {
-                UIManager.UISubtitleProxy("~y~extrp");
-
                 var lastState = extrpBuffer[0];
 
                 float extrapolationLength = ((float)(interpolationTime - lastState.Timestamp).TotalMilliseconds) / 1000.0f;

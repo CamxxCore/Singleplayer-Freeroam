@@ -48,5 +48,27 @@ namespace SPFLib.Types
         {
             return (position - this).Length();
         }
+
+        public void Normalize()
+        {
+            float length = Length();
+            if (length == 0)
+                return;
+            float num = 1 / length;
+            X *= num;
+            Y *= num;
+            Z *= num;
+        }
+
+        public static Vector3 Lerp(Vector3 start, Vector3 end, float factor)
+        {
+            Vector3 vector = new Vector3();
+
+            vector.X = start.X + ((end.X - start.X) * factor);
+            vector.Y = start.Y + ((end.Y - start.Y) * factor);
+            vector.Z = start.Z + ((end.Z - start.Z) * factor);
+
+            return vector;
+        }
     }
 }

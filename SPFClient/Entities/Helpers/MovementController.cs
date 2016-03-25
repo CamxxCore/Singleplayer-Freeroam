@@ -186,195 +186,12 @@ namespace SPFClient.Entities
         private void HandleAimAnim()
         {
             var aimPos = pPosition + Helpers.RotationToDirection(pAngles) * 10;
-            Function.Call(Hash.TASK_AIM_GUN_AT_COORD, ped.Handle, aimPos.X, aimPos.Y, aimPos.Z, -1, 0, 0);
+            Function.Call(Hash.TASK_AIM_GUN_AT_COORD, ped.Handle, aimPos.X, aimPos.Y, aimPos.Z, -1, 1, 0);
+
+            // Function.Call(Hash.TASK_GO_TO_COORD_WHILE_AIMING_AT_COORD, ped.Handle, pPosition.X, pPosition.Y, pPosition.Z, aimPos.X, aimPos.Y, aimPos.Z, 2.0f,
+            // false, 2f, 0.5f, true, 0, 0, Function.Call<int>(Hash.GET_HASH_KEY, "firing_pattern_full_auto"));
             lastAimPos = aimPos;
-        }
 
-        public static Animation GetWeaponAnimation(WeaponHash hash, float pitchToTarget)
-        {
-            var animation = new Animation();
-            if (pitchToTarget < -45)
-            {
-                animation.Name = "fire_low";
-            }
-            else if (pitchToTarget > 30)
-            {
-                animation.Name = "fire_high";
-            }
-            else
-            {
-                animation.Name = "fire_med";
-            }
-
-            animation.Dictionary = "weapons@rifle@hi@";
-            //Heavy
-            if (hash == WeaponHash.GrenadeLauncher)
-            {
-                animation.Dictionary = "weapons@heavy@grenade_launcher";
-            }
-            if (hash == WeaponHash.RPG)
-            {
-                animation.Dictionary = "weapons@heavy@rpg";
-            }
-            if (hash == WeaponHash.Minigun)
-            {
-                animation.Dictionary = "weapons@heavy@minigun";
-            }
-            if (hash == WeaponHash.Firework)
-            {
-                animation.Dictionary = "weapons@heavy@rpg";
-            }
-            if (hash == WeaponHash.Railgun)
-            {
-                animation.Dictionary = "weapons@rifle@lo@pump";
-            }
-
-            //Pistols
-            if (hash == WeaponHash.Pistol)
-            {
-                animation.Dictionary = "weapons@pistol@";
-            }
-            if (hash == WeaponHash.CombatPistol)
-            {
-                animation.Dictionary = "weapons@pistol@";
-            }
-            if (hash == WeaponHash.Pistol50)
-            {
-                animation.Dictionary = "weapons@pistol@pistol_50";
-            }
-            if (hash == WeaponHash.SNSPistol)
-            {
-                animation.Dictionary = "weapons@pistol@";
-            }
-            if (hash == WeaponHash.HeavyPistol)
-            {
-                animation.Dictionary = "weapons@pistol@";
-            }
-            if (hash == WeaponHash.VintagePistol)
-            {
-                animation.Dictionary = "weapons@pistol@";
-            }
-            if (hash == WeaponHash.MarksmanPistol)
-            {
-                animation.Dictionary = "weapons@pistol@";
-            }
-         //   if (hash == WeaponHash.Revolver)
-           // {
-               // animation.Dictionary = "weapons@pistol@";
-           /// }
-            if (hash == WeaponHash.APPistol)
-            {
-                animation.Dictionary = "weapons@pistol@ap_pistol";
-            }
-            if (hash == WeaponHash.StunGun)
-            {
-                animation.Dictionary = "weapons@pistol@";
-            }
-
-            //SMG
-            if (hash == WeaponHash.MicroSMG)
-            {
-                animation.Dictionary = "weapons@submg@micro_smg";
-            }
-          //  if (hash == WeaponHash.MachinePistol)
-           // {
-           //     animation.Dictionary = "weapons@rifle@lo@smg";
-           // }
-            if (hash == WeaponHash.SMG)
-            {
-                animation.Dictionary = "weapons@rifle@lo@smg";
-            }
-            if (hash == WeaponHash.AssaultSMG)
-            {
-                animation.Dictionary = "weapons@submg@assault_smg";
-            }
-            if (hash == WeaponHash.CombatPDW)
-            {
-                animation.Dictionary = "weapons@rifle@lo@smg";
-            }
-            if (hash == WeaponHash.MG)
-            {
-                animation.Dictionary = "weapons@submg@";
-            }
-            if (hash == WeaponHash.CombatMG)
-            {
-                animation.Dictionary = "weapons@submg@";
-            }
-            if (hash == WeaponHash.Gusenberg)
-            {
-                animation.Dictionary = "weapons@rifle@lo@smg";
-            }
-
-            //Shotguns
-            if (hash == WeaponHash.PumpShotgun)
-            {
-                animation.Dictionary = "weapons@rifle@lo@pump";
-            }
-            if (hash == WeaponHash.SawnOffShotgun)
-            {
-                animation.Dictionary = "weapons@rifle@lo@pump";
-            }
-            if (hash == WeaponHash.BullpupShotgun)
-            {
-                animation.Dictionary = "weapons@rifle@lo@shotgun_bullpup";
-            }
-            if (hash == WeaponHash.AssaultShotgun)
-            {
-                animation.Dictionary = "weapons@rifle@lo@shotgun_assault";
-            }
-            if (hash == WeaponHash.Musket)
-            {
-                animation.Dictionary = "weapons@rifle@lo@pump";
-            }
-            if (hash == WeaponHash.HeavyShotgun)
-            {
-                animation.Dictionary = "weapons@rifle@lo@pump";
-            }
-
-            //Rifles
-            if (hash == WeaponHash.AssaultRifle)
-            {
-                animation.Dictionary = "weapons@rifle@hi@";
-            }
-            if (hash == WeaponHash.CarbineRifle)
-            {
-                animation.Dictionary = "weapons@rifle@lo@";
-            }
-            if (hash == WeaponHash.AdvancedRifle)
-            {
-                animation.Dictionary = "weapons@rifle@hi@";
-            }
-            if (hash == WeaponHash.SpecialCarbine)
-            {
-                animation.Dictionary = "weapons@rifle@lo@";
-            }
-            if (hash == WeaponHash.BullpupRifle)
-            {
-                animation.Dictionary = "weapons@rifle@hi@";
-            }
-
-            //Sniper
-            if (hash == WeaponHash.SniperRifle)
-            {
-                animation.Dictionary = "weapons@rifle@hi@sniper_rifle";
-            }
-            if (hash == WeaponHash.HeavySniper)
-            {
-                animation.Dictionary = "weapons@rifle@lo@sniper_heavy";
-            }
-            if (hash == WeaponHash.MarksmanRifle)
-            {
-                animation.Dictionary = "weapons@rifle@hi@sniper_rifle";
-            }
-
-            return animation;
-        }
-
-        public void PlayShootingAnimation(float pitchToTarget)
-        {
-            var animation = GetWeaponAnimation(Game.Player.Character.Weapons.Current.Hash, pitchToTarget);
-
-            PlayAnimation(animation, 48);
         }
 
         public void StopAllAnimations()
@@ -388,44 +205,43 @@ namespace SPFClient.Entities
 
         public void Update()
         {
-            if (currentAnimation == null || ped.IsRagdoll || TransitionActive())
-                return;
-
-            if (ped.Weapons.Current.Hash != lastWeaponHash)
+            if (ped.IsReloading || TransitionActive())
             {
-                string animSet = "";
-
-                if (weaponAnimSets.TryGetValue(ped.Weapons.Current.Hash, out animSet))
-                    upperAnimation = new Animation(animSet, currentAnimation.Name);
-                else
+                return;
+            }
+     
+            if (CurrentFlagIsSet(ClientFlags.Ragdoll) && !ped.IsDead)
+            {
+                if (!ped.IsRagdoll)
                 {
-                    if (upperAnimation != null)
-                    {
-                        ped.Task.ClearAnimation(upperAnimation.Dictionary, upperAnimation.Name);
-                        upperAnimation = null;
-                    }
+                    ped.CanRagdoll = true;
+                    Function.Call(Hash.SET_PED_TO_RAGDOLL, ped.Handle, 0, 5000, 0, 0, 0, 0);
+                    ragdoll = true;
+                    return;
                 }
-
-                lastWeaponHash = ped.Weapons.Current.Hash;
             }
 
-            if (ragdoll)
+            else
             {
-                ped.CanRagdoll = false;
-                ragdoll = false;
+                if (ped.IsRagdoll) return;
+
+                if (ragdoll)
+                {
+                    var dt = DateTime.Now + TimeSpan.FromMilliseconds(300);
+
+                    while (DateTime.Now < dt)
+                        Script.Yield();
+
+                    ped.CanRagdoll = false;
+                    ragdoll = false;
+                }
             }
 
-
-            #region ragdoll
-            if (CurrentFlagIsSet(ClientFlags.Ragdoll))
+            if (CurrentFlagIsSet(ClientFlags.Reloading))
             {
-                ragdoll = true;
-                ped.CanRagdoll = true;
-                Function.Call(Hash.SET_PED_TO_RAGDOLL, ped.Handle, 1000, 2000, 1, 0, 1, 1, 0);
+                Function.Call(Hash.TASK_RELOAD_WEAPON, ped.Handle, true);
                 return;
             }
-
-            #endregion
 
             #region jumping
 
@@ -467,6 +283,24 @@ namespace SPFClient.Entities
 
             #endregion
 
+            if (currentAnimation != null && ped.Weapons.Current.Hash != lastWeaponHash)
+            {
+                string animSet = "";
+
+                if (weaponAnimSets.TryGetValue(ped.Weapons.Current.Hash, out animSet))
+                    upperAnimation = new Animation(animSet, currentAnimation.Name);
+                else
+                {
+                    if (upperAnimation != null)
+                    {
+                        ped.Task.ClearAnimation(upperAnimation.Dictionary, upperAnimation.Name);
+                        upperAnimation = null;
+                    }
+                }
+
+                lastWeaponHash = ped.Weapons.Current.Hash;
+            }
+
             if (pTask == ActiveTask.MovingCrouched)
             {
                 if (ped.Weapons.Current.Hash == WeaponHash.Unarmed || ped.Weapons.Current.IsMeleeOrThrowable())
@@ -506,7 +340,7 @@ namespace SPFClient.Entities
 
             else
             {
-                if (!currentAnimation.IsPlayingOn(ped))
+                if (currentAnimation != null && !currentAnimation.IsPlayingOn(ped))
                     PlayAnimation(currentAnimation);
 
                 if (upperAnimation != null && !upperAnimation.IsPlayingOn(ped))
@@ -793,7 +627,6 @@ namespace SPFClient.Entities
                     if (CurrentFlagIsSet(ClientFlags.Walking))
                     {
                         var vel = ped.Velocity;
-                        UI.UIManager.UISubtitleProxy(vel.X < 0 ? "l" : "r");
                         return vel.X < 0 ? Anims.Walk2RunLeft : Anims.Walk2RunRight;
                     }
                     else

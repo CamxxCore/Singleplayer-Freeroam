@@ -1,28 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
-namespace SPFServer
+namespace SPFServer.Types
 {
-    public sealed class ServerVarCollection<T> 
+    public sealed class ServerVarCollection<T> : Dictionary<string, T>
     {
-        private ServerVar<T>[] serverVars;
-
-        public ServerVarCollection(params ServerVar<T>[] vars)
+        public bool TryGetVar(string name, out T var)
         {
-            serverVars = vars;
+            if (TryGetValue(name, out var))
+                return true;
+            else
+            {
+                var = default(T);
+                return false;
+            }
         }
 
-        public T GetVar<T>(string name)
+        public void SetVar(string name, T val)
         {
-            for (int i = 0; i < serverVars.Length; i++)
-            {
-                if (serverVars[i].Name == name) return (serverVars[i] as ServerVar<T>).Value;
-            }
-
-            return default(T);
+            this[name] = val;
         }
     }
 }

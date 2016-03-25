@@ -20,6 +20,7 @@ namespace SPFLib.Enums
         Punch = 256,
         Ragdoll = 512,
         Dead = 1024,
+        Reloading = 2048,
 
     }
 

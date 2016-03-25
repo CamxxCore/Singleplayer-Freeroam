@@ -73,7 +73,7 @@ namespace SPFClient.Entities
             {
                 var hitCoords = result.HitEntity.Position.Serialize();
                 var dmg = (short)GetCurrentWeaponDamage();
-                NetworkSession.Current.SendWeaponData(20, hitCoords);
+                NetworkSession.Current.SendWeaponData(dmg, hitCoords);
             }
         }
 
@@ -109,6 +109,8 @@ namespace SPFClient.Entities
         /// <returns></returns>
         private short GetWeaponID()
         {
+            if (Vehicle != null && Vehicle is NetworkPlane) return 0;
+
             if ((int)Ped.Weapons.Current.Hash != localWeaponHash)
             {
                 localWeaponHash = (int)Ped.Weapons.Current.Hash;
@@ -147,22 +149,20 @@ namespace SPFClient.Entities
         {
             var clientState = new ClientState();
 
-        //    clientState.Sequence = SentPacketSequence;
-
             if (!Ped.IsInVehicle())
             {
                 clientState.Position = Ped.Position.Serialize();
                 clientState.Velocity = Ped.Velocity.Serialize();
                 clientState.Angles = GameplayCamera.Rotation.Serialize();
                 clientState.Rotation = Ped.Quaternion.Serialize();
-                clientState.MovementFlags = ClientFlags;
+                clientState.MovementFlags = clientFlags;
                 clientState.ActiveTask = GetActiveTask();
                 clientState.Health = Convert.ToInt16(Ped.Health);
                 clientState.WeaponID = GetWeaponID();
                 clientState.PedID = GetPedID();
             }
 
-            else if (Vehicle != null)
+            else if (Vehicle != null && Vehicle.Health > 0)
             {
                 if ((int)Ped.CurrentVehicleSeat() == -1)
                 {                 
@@ -173,9 +173,7 @@ namespace SPFClient.Entities
                         Vehicle.Velocity.Serialize(),
                         Vehicle.Quaternion.Serialize(),
                         v.CurrentRPM,
-                        Vehicle.GetCurrentGear(),
                         Vehicle.GetWheelRotation(),
-                        v.Steering,
                         0, Convert.ToInt16(v.Health),
                         (byte)v.PrimaryColor, (byte)v.SecondaryColor,
                         GetActiveRadioStation(),
@@ -289,7 +287,6 @@ namespace SPFClient.Entities
 
         /// <summary>
         /// Set an input command for the local client
-        /// TODO: Move into a dedicated class
         /// </summary>
         /// <param name="command"></param>
         internal void SetClientFlag(ClientFlags command)
@@ -300,9 +297,21 @@ namespace SPFClient.Entities
             }
         }
 
+        internal void SetCurrentVehicle(Vehicle vehicle)
+        {
+            if ((Vehicle == null || vehicle.Handle != Vehicle.Handle))
+            {
+                Vehicle = NetworkManager.VehicleFromLocalHandle(vehicle.Handle);
+
+                if (Vehicle == null)
+                {
+                    Vehicle = Helpers.GameVehicleToNetworkVehicle(vehicle);
+                }
+            }
+        }
+
         /// <summary>
         /// Check the status of an input command for the local client
-        /// TODO: Move into a dedicated class
         /// </summary>
         /// <param name="command"></param>
         internal bool IsClientFlagSet(ClientFlags command)
@@ -330,13 +339,25 @@ namespace SPFClient.Entities
                 SetClientFlag(ClientFlags.Punch);
 
             if (Ped.IsRagdoll)
+            {
+                UI.UIManager.UISubtitleProxy("ragd");
                 SetClientFlag(ClientFlags.Ragdoll);
+            }
 
             if (Game.Player.IsAiming)
                 SetClientFlag(ClientFlags.Aiming);
 
-            if (Game.IsControlPressed(2, Control.Attack))
+            if (Game.IsControlPressed(2, Control.Attack) && Ped.Weapons.Current.AmmoInClip > 0)
                 SetClientFlag(ClientFlags.Shooting);
+
+            if (Ped.IsReloading)
+                SetClientFlag(ClientFlags.Reloading);
+
+            if (Function.Call<bool>(Hash.IS_PED_JUMPING, Ped.Handle))
+                SetClientFlag(ClientFlags.Jumping);
+
+            else if (Function.Call<bool>(Hash.IS_PED_DIVING, Ped.Handle))
+                SetClientFlag(ClientFlags.Diving);
 
             if (Ped.IsRunning)
                 SetClientFlag(ClientFlags.Running);
@@ -350,39 +371,34 @@ namespace SPFClient.Entities
             else if (Ped.IsStopped)
                 SetClientFlag(ClientFlags.Stopped);
 
-            if (Function.Call<bool>(Hash.IS_PED_JUMPING, Ped.Handle))
-                SetClientFlag(ClientFlags.Jumping);
-
-            else if (Function.Call<bool>(Hash.IS_PED_DIVING, Ped.Handle))
-                SetClientFlag(ClientFlags.Diving);
-
             if (Ped.IsInMeleeCombat)
                 SetClientFlag(ClientFlags.Punch);
         }
 
         internal void Update()
         {
-            if (Ped.IsShooting)
+            UpdateUserCommands();
+
+            if (Ped.IsShooting && Ped.Weapons.Current.AmmoInClip > 0)
                 UpdateWeaponDamage();
 
             if (Ped.IsInVehicle())
             {
-                if ((Vehicle == null || Ped.CurrentVehicle.Handle != Vehicle.Handle))
-                {
-                    Vehicle = NetworkManager.VehicleFromLocalHandle(Ped.CurrentVehicle.Handle);
+                SetCurrentVehicle(Ped.CurrentVehicle);
+            }
 
-                    if (Vehicle == null)
-                    {
-                        Vehicle = Helpers.GameVehicleToNetworkVehicle(Ped.CurrentVehicle);
-                    }
-                }
+            else if (Ped.IsGettingIntoAVehicle)
+            {
+                SetCurrentVehicle(new Vehicle(Function.Call<int>((Hash)0x814FA8BE5449445D, Ped.Handle)));
             }
 
             // Another player is driving our vehicle, so we need it to move based on updates sent by the player.
-            if (Vehicle != null &&
-                Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, Vehicle.Handle, -1) != Ped.Handle &&
-                Vehicle.Exists())
+            if (Vehicle != null && Vehicle.Exists())
+            {
+                var driver = Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, Vehicle.Handle, -1);
+                if (driver != 0 && driver != Ped.Handle)
                 Vehicle.Update();
+            }
 
             if (Game.IsControlJustPressed(0, Control.VehicleExit))
             {
@@ -394,24 +410,43 @@ namespace SPFClient.Entities
 
                     if (veh != null && !Ped.IsInVehicle(closestVehicle) && veh.Handle != Ped.CurrentVehicle?.Handle)
                     {
-                        var bones = new int[]
+                        if (veh is NetworkCar)
                         {
+                            var bones = new int[]
+                            {
                             Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_dside_f"), //-1 front left
                             Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_pside_f"), //0 front right
                             Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_dside_r"), //1 back left                     
                             Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_pside_r") //2 back right                     
-                        };
+                            };
 
-                        var closestBone = bones.OrderBy(x => Function.Call<GTA.Math.Vector3>((Hash)0x44A8FCB8ED227738, veh.Handle, x).DistanceTo(Ped.Position)).First();
+                            var closestBone = bones.OrderBy(x => Function.Call<GTA.Math.Vector3>((Hash)0x44A8FCB8ED227738, veh.Handle, x).DistanceTo(Ped.Position)).First();
 
-                        Ped.Task.ClearAll();
+                            Ped.Task.ClearAll();
 
-                        Function.Call(Hash.TASK_ENTER_VEHICLE, Ped.Handle, veh.Handle, -1, (Array.IndexOf(bones, closestBone) - 1), 0.0f, 3, 0);
+                            Function.Call(Hash.TASK_ENTER_VEHICLE, Ped.Handle, veh.Handle, -1, (Array.IndexOf(bones, closestBone) - 1), 0.0f, 3, 0);
+                        }
+
+                        else
+                        {
+                            var bones = new int[]
+                                {
+                                 //   Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "door_dside_f"), //-1 front left
+                                    Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "door_pside_f"), //0 front right
+                                    Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "door_dside_r"), //1 back left                     
+                                    Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "door_pside_r") //2 back right                     
+                                };
+
+                            var closestBone = bones.OrderBy(x => Function.Call<GTA.Math.Vector3>((Hash)0x44A8FCB8ED227738, veh.Handle, x).DistanceTo(Ped.Position)).First();
+
+                            Ped.Task.ClearAll();
+
+                            Function.Call(Hash.TASK_ENTER_VEHICLE, Ped.Handle, veh.Handle, -1, (Array.IndexOf(bones, closestBone)), 0.0f, 3, 0);
+
+                        }
                     }
                 }
             }
-
-            UpdateUserCommands();
         }
     }
 }

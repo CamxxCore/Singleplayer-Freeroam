@@ -283,17 +283,13 @@ namespace SPFLib
 
                     state.VehicleState.Position = message.ReadVector3();
 
-                    // state.VehicleState.Velocity = message.ReadVector3();
+                    state.VehicleState.Velocity = message.ReadVector3();
 
                     state.VehicleState.Rotation = message.ReadQuaternion();
 
                     state.VehicleState.CurrentRPM = message.ReadInt16().Deserialize();
 
-                    state.VehicleState.CurrentGear = message.ReadByte();
-
                     state.VehicleState.WheelRotation = message.ReadInt16().Deserialize();
-
-                    state.VehicleState.Steering = message.ReadInt16().Deserialize();
 
                     state.VehicleState.Health = message.ReadInt16();
 
@@ -347,17 +343,13 @@ namespace SPFLib
 
                 message.Write(state.VehicleState.Position);
 
-              //  message.Write(state.VehicleState.Velocity);
+                message.Write(state.VehicleState.Velocity);
 
                 message.Write(state.VehicleState.Rotation);
 
                 message.Write(state.VehicleState.CurrentRPM.Serialize());
 
-                message.Write(state.VehicleState.CurrentGear);
-
                 message.Write(state.VehicleState.WheelRotation.Serialize());
-
-                message.Write(state.VehicleState.Steering.Serialize());
 
                 message.Write(state.VehicleState.Health);
 
