@@ -140,6 +140,7 @@
     <Compile Include="Lidgren.Network\Platform\PlatformWin32.cs" />
     <Compile Include="Lidgren.Network\Platform\PlatformWinRT.cs" />
     <Compile Include="Types\LoginRequest.cs" />
+    <Compile Include="Types\RankData.cs" />
     <Compile Include="Types\SessionNotification.cs" />
     <Compile Include="Types\Weapon\WeaponData.cs" />
     <Compile Include="Types\Client\State\IEntityState.cs" />

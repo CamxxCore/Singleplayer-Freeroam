@@ -94,8 +94,9 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 185, 1);
 
-
             Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
+
+      //      Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED, ped.Handle, false);
 
             Function.Call(Hash._0x26695EC767728D84, ped.Handle, 1);
             Function.Call(Hash._0x26695EC767728D84, ped.Handle, 16);
@@ -113,6 +114,8 @@ namespace SPFClient.Entities
 
             ped.CanRagdoll = false;
 
+            Function.Call(Hash.SET_ENTITY_COLLISION, ped.Handle, true, false);
+
             Function.Call(Hash.SET_PED_CAN_EVASIVE_DIVE, ped.Handle, false);
 
             Function.Call(Hash.SET_PED_CAN_BE_DRAGGED_OUT, ped.Handle, true);
@@ -125,16 +128,16 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_PED_SUFFERS_CRITICAL_HITS, ped.Handle, false);
 
-            Function.Call(Hash.SET_PED_CAN_BE_KNOCKED_OFF_VEHICLE, ped.Handle, 1);
-
-            var curWeaponHash = Helpers.WeaponIDToHash(state.WeaponID);
+            var curWeaponHash = Helpers.WeaponIDToHash(state.WeaponID);      
 
             ped.Weapons.Give(curWeaponHash, -1, true, true);
 
             Function.Call(Hash.SET_PED_INFINITE_AMMO_CLIP, ped.Handle, true);
 
-            animationManager = new MovementController(ped);
+            Function.Call(Hash.SET_PED_CAN_BE_KNOCKED_OFF_VEHICLE, ped.Handle, 3);
 
+            animationManager = new MovementController(ped);
+        
             bicyleController = new BicyleController(ped);
 
             var blip = ped.AddBlip();
@@ -168,10 +171,12 @@ namespace SPFClient.Entities
                         Script.Yield();
                 }
 
-                if (lastWeaponID != state.WeaponID)
+                var weaponHash = (int) Helpers.WeaponIDToHash(state.WeaponID);
+
+                if (Function.Call<int>(Hash.GET_SELECTED_PED_WEAPON, Handle) != weaponHash)
                 {
-                    new Ped(Handle).Weapons.Give(Helpers.WeaponIDToHash(state.WeaponID), 100, true, true);
-                    lastWeaponID = state.WeaponID;
+                    Function.Call(Hash.GIVE_WEAPON_TO_PED, Handle, weaponHash, -1, true, true);
+                  //  lastWeaponID = state.WeaponID;
                 }
 
                 for (int i = moveBuffer.Length - 1; i > 0; i--)
@@ -187,12 +192,21 @@ namespace SPFClient.Entities
 
                 snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
 
-                if (state.Health <= 0) Health = -1;
-                else
-                    Health = state.Health;
-
                 animationManager.UpdateAnimationFlags(state.MovementFlags, state.ActiveTask);
             }
+
+            if (state.Health < Health)
+            {
+                Function.Call(Hash.APPLY_DAMAGE_TO_PED, Handle, Health - state.Health, true);
+               // UI.UIManager.UISubtitleProxy("damage " + state.Health);
+            }
+
+            else if (state.Health > Health)
+            {
+                Health = state.Health;
+             //   UI.UIManager.UISubtitleProxy("inc " + state.Health);
+            }
+
 
             lastReceivedState = state;
             lastUpdateTime = NetworkTime.Now;
@@ -220,9 +234,9 @@ namespace SPFClient.Entities
 
             else
             {
-                var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 1f);
+                var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.87f);
 
-                if (entityPosition != null)
+                if (entityPosition != null)                 
                 {
                     if (frozen)
                     {

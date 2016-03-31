@@ -186,11 +186,13 @@ namespace SPFClient.Entities
         private void HandleAimAnim()
         {
             var aimPos = pPosition + Helpers.RotationToDirection(pAngles) * 10;
-            Function.Call(Hash.TASK_AIM_GUN_AT_COORD, ped.Handle, aimPos.X, aimPos.Y, aimPos.Z, -1, 1, 0);
+           // Function.Call(Hash.TASK_AIM_GUN_AT_COORD, ped.Handle, aimPos.X, aimPos.Y, aimPos.Z, -1, 1, 0);
 
-            // Function.Call(Hash.TASK_GO_TO_COORD_WHILE_AIMING_AT_COORD, ped.Handle, pPosition.X, pPosition.Y, pPosition.Z, aimPos.X, aimPos.Y, aimPos.Z, 2.0f,
-            // false, 2f, 0.5f, true, 0, 0, Function.Call<int>(Hash.GET_HASH_KEY, "firing_pattern_full_auto"));
+             Function.Call(Hash.TASK_GO_TO_COORD_WHILE_AIMING_AT_COORD, ped.Handle, pPosition.X, pPosition.Y, pPosition.Z, aimPos.X, aimPos.Y, aimPos.Z, 1.0, 0, 0x3f000000, 0x40800000, 1, 0, 0, 
+                 Function.Call<int>(Hash.GET_HASH_KEY, "firing_pattern_full_auto"));
             lastAimPos = aimPos;
+        //    Function.Call(Hash.TASK_FORCE_MOTION_STATE, ped.Handle, 0xbac0f10b, 1);
+
 
         }
 
@@ -336,6 +338,15 @@ namespace SPFClient.Entities
                 }
 
                 else ped.Task.ClearAll();
+            }
+
+            else if (pTask == ActiveTask.Respawning)
+            {
+                if (!Anims.Walk.IsPlayingOn(ped))
+                {
+                    ped.Task.ClearAll();
+                    PlayAnimation(Anims.Walk);
+                }
             }
 
             else

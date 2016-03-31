@@ -22,8 +22,6 @@ namespace SPFClient.Entities
 
         private ClientFlags clientFlags;
 
-       // public uint SentPacketSequence { get; private set; }
-
         private int localPedHash, localWeaponHash, localVehicleHash;
         private short localPedID, localWeaponID, localVehicleID;
         private float localWeaponDamage = 0.0f;
@@ -69,7 +67,7 @@ namespace SPFClient.Entities
                 GameplayCamera.Position + Helpers.RotationToDirection(GameplayCamera.Rotation) * weaponRange,
                 IntersectOptions.Everything);
 
-            if (result.DitHitEntity && NetworkManager.ActivePlayers.Any(x => x.Handle == result.HitEntity.Handle))
+            if (result.DitHitEntity/* && NetworkManager.ActivePlayers.Any(x => x.Handle == result.HitEntity.Handle)*/)
             {
                 var hitCoords = result.HitEntity.Position.Serialize();
                 var dmg = (short)GetCurrentWeaponDamage();
@@ -149,24 +147,29 @@ namespace SPFClient.Entities
         {
             var clientState = new ClientState();
 
+            clientState.Health = Convert.ToInt16(Ped.Health);
+            clientState.WeaponID = GetWeaponID();
+            clientState.PedID = GetPedID();
+
             if (!Ped.IsInVehicle())
             {
                 clientState.Position = Ped.Position.Serialize();
                 clientState.Velocity = Ped.Velocity.Serialize();
                 clientState.Angles = GameplayCamera.Rotation.Serialize();
                 clientState.Rotation = Ped.Quaternion.Serialize();
-                clientState.MovementFlags = clientFlags;
+                clientState.MovementFlags = clientFlags;  
                 clientState.ActiveTask = GetActiveTask();
-                clientState.Health = Convert.ToInt16(Ped.Health);
-                clientState.WeaponID = GetWeaponID();
-                clientState.PedID = GetPedID();
             }
 
             else if (Vehicle != null && Vehicle.Health > 0)
             {
                 if ((int)Ped.CurrentVehicleSeat() == -1)
-                {                 
+                {
                     var v = new Vehicle(Vehicle.Handle);
+
+                    clientState.InVehicle = true;
+
+                    clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
 
                     clientState.VehicleState = new VehicleState(Vehicle.ID,
                         Vehicle.Position.Serialize(),
@@ -259,26 +262,14 @@ namespace SPFClient.Entities
                     }
                 }
 
-                else
+                // client is in a remote vehicle, get its handle 
+                else if ((Vehicle = NetworkManager.VehicleFromLocalHandle(Ped.CurrentVehicle.Handle)) != null)
                 {
-                    Vehicle = NetworkManager.VehicleFromLocalHandle(Ped.CurrentVehicle.Handle);
-
-                    if (Vehicle != null)
-                    {
-                        clientState.VehicleState = new VehicleState(Vehicle.ID);
-                    }
+                    clientState.InVehicle = true;
+                    clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
+                    clientState.VehicleState = new VehicleState(Vehicle.ID);     
                 }
-
-                clientState.InVehicle = true;
-
-                clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
-
-                clientState.PedID = GetPedID();
-                clientState.WeaponID = GetWeaponID();
             }
-
-        //    SentPacketSequence++;
-          //  SentPacketSequence %= int.MaxValue;
 
             ResetClientFlags();
 
@@ -338,9 +329,8 @@ namespace SPFClient.Entities
             if (Ped.IsInMeleeCombat)
                 SetClientFlag(ClientFlags.Punch);
 
-            if (Ped.IsRagdoll)
+            if (Ped.IsRagdoll && !Ped.IsDead)
             {
-                UI.UIManager.UISubtitleProxy("ragd");
                 SetClientFlag(ClientFlags.Ragdoll);
             }
 
@@ -402,11 +392,12 @@ namespace SPFClient.Entities
 
             if (Game.IsControlJustPressed(0, Control.VehicleExit))
             {
-                var closestVehicle = Ped.GetClosestVehicle(5f);
+                var closestVehicle = Ped.GetClosestVehicle(2.223f);
 
                 if (closestVehicle != null)
                 {
-                    var veh = NetworkManager.VehicleFromLocalHandle(closestVehicle.Handle);
+                    NetworkVehicle veh = closestVehicle.Handle == Vehicle?.Handle ? 
+                        Vehicle : NetworkManager.VehicleFromLocalHandle(closestVehicle.Handle);
 
                     if (veh != null && !Ped.IsInVehicle(closestVehicle) && veh.Handle != Ped.CurrentVehicle?.Handle)
                     {

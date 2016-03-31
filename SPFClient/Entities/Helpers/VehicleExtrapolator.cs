@@ -14,8 +14,8 @@ namespace SPFClient.Entities
         /// <summary>
         /// Minimum amount of snapshots needed before interpolating.
         /// </summary>
-        public const int SnapshotMin = 15;
-        public const int InterpDelay = 300;
+        public const int SnapshotMin = 20;
+        public const int InterpDelay = 350;
 
         public VehicleSnapshot GetExtrapolatedPosition(Vector3 curPosition, Quaternion curRotation, VehicleSnapshot[] extrpBuffer, int validSnapshots, float lerpFactor = 1.0f, bool forceExtrp = false)
         {
@@ -62,8 +62,6 @@ namespace SPFClient.Entities
 
             else
             {
-                UIManager.UISubtitleProxy("~y~extrp");
-
                 var lastState = extrpBuffer[0];
 
                 float extrapolationLength = ((float)(interpolationTime - lastState.Timestamp).TotalMilliseconds) / 1000.0f;

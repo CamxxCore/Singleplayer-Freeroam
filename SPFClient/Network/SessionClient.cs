@@ -19,9 +19,9 @@ namespace SPFClient.Network
 
     public delegate void SessionSyncHandler(EndPoint sender, SessionSync e);
 
-    public delegate void SessionNotificationHandler(EndPoint sender, SessionNotification e);
-
     public delegate void NativeInvocationHandler(EndPoint sender, NativeCall e);
+
+    public delegate void RankDataHandler(EndPoint sender, RankData e);
 
     public class SessionClient : IDisposable
     {
@@ -32,6 +32,9 @@ namespace SPFClient.Network
                 return serverEP;
             }
         }
+
+        private int localUID;
+        private string localUsername;
 
         private IPEndPoint serverEP;
         private NetClient client;
@@ -53,6 +56,9 @@ namespace SPFClient.Network
         /// fired when the server invokes a time sync
         internal event SessionSyncHandler SessionSyncEvent;
 
+        /// fired when the server sends new rank data
+        internal event RankDataHandler RankDataEvent;
+
         NetIncomingMessage message;
 
         public SessionClient(IPAddress remoteAddress, int port)
@@ -63,11 +69,11 @@ namespace SPFClient.Network
             client = new NetClient(Config);
         }
 
-        public void Login(int uid, string username)
+        public void Login()
         {          
             LoginRequest req = new LoginRequest();
-            req.UID = uid;
-            req.Username = username;
+            req.UID = localUID;
+            req.Username = localUsername;
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.LoginRequest);
             msg.Write(req);
@@ -76,19 +82,24 @@ namespace SPFClient.Network
 
         public void Say(string message)
         {
+            if (message.Length <= 0 || message.Length >= 32) return;
+            SessionMessage sMessage = new SessionMessage();
+            sMessage.SenderName = localUsername;
+            sMessage.Timestamp = NetworkTime.Now;
+            sMessage.Message = message;
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.SessionMessage);
-            msg.WriteTime(false);
-            msg.Write(message);
+            msg.Write(sMessage);
             client.SendMessage(msg, NetDeliveryMethod.ReliableOrdered);
         }
 
-        public void UpdateUserData(ClientState state)
+        public void UpdateUserData(ClientState state, uint sequence)
         {
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.ClientState);
+            msg.Write(sequence);
             msg.Write(state);
-            client.SendMessage(msg, NetDeliveryMethod.ReliableSequenced);
+            client.SendMessage(msg, NetDeliveryMethod.Unreliable);
         }
 
         public void SendWeaponData(short dmg, Vector3 hitCoords)
@@ -103,37 +114,57 @@ namespace SPFClient.Network
             client.SendMessage(msg, NetDeliveryMethod.ReliableSequenced);
         }
 
-        public bool Inititate()
+        public bool Inititialize(int uid, string username)
         {
+            bool init = false;
+
             try
             {
                 client.Start();
                 client.RegisterReceivedCallback(new SendOrPostCallback(OnReceive), SynchronizationContext.Current);
-                return true;
+                init = true;
             }
 
-            catch (ArgumentNullException)
+            catch (ArgumentNullException ex)
             {
+                init = false;
+                Logger.Log("Failed to receive the data due to an error.\n" + ex.Message);
             }
 
             catch (SocketException ex)
             {
-                Console.WriteLine("Failed to receive the data due to a connection error.\n" + ex.Message);
+                init = false;
+                Logger.Log("Failed to receive the data due to a connection error.\n" + ex.Message);
             }
 
-            catch (ArgumentOutOfRangeException)
+            catch (ArgumentOutOfRangeException ex)
             {
+                init = false;
+                Logger.Log("Failed to receive the data due to an error.\n" + ex.Message);
             }
 
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException ex)
             {
+                init = false;
+                Logger.Log("Failed to receive the data due to an error.\n" + ex.Message);
             }
 
-            catch (Exception)
+            catch (Exception ex)
             {
+                init = false;
+                Logger.Log("Failed to receive the data due to an error.\n" + ex.Message);
             }
 
-            return false;
+            finally
+            {
+                if (init)
+                {
+                    localUID = uid;
+                    localUsername = username;
+                }
+            }
+
+            return init;
         }
 
         /// <summary>
@@ -151,6 +182,8 @@ namespace SPFClient.Network
 
         private void HandleIncomingDataMessage(NetIncomingMessage msg)
         {
+            if (msg == null || msg.Data.Length <= 0) return;
+
             var dataType = (NetMessage)message.ReadByte();
 
             switch (dataType)
@@ -169,6 +202,9 @@ namespace SPFClient.Network
                     return;
                 case NetMessage.NativeCall:
                     OnNativeInvoked(msg.SenderEndPoint, msg.ReadNativeCall());
+                    return;
+                case NetMessage.RankData:
+                    OnRankDataReceived(msg.SenderEndPoint, msg.ReadRankData());
                     return;
             }
         }
@@ -211,6 +247,11 @@ namespace SPFClient.Network
         protected virtual void OnNativeInvoked(EndPoint sender, NativeCall msg)
         {
             NativeInvoked?.Invoke(sender, msg);
+        }
+
+        protected virtual void OnRankDataReceived(EndPoint sender, RankData msg)
+        {
+            RankDataEvent?.Invoke(sender, msg);
         }
 
         protected virtual void OnSessionEvent(EndPoint sender, SessionEvent msg)

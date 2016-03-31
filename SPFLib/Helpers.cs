@@ -236,21 +236,29 @@ namespace SPFLib
             return sEvent;
         }
 
-        public static void Write(this NetOutgoingMessage message, SessionEvent sessionEvent)
+        public static void Write(this NetOutgoingMessage message, SessionEvent sEvent)
         {
-            message.Write(sessionEvent.SenderID);
-            message.Write(sessionEvent.SenderName);
-            message.Write((short)sessionEvent.EventType);
+            message.Write(sEvent.SenderID);
+            message.Write(sEvent.SenderName);
+            message.Write((short)sEvent.EventType);
         }
 
         public static SessionMessage ReadSessionMessage(this NetIncomingMessage message)
         {
             var msg = new SessionMessage();
             msg.Timestamp = new DateTime(message.ReadInt64());
-            msg.SenderUID = message.ReadInt32();
             msg.SenderName = message.ReadString();
-            msg.Message = message.ReadString();
+            int messageLength = message.ReadInt32();
+            msg.Message = System.Text.Encoding.UTF8.GetString(message.ReadBytes(messageLength));
             return msg;
+        }
+
+        public static void Write(this NetOutgoingMessage message, SessionMessage sMessage)
+        {
+            message.Write(sMessage.Timestamp.Ticks);
+            message.Write(sMessage.SenderName);
+            message.Write(sMessage.Message.Length);
+            message.Write(System.Text.Encoding.UTF8.GetBytes(sMessage.Message));
         }
 
         public static ClientState ReadClientState(this NetIncomingMessage message)
@@ -258,6 +266,7 @@ namespace SPFLib
             try
             {
                 var state = new ClientState();
+                state.ClientID = message.ReadInt32();
                 state.InVehicle = message.ReadBoolean();
                 state.PedID = message.ReadInt16();
                 state.WeaponID = message.ReadInt16();
@@ -273,9 +282,7 @@ namespace SPFLib
                     state.Rotation = message.ReadVector3().ToQuaternion();
                 }
 
-                state.ClientID = message.ReadInt32();
-
-                if (state.InVehicle)
+                else
                 {
                     state.VehicleSeat = (VehicleSeat)message.ReadInt16();
 
@@ -319,8 +326,8 @@ namespace SPFLib
 
         public static void Write(this NetOutgoingMessage message, ClientState state)
         {
+            message.Write(state.ClientID);
             message.Write(state.InVehicle);
-
             message.Write(state.PedID);
             message.Write(state.WeaponID);
             message.Write(state.Health);
@@ -335,9 +342,7 @@ namespace SPFLib
                 message.Write(state.Rotation.ToVector3());
             }
 
-            message.Write(state.ClientID);
-
-            if (state.InVehicle)
+            else
             {
                 message.Write((short)state.VehicleSeat);
 
@@ -403,6 +408,22 @@ namespace SPFLib
             message.Write(vec.X);
             message.Write(vec.Y);
             message.Write(vec.Z);
+        }
+
+        public static RankData ReadRankData(this NetIncomingMessage message)
+        {
+            RankData rData = new RankData();
+            rData.RankIndex = message.ReadInt32();
+            rData.RankXP = message.ReadInt32();
+            rData.NewXP = message.ReadInt32();
+            return rData;
+        }
+
+        public static void Write(this NetOutgoingMessage message, RankData rData)
+        {
+            message.Write(rData.RankIndex);
+            message.Write(rData.RankXP);
+            message.Write(rData.NewXP);
         }
 
         public static short Serialize(this float fl)

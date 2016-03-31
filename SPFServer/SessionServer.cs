@@ -10,7 +10,7 @@ using SPFLib;
 using SPFLib.Types;
 using SPFLib.Enums;
 using SPFServer.Types;
-using SPFServer.Scripting;
+using SPFServer.Natives;
 using ASUPService;
 using Lidgren.Network;
 
@@ -27,19 +27,20 @@ namespace SPFServer.Session
         internal DateTime LastUpd;
         internal DateTime LastSync;
         internal bool WaitForRespawn;
+        internal uint LastSequence;
 
         public short Health { get; set; }
 
         public Vector3 Position
         {
             get { return State.Position; }
-            set { Natives.SetPosition(this, value); }
+            set { NativeFunctions.SetPosition(this, value); }
         }
 
         public Quaternion Rotation
         {
             get { return State.Rotation; }
-            set { Natives.SetRotation(this, value); }
+            set { NativeFunctions.SetRotation(this, value); }
         }
 
         internal ClientState State { get; private set; }
@@ -64,7 +65,12 @@ namespace SPFServer.Session
         }
     }
 
-    public sealed class SessionServer
+    public class AIClient
+    {
+
+    }
+
+        public sealed class SessionServer
     {
         public WeatherManager WeatherManager { get { return weatherMgr; } }
 
@@ -116,15 +122,13 @@ namespace SPFServer.Session
         /// <summary>
         /// Ctor
         /// </summary>
-        public SessionServer(int sessionID, int maxPlayers, int maxPing, DateTime igTime, WeatherType weatherType)
+        public SessionServer(int sessionID, DateTime initialTime, WeatherType weatherType)
         {
             SessionID = sessionID;
-
             NetConfig = new NetPeerConfiguration("spfsession");
             NetConfig.EnableMessageType(NetIncomingMessageType.ConnectionApproval);
             NetConfig.Port = 27852;
             server = new NetServer(NetConfig);
-
             commands.Add("status", GetStatus);
             commands.Add("vstatus", GetVehicleStatus);
             commands.Add("forcesync", ForceSync);
@@ -139,24 +143,24 @@ namespace SPFServer.Session
             commands.Add("tp2", TeleportToClient);
             commands.Add("tpto", TeleportToClient);
             commands.Add("getvar", GetVar);
+            commands.Add("setvar", SetVar);
+            commands.Add("setv", SetVar);
+            commands.Add("set", SetVar);
             commands.Add("getstring", GetString);
             commands.Add("help", ShowHelp);
             commands.Add("?", ShowHelp);
-
+            timeMgr = new TimeCycleManager(initialTime);
+            weatherMgr = new WeatherManager(weatherType);
+            weatherMgr.OnServerWeatherChanged += OnServerWeatherChanged;
             Config.GetOverrideVarsInt(AppDomain.CurrentDomain.BaseDirectory + "server.cfg", ref serverVars);
             Config.GetOverrideVarsString(AppDomain.CurrentDomain.BaseDirectory + "server.cfg", ref serverStrings);
-
-            timeMgr = new TimeCycleManager(igTime);
-            weatherMgr = new WeatherManager(weatherType);
-
-            weatherMgr.OnServerWeatherChanged += OnServerWeatherChanged;
         }
 
-        public SessionServer(int sessionID) : this(sessionID, 12, 999, DateTime.Now, WeatherType.Clear)
+        public SessionServer(int sessionID) : this(sessionID, DateTime.Now, WeatherType.Clear)
         { }
 
         /// <summary>
-        /// Start listening for client requests asynchronously.
+        /// Start listening for client requests.
         /// </summary>
         internal void StartListening()
         {
@@ -173,7 +177,7 @@ namespace SPFServer.Session
         {
             try
             {
-                Server.SessionProvider.SendHeartbeat(sessionInfo);
+                Server.NetworkService.SendHeartbeat(sessionInfo);
             }
 
             catch (Exception)
@@ -187,7 +191,7 @@ namespace SPFServer.Session
         SessionState[] historyBuffer = new SessionState[20];
 
         /// <summary>
-        /// Main tick event. Handles user session updates, sent at the rate defined by SVTickRate
+        /// Main tick event. Handles user session updates, sent at the rate defined by var SV_TickRate
         /// </summary>
         /// <param name="data"></param>
         private void Main()
@@ -222,7 +226,7 @@ namespace SPFServer.Session
 
                         state.Timestamp = timeNow.Subtract(client.TimeDiff);
 
-                        if (client.LastUpd.Ticks > 0 && (NetworkTime.Now - client.LastUpd) > TimeSpan.FromMilliseconds(1000))
+                        if (client.LastUpd.Ticks > 0 && (NetworkTime.Now - client.LastUpd) > TimeSpan.FromMilliseconds(1200))
                         {
                             removalList.Add(client);
                             continue;
@@ -319,8 +323,10 @@ namespace SPFServer.Session
 
             var dataType = (NetMessage)message.ReadByte();
 
+            // avoid switch case here for performance reasons..
+
             if (dataType == NetMessage.ClientState)
-                HandleClientStateUpdate(message.SenderConnection, message.ReadClientState());
+                HandleClientStateUpdate(message.SenderConnection, message.ReadUInt32(), message.ReadClientState());
             else if (dataType == NetMessage.SessionMessage)
                 threadQueue.AddTask(() => HandleChatMessage(message.SenderConnection, message.ReadSessionMessage()));
             else if (dataType == NetMessage.SessionCommand)
@@ -337,12 +343,39 @@ namespace SPFServer.Session
         {
             foreach (var cl in activeClients)
             {
-                InvokeClientNative(cl, "SET_WEATHER_TYPE_PERSIST", newWeather.ToString());
+                InvokeClientNative(cl, "SET_WEATHER_TYPE_NOW_PERSIST", newWeather.ToString());
             }
 
             Console.WriteLine("Weather Changing... Previous: " + lastWeather.ToString() + " New: " + newWeather.ToString() + "\n");
         }
 
+        /// <summary>
+        /// Broadcast a server wide message.
+        /// </summary>
+        /// <param name="message"></param>
+        public void Say(string message)
+        {
+            if (message.Length <= 0 || message.Length >= 100) return;
+            SessionMessage sMessage = new SessionMessage();
+            sMessage.SenderName = "Server";
+            sMessage.Timestamp = NetworkTime.Now;
+            sMessage.Message = message;
+
+            foreach (var client in activeClients)
+            {
+                var msg = server.CreateMessage();
+                msg.Write((byte)NetMessage.SessionMessage);
+                msg.Write(sMessage);
+                server.SendMessage(msg, client.Connection, NetDeliveryMethod.ReliableOrdered);
+            }
+        }
+
+        /// <summary>
+        /// Returns a value indicating whether the client is sending messages too frequently
+        /// </summary>
+        /// <param name="sender">The connection sending the messages.</param>
+        /// <param name="msInterval">Minimum allowed message interval to trigger the check.</param>
+        /// <returns></returns>
         private bool StressMitigationCheck(NetConnection sender, int msInterval)
         {
             DateTime lastReceived;
@@ -364,7 +397,7 @@ namespace SPFServer.Session
         /// <summary>
         /// Send a time syncronization request to the client.
         /// </summary>
-        /// <param name="client"></param>
+        /// <param name="client">Target client</param>
         internal void SendSynchronizationRequest(NetConnection client)
         {
             var req = new SessionSync();
@@ -378,11 +411,30 @@ namespace SPFServer.Session
             server.SendMessage(msg, client, NetDeliveryMethod.ReliableUnordered);
         }
 
+
+        /// <summary>
+        /// Send a time syncronization request to the client.
+        /// </summary>
+        /// <param name="client">Target client</param>
+        internal void SendRankData(NetConnection client, int rankIndex, int rankXP, int newXP)
+        {
+            var rData = new RankData();
+            rData.RankIndex = rankIndex;
+            rData.RankXP = rankXP;
+            rData.NewXP = newXP;
+
+            var msg = server.CreateMessage();
+            msg.Write((byte)NetMessage.RankData);
+            msg.Write(rData);
+            server.SendMessage(msg, client, NetDeliveryMethod.ReliableOrdered);
+        }
+
+
         /// <summary>
         /// Raise an event for the specified client.
         /// </summary>
-        /// <param name="client"></param>
-        /// <param name="type"></param>
+        /// <param name="client">Target client.</param>
+        /// <param name="type">Type of message.</param>
         internal void RaiseSessionEvent(GameClient client, EventType type, bool sendToOthers = true)
         {
             SessionEvent sEvent = new SessionEvent();
@@ -420,7 +472,9 @@ namespace SPFServer.Session
         /// <summary>
         /// Invoke a native on the client with return type void.
         /// </summary>
-        /// <param name="client"></param>
+        /// <param name="client">Target client</param>
+        /// <param name="func">Native function name or hash</param>
+        /// <param name="args">Native arguments</param>
         public void InvokeClientNative(GameClient client, string func, params NativeArg[] args)
         {
             var native = new NativeCall();
@@ -432,9 +486,12 @@ namespace SPFServer.Session
         }
 
         /// <summary>
-        /// Invoke a native on the client with a return type.
+        /// Invoke a native on the client with return type.
         /// </summary>
-        /// <param name="client"></param>
+        /// <typeparam name="T">Native function return type</typeparam>
+        /// <param name="client">Target client</param>
+        /// <param name="func">Native function name or hash</param>
+        /// <param name="args">Native arguments</param>
         public void InvokeClientNative<T>(GameClient client, string func, params NativeArg[] args)
         {
             var native = new NativeCall();
@@ -452,9 +509,10 @@ namespace SPFServer.Session
         /// <param name="endpoint"></param>
         /// <param name="client"></param>
         /// <returns></returns>
-        internal bool GetClient(NetConnection connection, out GameClient client)
+        public bool ClientFromEndpoint(IPEndPoint endpoint, out GameClient client)
         {
-            client = activeClients.Find(x => x.Connection.GetHashCode().Equals(connection.GetHashCode()));
+            client = activeClients.Find(x => x.Connection.RemoteEndPoint.
+            Equals(endpoint));
             return client != null;
         }
 
@@ -464,7 +522,7 @@ namespace SPFServer.Session
         /// <param name="endpoint"></param>
         /// <param name="client"></param>
         /// <returns></returns>
-        internal bool GetClient(int clientID, out GameClient client)
+        public bool ClientFromID(int clientID, out GameClient client)
         {
             var item = activeClients.Where(x => x.Info.UID == clientID).FirstOrDefault();
 
@@ -481,13 +539,24 @@ namespace SPFServer.Session
             }
         }
 
+        /// Get a client by index.
+        /// </summary>
+        /// <param name="endpoint"></param>
+        /// <param name="client"></param>
+        /// <returns></returns>
+        public bool ClientFromIndex(int index, out GameClient client)
+        {
+            client = activeClients.ElementAt(index);
+            return client != null;
+        }
+
         /// <summary>
         /// Returns true if the client exists.
         /// </summary>
         /// <param name="endpoint"></param>
         /// <param name="client"></param>
         /// <returns></returns>
-        internal bool ClientExists(NetConnection conn)
+        internal bool ConnectionExists(NetConnection conn)
         {
             return server.Connections.Contains(conn);
         }
@@ -547,21 +616,17 @@ namespace SPFServer.Session
 
             GameClient client;
 
-            if (GetClient(sender, out client))
+            if (ClientFromEndpoint(sender.RemoteEndPoint, out client))
             {
-                message.SenderName = client.Info.Name;
-                message.SenderUID = client.Info.UID;
-
-                var msg = server.CreateMessage();
-                msg.WriteAllProperties(message);
-
                 foreach (var cl in activeClients)
                 {
-                    if (cl.Connection != sender)
-                    {
-                        server.SendMessage(msg, cl.Connection, NetDeliveryMethod.ReliableOrdered);
+                    if (cl.Connection == sender)
+                        continue;
 
-                    }
+                    var msg = server.CreateMessage();
+                    msg.Write((byte)NetMessage.SessionMessage);
+                    msg.Write(message);
+                    server.SendMessage(msg, cl.Connection, NetDeliveryMethod.ReliableOrdered);
                 }
 
                 Server.ScriptManager.DoMessageReceived(client, message.Message);
@@ -581,13 +646,14 @@ namespace SPFServer.Session
         /// <param name="sender"></param>
         /// <param name="state"></param>
         [MethodImpl(MethodImplOptions.Synchronized)]
-        private void HandleClientStateUpdate(NetConnection sender, ClientState state)
+        private void HandleClientStateUpdate(NetConnection sender, uint sequence, ClientState state)
         {
             try
             {
                 GameClient client;
-                if (GetClient(sender, out client))
+                if (ClientFromEndpoint(sender.RemoteEndPoint, out client) && SPFLib.Helpers.ValidateSequence(sequence, client.LastSequence, uint.MaxValue))
                 {
+                    client.LastSequence = sequence;
                     client.UpdateState(state, NetworkTime.Now);
                 }
             }
@@ -613,7 +679,7 @@ namespace SPFServer.Session
             switch (cmd.Command)
             {          
                 case CommandType.Logout:
-                    if (GetClient(sender, out client))
+                    if (ClientFromEndpoint(sender.RemoteEndPoint, out client))
                     {
                         RemoveClient(client);
 
@@ -637,31 +703,25 @@ namespace SPFServer.Session
                 req.UID == 0)
                 return;
 
-            Console.WriteLine(req.UID + "name: " + req.Username);
-
             GameClient client;
 
-            if (!ClientExists(sender))
+            if (!ConnectionExists(sender))
             {
                 client = new GameClient(sender, new ClientInfo(req.UID, req.Username));
-
                 client.LastUpd = NetworkTime.Now;
-
                 client.LastSync = NetworkTime.Now;
-
                 activeClients.Add(client);
             }
 
             else
             {
-                if (GetClient(sender, out client))
+                if (ClientFromEndpoint(sender.RemoteEndPoint, out client))
                 {
                     RemoveClient(client);
                 }
             }
         }
     
-
         /// <summary>
         /// This method handles the time synchronization echo from the client.
         /// The time offset is computed based on the clients local time and packet latency 
@@ -675,14 +735,14 @@ namespace SPFServer.Session
 
             GameClient client;
 
-            if (GetClient(sender, out client))
+            if (ClientFromEndpoint(sender.RemoteEndPoint, out client))
             {
                 // total time for the roundtrip (server > client > server)
                 client.Ping = (currentTime - req.ServerTime);
 
                 // clock offset based on local client time and half the ping time.
                 var timeDiff = (currentTime - req.ClientTime) - TimeSpan.FromMilliseconds(client.Ping.TotalMilliseconds / 2);
-                Console.WriteLine("ss " + timeDiff.ToString());
+
                 if (client.TimeDiff == null)
                 {               
                     client.TimeDiff = timeDiff;
@@ -707,6 +767,7 @@ namespace SPFServer.Session
                     {
                         Server.ScriptManager.DoClientConnect(client, NetworkTime.Now);
 
+                        // notify other clients in the session
                         RaiseSessionEvent(client, EventType.PlayerSynced, false);
 
                         // notify other clients in the session
@@ -735,7 +796,8 @@ namespace SPFServer.Session
         private void HandleBulletImpact(NetConnection sender, WeaponData wh)
         {
             GameClient killer, target;
-            if (GetClient(sender, out killer))
+
+            if (ClientFromEndpoint(sender.RemoteEndPoint, out killer))
             {
                 var playbackTime = wh.Timestamp.Subtract(killer.TimeDiff);
 
@@ -745,24 +807,40 @@ namespace SPFServer.Session
                 for (int i = 0; i < recentStates.Clients.Length; i++)
                 {
                     if (recentStates.Clients[i].ClientID == killer.Info.UID)
-                    {
-                  
+                    {                  
                         foreach (var client in recentStates.Clients)
                         {
                             //  dont want the killer
                             if (client.ClientID == recentStates.Clients[i].ClientID)
                                 continue;
                             // check distance
-                              var dist = client.Position.DistanceTo(wh.HitCoords);
+                              var dist = client.InVehicle ? 
+                                client.VehicleState.Position.DistanceTo(wh.HitCoords) : 
+                                client.Position.DistanceTo(wh.HitCoords);
 
                               if (dist > 2f) continue;
 
                             // make sure the target exists
-                            if (GetClient(client.ClientID, out target))
+                            if (ClientFromID(client.ClientID, out target))
                             {
+                                if (target.State.Health < 0) return;
+
                                 // modify health
-                                target.Health = (short)(target.Health - wh.WeaponDamage);
-                                Console.WriteLine(target.Health);
+                                target.Health = (short) Helpers.Clamp((target.Health - wh.WeaponDamage), -1, 100);
+
+                                if (target.Health < 0)
+                                {
+                                    Say(string.Format("<font size =\"12\"><b>{0}</b></size></font> killed <font size=\"12\"><b>{1}</b></font>", 
+                                        killer.Info.Name, target.Info.Name));
+
+                                 //   Server.NetworkService.UpdatePlayerExp(killer.Info.UID, 100);
+
+                                   // var currentXP = Server.NetworkService.GetPlayerStat(killer.Info.UID, "totalExp");
+
+                                    SendRankData(killer.Connection, /*Ranks.RankTables.GetRankIndex(currentXP)*/1000, 1337, 1337);
+
+                                    Console.WriteLine(target.Health);
+                                }
                             }
                         }
                     }
@@ -778,12 +856,6 @@ namespace SPFServer.Session
         [MethodImpl(MethodImplOptions.Synchronized)]
         private void HandleNativeCallback(NetConnection sender, NativeCallback cb)
         {
-            /* var callback = nativeCallbacks.Find(x => x == cb.NetID);
-
-             if (callback != 0)
-             {
-                 nativeCallbacks.Remove(callback);
-             }*/
             threadQueue.AddTask(() => Console.WriteLine("callback"));
         }
 
@@ -847,6 +919,28 @@ namespace SPFServer.Session
             }
 
             else Console.WriteLine("Specified string was not found.");
+
+            return null;
+        }
+
+        internal string SetVar(params string[] args)
+        {
+            string varName = args[0];
+
+            int value = 0;
+
+            if (int.TryParse(args[1], out value))
+            {
+                if (serverVars.ContainsKey(varName))
+                {
+                    serverVars[varName] = value;
+                    Console.WriteLine("\nSuccess");
+                }
+
+                else Console.WriteLine("Specified var was not found.");
+            }
+
+            else Console.WriteLine("Value '" + args[1] + "' was in an invalid format.");
 
             return null;
         }
@@ -946,7 +1040,7 @@ namespace SPFServer.Session
 
             foreach (var cl in activeClients)
             {
-                InvokeClientNative(cl, "SET_WEATHER_TYPE_NOW_PERSIST", new NativeArg(weatherArgs));
+                InvokeClientNative(cl, "SET_OVERRIDE_WEATHER", new NativeArg(weatherArgs));
             }
             return null;
         }

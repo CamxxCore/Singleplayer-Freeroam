@@ -18,6 +18,7 @@ namespace SPFClient.Entities
         private int snapshotCount;
         private int currentRadioStation;
         private readonly ulong vAddress, wheelsPtr;
+        private bool hornPressed;
 
         public event NetworkVehicleEventHandler OnUpdateRecieved;
 
@@ -95,7 +96,7 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_VEHICLE_FRICTION_OVERRIDE, vehicle.Handle, 0.0f);
 
-            Function.Call(Hash._0xB5C51B5502E85E83, vehicle.Handle, 0, 0);
+
 
             return vehicle;
         }
@@ -131,11 +132,6 @@ namespace SPFClient.Entities
         //    if (lastReceivedState.PrimaryColor != state.PrimaryColor ||
         //      lastReceivedState.SecondaryColor != state.SecondaryColor)
             Function.Call(Hash.SET_VEHICLE_COLOURS, Handle, state.PrimaryColor, state.SecondaryColor);
-
-            if ((state.Flags & VehicleFlags.HornPressed) != 0)
-            {
-                Function.Call(Hash.START_VEHICLE_HORN, Handle, 100, 0, false);
-            }
 
             if (state.RadioStation != currentRadioStation)
             {
@@ -222,7 +218,7 @@ namespace SPFClient.Entities
         {
             if (SPFLib.NetworkTime.Now - LastUpdateTime > TimeSpan.FromSeconds(1)) return;
 
-            var snapshot = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 1f, false);
+            var snapshot = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.89f, false);
 
             if (snapshot != null)
             {
@@ -233,6 +229,9 @@ namespace SPFClient.Entities
             }
 
             SetCurrentRPM(lastReceivedState.CurrentRPM);
+
+            if (lastReceivedState.Flags.HasFlag(VehicleFlags.HornPressed))
+            Function.Call(Hash.OVERRIDE_VEH_HORN, Handle, 1, 0x2445ad61);
 
             //IS_VEHICLE_ENGINE_ON
             if (!Function.Call<bool>((Hash)0xAE31E7DF9B5B132E, Handle))

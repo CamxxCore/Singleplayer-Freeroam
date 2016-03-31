@@ -26,6 +26,18 @@ namespace SPFClient.Entities
         /// </summary>
         public event EntityChangedEventHandler EnterWater;
 
+
+        /// <summary>
+        /// Fired when the ped has entered a vehicle.
+        /// </summary>
+        public event EntityChangedEventHandler EnterVehicle;
+
+        /// <summary>
+        /// Fired when the ped has exited a vehicle.
+        /// </summary>
+        public event EntityChangedEventHandler ExitVehicle;
+
+
         /// <summary>
         /// Total entity ticks.
         /// </summary>
@@ -67,6 +79,14 @@ namespace SPFClient.Entities
         }
 
         /// <summary>
+        /// Total ticks for which the entity has been in water.
+        /// </summary>
+        public int VehicleTicks
+        {
+            get { return waterTicks; }
+        }
+
+        /// <summary>
         /// Initialize the entity for management.
         /// </summary>
         /// <param name="entity"></param>
@@ -75,6 +95,16 @@ namespace SPFClient.Entities
         {
             spawnTime = Game.GameTime;
             totalTime = default(TimeSpan);
+        }
+
+        protected virtual void OnEnterVehicle(EntityChangedEventArgs e)
+        {
+            EnterVehicle?.Invoke(this, e);
+        }
+
+        protected virtual void OnExitVehicle(EntityChangedEventArgs e)
+        {
+            ExitVehicle?.Invoke(this, e);
         }
 
         /// <summary>

@@ -79,6 +79,8 @@
     <Compile Include="Entities\Vehicles\NetworkHeli.cs" />
     <Compile Include="Entities\Vehicles\NetworkPlane.cs" />
     <Compile Include="Entities\Helpers\Flares\LoopedPTFX.cs" />
+    <Compile Include="Logger.cs" />
+    <Compile Include="NetworkService.cs" />
     <Compile Include="Network\Helpers\NativeHandler.cs" />
     <Compile Include="Offsets.cs" />
     <Compile Include="Helpers.cs" />

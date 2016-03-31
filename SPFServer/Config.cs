@@ -8,7 +8,7 @@ namespace SPFServer
         public static void GetOverrideVarsInt(string configPath, ref ServerVarCollection<int> vars)
         {
             if (!File.Exists(configPath))
-                throw new FileNotFoundException("fileName: The file doesn't exist.");
+                return;
 
             var lines = File.ReadAllLines(configPath);
 
@@ -32,7 +32,7 @@ namespace SPFServer
         public static void GetOverrideVarsString(string configPath, ref ServerVarCollection<string> vars)
         {
             if (!File.Exists(configPath))
-                throw new FileNotFoundException("fileName: The file doesn't exist.");
+                return;
 
             var lines = File.ReadAllLines(configPath);
 

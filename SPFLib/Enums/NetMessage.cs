@@ -19,6 +19,6 @@
         SessionHeartbeat = 12,
         LoginRequest = 13,
         SessionNotification = 14,
-      //  SessionCallback = 15,
+        RankData = 15,
     }
 }

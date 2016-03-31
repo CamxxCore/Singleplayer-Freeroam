@@ -22,7 +22,7 @@ namespace SPFClient.Network
         /// <summary>
         /// Update rate for local packets sent to the server.
         /// </summary>
-        private const int ClUpdateRate = 12;
+        private const int ClUpdateRate = 15;
 
         /// <summary>
         /// Total idle time before the client is considered to have timed out from the server.
@@ -46,7 +46,9 @@ namespace SPFClient.Network
         public static SessionClient Current { get { return current; } }
         private static SessionClient current;
 
-        private static Queue<NativeCall> nativeQueue = new Queue<NativeCall>();
+        private static Queue<NativeCall> queuedNativeCalls = new Queue<NativeCall>();
+
+        private static Queue<RankData> queuedRankData = new Queue<RankData>();
 
         private static DateTime disconnectTimeout = new DateTime();
 
@@ -54,6 +56,8 @@ namespace SPFClient.Network
             new Queue<SessionMessage>();
 
         private static uint lastSequence;
+
+        public uint SentPacketSequence { get; private set; }
 
         public NetworkSession()
         {
@@ -75,10 +79,13 @@ namespace SPFClient.Network
             current.SessionStateEvent += SessionStateEvent;
             current.NativeInvoked += NativeInvoked;
             current.SessionEvent += SessionEvent;
+            current.RankDataEvent += RankDataEvent;
 
-            if (current.Inititate())
+            if (current.Inititialize(UID, Game.Player.Name ?? "Unknown Player"))
             {
-                current.Login(UID, Game.Player.Name ?? "Unknown Player");
+                current.Login();
+
+                //GTA.UI.ShowSubtitle("Initialized");
 
                 World.GetAllEntities().ToList().ForEach(x =>
                     {
@@ -100,6 +107,11 @@ namespace SPFClient.Network
             }
         }
 
+        private static void RankDataEvent(EndPoint sender, RankData e)
+        {
+            queuedRankData.Enqueue(e);
+        }
+
         /// <summary>
         /// Close the session gracefully. 
         /// Unsubscribe from server events and remove all entities from the world.
@@ -116,6 +128,7 @@ namespace SPFClient.Network
                 current.SessionStateEvent -= SessionStateEvent;
                 current.SessionEvent -= SessionEvent;
                 current.NativeInvoked -= NativeInvoked;
+                current.RankDataEvent -= RankDataEvent;
                 current.Dispose();
                 current = null;
             }     
@@ -125,7 +138,9 @@ namespace SPFClient.Network
             // restore regular game world
             Function.Call(Hash.CLEAR_OVERRIDE_WEATHER);
 
-            Function.Call(Hash.PAUSE_CLOCK, false);
+            //     Function.Call(Hash.PAUSE_CLOCK, false);
+
+            Function.Call(Hash._DISABLE_AUTOMATIC_RESPAWN, true);
 
             disconnectTimeout = new DateTime();
 
@@ -143,7 +158,7 @@ namespace SPFClient.Network
         {
             if (!Initialized) return;
 
-            if (SPFLib.Helpers.ValidateSequence(e.Sequence, lastSequence, uint.MaxValue) || lastSequence == 0)
+            if (SPFLib.Helpers.ValidateSequence(e.Sequence, lastSequence, uint.MaxValue))
             {
                 foreach (var client in e.Clients)
                 {
@@ -152,10 +167,7 @@ namespace SPFClient.Network
 
                 lastSequence = e.Sequence;
             }
-
-            else { UIManager.UISubtitleProxy("lost packet"); }
-              
-
+                         
             disconnectTimeout = DateTime.Now + TimeSpan.FromMilliseconds(ClTimeout);
         }
 
@@ -167,8 +179,11 @@ namespace SPFClient.Network
         /// <param name="e"></param>
         private static void ChatEvent(EndPoint sender, SessionMessage e)
         {
-            if (!Initialized || e.SenderUID == UID) return;
-            msgQueue.Enqueue(e);
+            if (!Initialized) return;
+            if (e.SenderName.Equals("Server", StringComparison.InvariantCultureIgnoreCase))
+                UIManager.UINotifyProxy(e.Message);
+            else
+                msgQueue.Enqueue(e);
         }
 
         /// <summary>
@@ -211,7 +226,7 @@ namespace SPFClient.Network
                         if (client.ActiveVehicle != null)
                             NetworkManager.DeleteVehicle(client.ActiveVehicle);           
                     }
-                    UIManager.UINotifyProxy(e.SenderName + " left.");
+                    UIManager.UINotifyProxy(e.SenderName + " left. " + e.SenderID.ToString());
                     break;
 
                 case EventType.PlayerKicked:
@@ -230,7 +245,7 @@ namespace SPFClient.Network
         private static void NativeInvoked(EndPoint sender, NativeCall e)
         {
             if (!Initialized) return;
-            nativeQueue.Enqueue(e);
+            queuedNativeCalls.Enqueue(e);
         }
 
         /// <summary>
@@ -250,11 +265,15 @@ namespace SPFClient.Network
 
             if (isSynced && Game.GameTime - lastSync >= ClUpdateRate)
             {
+                SentPacketSequence++;
+
+                SentPacketSequence %= uint.MaxValue;
+
                 var localPlayer = NetworkManager.LocalPlayer;
 
                 var state = localPlayer.GetClientState();
 
-                current.UpdateUserData(state);
+                current.UpdateUserData(state, SentPacketSequence);
 
                 lastSync = Game.GameTime;
             }
@@ -267,14 +286,20 @@ namespace SPFClient.Network
 
             #region native invocation
 
-            while (nativeQueue.Count > 0)
+            while (queuedNativeCalls.Count > 0)
             {
-                var native = nativeQueue.Dequeue();
+                var native = queuedNativeCalls.Dequeue();
 
                 NativeCallback callback = NativeHandler.ExecuteLocalNativeWithArgs(native);
 
                 if (callback != null)
                     current.SendNativeCallback(callback);
+            }
+
+            while (queuedRankData.Count > 0)
+            {
+                var rData = queuedRankData.Dequeue();
+                UIManager.RankBar.ShowRankBar(rData.RankIndex, rData.RankXP, rData.NewXP, 116, 3000, 2000);
             }
 
             #endregion
@@ -344,7 +369,6 @@ namespace SPFClient.Network
 
                 var clientState = remoteClient.Key;
 
-
                 // make sure the client position is valid
                 if (clientState == null ||
                     (!clientState.InVehicle && 
@@ -355,7 +379,6 @@ namespace SPFClient.Network
                 {
                     continue;
                 }
-
 
                 NetworkPlayer client = PlayerFromID(clientState.ClientID);
 
@@ -396,33 +419,17 @@ namespace SPFClient.Network
                             {
                                 vehicle = CreateAndAddVehicle(vehicleState);
                                 client.ActiveVehicle = vehicle;
-
-                                if (!Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
-                                {
-                                    Function.Call(Hash.TASK_ENTER_VEHICLE,
-                                   client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 3, 0);
-
-                                    var dt = DateTime.Now + TimeSpan.FromMilliseconds(1800);
-
-                                    while (DateTime.Now < dt)
-                                        Yield();
-
-                                    Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 16, 0);
-                                }
                             }
                         }
 
                         if (!Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
                         {
-                            Function.Call(Hash.TASK_ENTER_VEHICLE,
-                           client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 3, 0);
+                            Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, client.LastState.InVehicle ? 16 : 3, 0);
 
                             var dt = DateTime.Now + TimeSpan.FromMilliseconds(1800);
 
                             while (DateTime.Now < dt)
                                 Yield();
-
-                            Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, 16, 0);
                         }
 
                         if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, vehicle.Model.Hash))
@@ -450,8 +457,7 @@ namespace SPFClient.Network
                 else if (clientUpdate.Health != Game.Player.Character.Health)
                 {
                     Game.Player.Character.Health = clientUpdate.Health;
-                }
-                
+                }             
             }
 
             if (localPlayer != null)

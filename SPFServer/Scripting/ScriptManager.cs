@@ -77,7 +77,7 @@ namespace SPFServer
         {
             if (!Directory.Exists(scriptDir))
             {
-                Server.LogErrorToConsole("scripts directory not found. ScriptManager was not loaded.");
+                Server.WriteErrorToConsole("scripts directory not found. ScriptManager was not loaded.");
                 return null;
             }
 
@@ -88,10 +88,18 @@ namespace SPFServer
             compilerOptions.CompilerOptions = "/optimize";
             compilerOptions.GenerateInMemory = true;
             compilerOptions.IncludeDebugInformation = true;
-            compilerOptions.ReferencedAssemblies.Add("System.dll");
-            compilerOptions.ReferencedAssemblies.Add("System.Drawing.dll");
-            compilerOptions.ReferencedAssemblies.Add("System.Windows.Forms.dll");
+
+            if (!File.Exists(AppDomain.CurrentDomain.BaseDirectory + "SPFLib.dll"))
+            {
+                Server.WriteErrorToConsole("SPFLib.dll not found. ScriptManager was not loaded.");
+                return null;
+            }
+
+            compilerOptions.ReferencedAssemblies.Add(AppDomain.CurrentDomain.BaseDirectory + "SPFLib.dll");
             compilerOptions.ReferencedAssemblies.Add(Assembly.GetExecutingAssembly().Location);
+            compilerOptions.ReferencedAssemblies.Add("System.dll");
+            compilerOptions.ReferencedAssemblies.Add("System.Core.dll");
+            compilerOptions.ReferencedAssemblies.Add("System.Drawing.dll");
 
             var files = Directory.GetFiles(scriptDir, "*", SearchOption.AllDirectories);
 

@@ -56,5 +56,17 @@ namespace SPFServer
 
             return TimeSpan.FromMilliseconds(avgHalfLat * 1000);
         }
+
+        public static double Clamp(double value, double min, double max)
+        {
+            // First we check to see if we're greater than the max
+            value = (value > max) ? max : value;
+
+            // Then we check to see if we're less than the min.
+            value = (value < min) ? min : value;
+
+            // There's no check to see if min > max.
+            return value;
+        }
     }
 }

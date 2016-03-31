@@ -13,7 +13,7 @@ namespace ASUPService
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Runtime.Serialization", "4.0.0.0")]
     [System.Runtime.Serialization.DataContractAttribute(Name = "ActiveSession", Namespace = "http://schemas.datacontract.org/2004/07/ASUPService")]
-    internal partial class ActiveSession : object, System.Runtime.Serialization.IExtensibleDataObject
+    public partial class ActiveSession : object, System.Runtime.Serialization.IExtensibleDataObject
     {
 
         private System.Runtime.Serialization.ExtensionDataObject extensionDataField;
@@ -190,7 +190,7 @@ namespace ASUPService
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Runtime.Serialization", "4.0.0.0")]
     [System.Runtime.Serialization.DataContractAttribute(Name = "UserInfo", Namespace = "http://schemas.datacontract.org/2004/07/ASUPService")]
-    internal partial class UserInfo : object, System.Runtime.Serialization.IExtensibleDataObject
+    public partial class UserInfo : object, System.Runtime.Serialization.IExtensibleDataObject
     {
 
         private System.Runtime.Serialization.ExtensionDataObject extensionDataField;
@@ -302,7 +302,7 @@ namespace ASUPService
 
 [System.CodeDom.Compiler.GeneratedCodeAttribute("System.ServiceModel", "4.0.0.0")]
 [System.ServiceModel.ServiceContractAttribute(ConfigurationName = "IASUPService")]
-internal interface IASUPService
+public interface IASUPService
 {
 
     [System.ServiceModel.OperationContractAttribute(Action = "http://tempuri.org/IASUPService/GetSessionList", ReplyAction = "http://tempuri.org/IASUPService/GetSessionListResponse")]
@@ -373,13 +373,13 @@ internal interface IASUPService
 }
 
 [System.CodeDom.Compiler.GeneratedCodeAttribute("System.ServiceModel", "4.0.0.0")]
-internal interface IASUPServiceChannel : IASUPService, System.ServiceModel.IClientChannel
+public interface IASUPServiceChannel : IASUPService, System.ServiceModel.IClientChannel
 {
 }
 
 [System.Diagnostics.DebuggerStepThroughAttribute()]
 [System.CodeDom.Compiler.GeneratedCodeAttribute("System.ServiceModel", "4.0.0.0")]
-internal partial class ASUPServiceClient : System.ServiceModel.ClientBase<IASUPService>, IASUPService
+public partial class ASUPServiceClient : System.ServiceModel.ClientBase<IASUPService>, IASUPService
 {
 
     public ASUPServiceClient()

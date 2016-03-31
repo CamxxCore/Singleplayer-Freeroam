@@ -13,7 +13,7 @@ namespace SPFClient.Entities
         /// Minimum amount of snapshots needed before interpolating.
         /// </summary>
         public const int SnapshotMin = 10;
-        public const int InterpDelay = 200;
+        public const int InterpDelay = 350;
 
         public EntitySnapshot GetExtrapolatedPosition(Vector3 curPosition, Quaternion curRotation, EntitySnapshot[] extrpBuffer, int validSnapshots, float lerpFactor = 1.0f, bool forceExtrp = false)
         {

@@ -426,6 +426,46 @@ namespace SPFClient
             return vector;
         }
 
+        public static double SmoothStep(double value1, double value2, double amount)
+        {
+            double result = Clamp(amount, 0f, 1f);
+            result = Hermite(value1, 0f, value2, 0f, result);
+            return result;
+        }
+
+        public static double Hermite(double value1, double tangent1, double value2, double tangent2, double amount)
+        {
+            // All transformed to double not to lose precission
+            // Otherwise, for high numbers of param:amount the result is NaN instead of Infinity
+            double v1 = value1, v2 = value2, t1 = tangent1, t2 = tangent2, s = amount, result;
+            double sCubed = s * s * s;
+            double sSquared = s * s;
+
+            if (amount == 0f)
+                result = value1;
+            else if (amount == 1f)
+                result = value2;
+            else
+                result = (2 * v1 - 2 * v2 + t2 + t1) * sCubed +
+                    (3 * v2 - 3 * v1 - 2 * t1 - t2) * sSquared +
+                    t1 * s +
+                    v1;
+            return (double)result;
+        }
+
+        public static double Clamp(double value, double min, double max)
+        {
+            // First we check to see if we're greater than the max
+            value = (value > max) ? max : value;
+
+            // Then we check to see if we're less than the min.
+            value = (value < min) ? min : value;
+
+            // There's no check to see if min > max.
+            return value;
+        }
+
+
         public static Vector3 DirectionToRotation(GTA.Math.Vector3 direction)
         {
             direction.Normalize();
