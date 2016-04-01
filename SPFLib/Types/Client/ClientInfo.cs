@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Text;
-using System.Linq;
-using System.IO;
 
 namespace SPFLib.Types
 {

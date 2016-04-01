@@ -4,6 +4,8 @@
     {
         None,
         LocalHandle,
+        AIHandle,
+        VehicleHandle,
         Int,
         Bool,
         String,

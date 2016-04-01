@@ -2,6 +2,7 @@
 using GTA.Native;
 using SPFLib.Types;
 using SPFClient.Types;
+using SPFLib.Enums;
 using SPFLib;
 using System;
 using Vector3 = GTA.Math.Vector3;
@@ -28,11 +29,10 @@ namespace SPFClient.Entities
             get; set;
         }
 
-        private int lastWeaponID;
         private int snapshotCount;
         private bool frozen = false;
         private int currentPedHash;
-        private static int currentPedID;
+        private static PedType pedType;
 
         private DateTime lastUpdateTime;
 
@@ -41,8 +41,7 @@ namespace SPFClient.Entities
         private static MovementController animationManager;
         private static BicyleController bicyleController;
 
-        private EntityExtrapolator extrapolator = new EntityExtrapolator();
-        private EntitySnapshot[] moveBuffer = new EntitySnapshot[20];
+        private PlayerSnapshot[] moveBuffer = new PlayerSnapshot[20];
         private ClientState lastReceivedState;
 
         /// <summary>
@@ -58,7 +57,12 @@ namespace SPFClient.Entities
 
         static Ped SetupPed(ClientState state)
         {
-            var pedModel = new Model(Helpers.PedIDToHash(state.PedID));
+            PedHash result;
+
+            if (!Enum.TryParse(state.PedType.ToString(), out result))
+                result = PedHash.Michael;
+
+            var pedModel = new Model(result);
 
             if (!pedModel.IsLoaded)
                 pedModel.Request(1000);
@@ -152,12 +156,12 @@ namespace SPFClient.Entities
                 Font.ChaletLondon, 
                 UIResText.Alignment.Centered);
            
-            currentPedID = state.PedID;
+            pedType = state.PedType;
 
             return ped;
         }
 
-        public void HandleUpdatePacket(ClientState state, DateTime svTime)
+        public void HandleStateUpdate(ClientState state, DateTime svTime)
         {
             if (!state.InVehicle)
             {
@@ -182,7 +186,7 @@ namespace SPFClient.Entities
                 for (int i = moveBuffer.Length - 1; i > 0; i--)
                     moveBuffer[i] = moveBuffer[i - 1];
 
-                moveBuffer[0] = new EntitySnapshot(state.Position.Deserialize(), 
+                moveBuffer[0] = new PlayerSnapshot(state.Position.Deserialize(), 
                     state.Velocity.Deserialize(), 
                     state.Rotation.Deserialize(), 
                     state.Angles.Deserialize(), 
@@ -223,8 +227,17 @@ namespace SPFClient.Entities
 
             if (Health <= 0)
             {
-                if (!IsDead) Health = -1;
+                if (CurrentBlip.Sprite != BlipSprite.Dead)
+                    CurrentBlip.Sprite = BlipSprite.Dead;
                 return;
+            }
+
+            else
+            {       
+                if (CurrentBlip.Sprite != BlipSprite.Standard)
+                {
+                    CurrentBlip.Sprite = BlipSprite.Standard;
+                }
             }
 
             if (lastReceivedState.InVehicle)
@@ -234,7 +247,7 @@ namespace SPFClient.Entities
 
             else
             {
-                var entityPosition = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.87f);
+                var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.87f);
 
                 if (entityPosition != null)                 
                 {
@@ -324,19 +337,18 @@ namespace SPFClient.Entities
             Function.Call(Hash.CLEAR_DRAW_ORIGIN);
         }
 
-        /// <summary>
-        /// Get the ped ID of this NetworkPlayer.
+        /// Avoid iterating inside xxHashtoID while running the game loop.
         /// </summary>
         /// <returns></returns>
-        public int GetPedID()
+        public PedType GetPedType()
         {
             if (Model.Hash != currentPedHash)
             {
                 currentPedHash = Model.Hash;
-                currentPedID = Helpers.PedHashtoID((PedHash)currentPedHash);
+                Enum.TryParse(((PedHash)currentPedHash).ToString(), out pedType);
             }
 
-            return currentPedID;
+            return pedType;
         }
 
         /// <summary>
@@ -344,7 +356,7 @@ namespace SPFClient.Entities
         /// </summary>
         /// <param name="index"></param>
         /// <returns></returns>
-        public EntitySnapshot GetEntitySnapshot(int index)
+        public PlayerSnapshot GetEntitySnapshot(int index)
         {
             if (index > moveBuffer.Length - 1) throw new ArgumentOutOfRangeException("index: out of range.");
             return moveBuffer[index];

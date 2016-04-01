@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using SPFLib.Enums;
+﻿using SPFLib.Enums;
 
 namespace SPFLib.Types
 {

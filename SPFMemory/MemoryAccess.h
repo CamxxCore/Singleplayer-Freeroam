@@ -8,6 +8,10 @@ public:
 	static System::UInt64 GetPlayerAddress(int handle);
 	static System::UInt64 GetEntityAddress(int handle);
 
+	static bool SnowEnabled;
+
+	static void SetSnowEnabled(bool enabled);
+
 	static float GetPedWeaponDamage(int handle);
 
 	static float GetWheelRotation(unsigned long long address, int index);
@@ -37,6 +41,8 @@ public:
 private:
 	static System::UInt64(*GetAddressOfEntity)(int handle);
 	static System::UInt64(*GetAddressOfPlayer)(int handle);
+
+	static System::UInt64 SnowAddress;
 
 	static System::UInt64 FindPattern(const char *pattern, const char *mask);
 };

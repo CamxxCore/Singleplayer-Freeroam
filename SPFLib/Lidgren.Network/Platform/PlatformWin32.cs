@@ -14,7 +14,9 @@ namespace Lidgren.Network
 		private static readonly double s_dInvFreq = 1.0 / (double)Stopwatch.Frequency;
 		
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static ulong GetPlatformSeed(int seedInc)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			ulong seed = (ulong)System.Diagnostics.Stopwatch.GetTimestamp();
 			return seed ^ ((ulong)Environment.WorkingSet + (ulong)seedInc);

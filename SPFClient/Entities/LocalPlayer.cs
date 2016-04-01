@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Linq;
-using System.Drawing;
-using System.Collections.Generic;
 using GTA;
 using SPFClient.Network;
 using SPFLib.Enums;
 using GTA.Native;
-using GTA.Math;
 using SPFClient.Types;
 using SPFLib.Types;
 
@@ -22,8 +19,10 @@ namespace SPFClient.Entities
 
         private ClientFlags clientFlags;
 
+        private PedType pedType;
+
         private int localPedHash, localWeaponHash, localVehicleHash;
-        private short localPedID, localWeaponID, localVehicleID;
+        private short localWeaponID, localVehicleID;
         private float localWeaponDamage = 0.0f;
 
         public Ped Ped
@@ -90,14 +89,15 @@ namespace SPFClient.Entities
         /// Avoid iterating inside xxHashtoID while running the game loop.
         /// </summary>
         /// <returns></returns>
-        private short GetPedID()
+        private PedType GetPedType()
         {
             if (Ped.Model.Hash != localPedHash)
             {
                 localPedHash = Ped.Model.Hash;
-                localPedID = Helpers.PedHashtoID((PedHash)localPedHash);
+                Enum.TryParse(((PedHash)localPedHash).ToString(), out pedType);
             }
-            return localPedID;
+
+            return pedType;
         }
 
         /// <summary>
@@ -107,7 +107,7 @@ namespace SPFClient.Entities
         /// <returns></returns>
         private short GetWeaponID()
         {
-            if (Vehicle != null && Vehicle is NetworkPlane) return 0;
+            if (Ped != null && Ped.IsInVehicle()) return 0;
 
             if ((int)Ped.Weapons.Current.Hash != localWeaponHash)
             {
@@ -149,7 +149,7 @@ namespace SPFClient.Entities
 
             clientState.Health = Convert.ToInt16(Ped.Health);
             clientState.WeaponID = GetWeaponID();
-            clientState.PedID = GetPedID();
+            clientState.PedType = GetPedType();
 
             if (!Ped.IsInVehicle())
             {
@@ -263,7 +263,7 @@ namespace SPFClient.Entities
                 }
 
                 // client is in a remote vehicle, get its handle 
-                else if ((Vehicle = NetworkManager.VehicleFromLocalHandle(Ped.CurrentVehicle.Handle)) != null)
+                else if ((Vehicle = EntityManager.VehicleFromLocalHandle(Ped.CurrentVehicle.Handle)) != null)
                 {
                     clientState.InVehicle = true;
                     clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
@@ -291,9 +291,11 @@ namespace SPFClient.Entities
         internal void SetCurrentVehicle(Vehicle vehicle)
         {
             if ((Vehicle == null || vehicle.Handle != Vehicle.Handle))
-            {
-                Vehicle = NetworkManager.VehicleFromLocalHandle(vehicle.Handle);
+            {     
+                // check if the vehicle already exists in the session so we don't create a clone
+                Vehicle = EntityManager.VehicleFromLocalHandle(vehicle.Handle);
 
+                // if not, create a NetworkVehicle instance from the players current vehicle
                 if (Vehicle == null)
                 {
                     Vehicle = Helpers.GameVehicleToNetworkVehicle(vehicle);
@@ -327,7 +329,10 @@ namespace SPFClient.Entities
                 SetClientFlag(ClientFlags.Dead);
 
             if (Ped.IsInMeleeCombat)
+            {
+                UI.UIManager.UISubtitleProxy("melee");
                 SetClientFlag(ClientFlags.Punch);
+            }
 
             if (Ped.IsRagdoll && !Ped.IsDead)
             {
@@ -382,7 +387,7 @@ namespace SPFClient.Entities
                 SetCurrentVehicle(new Vehicle(Function.Call<int>((Hash)0x814FA8BE5449445D, Ped.Handle)));
             }
 
-            // Another player is driving our vehicle, so we need it to move based on updates sent by the player.
+            // Another player is driving our vehicle, so we update it based on vehiclestate updates sent by the player.
             if (Vehicle != null && Vehicle.Exists())
             {
                 var driver = Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, Vehicle.Handle, -1);
@@ -397,7 +402,7 @@ namespace SPFClient.Entities
                 if (closestVehicle != null)
                 {
                     NetworkVehicle veh = closestVehicle.Handle == Vehicle?.Handle ? 
-                        Vehicle : NetworkManager.VehicleFromLocalHandle(closestVehicle.Handle);
+                        Vehicle : EntityManager.VehicleFromLocalHandle(closestVehicle.Handle);
 
                     if (veh != null && !Ped.IsInVehicle(closestVehicle) && veh.Handle != Ped.CurrentVehicle?.Handle)
                     {

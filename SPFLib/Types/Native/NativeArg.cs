@@ -12,12 +12,15 @@ namespace SPFLib.Types
             Type = Helpers.GetDataType(value);
             Value = value;
         }
-
-        public NativeArg(DataType type)
+ 
+        public NativeArg(DataType type, object value)
         {
             Type = type;
-            Value = null;
+            Value = value;
         }
+
+        public NativeArg(DataType type) : this(type, null)
+        { }
 
         public NativeArg()
         {

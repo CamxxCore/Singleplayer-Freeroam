@@ -58,7 +58,9 @@ namespace Lidgren.Network
 		/// Reads an SByte without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public sbyte PeekSByte()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 8, c_readOverflowError);
 			byte retval = NetBitWriter.ReadByte(m_data, 8, m_readPosition);
@@ -115,7 +117,9 @@ namespace Lidgren.Network
 		/// Reads a UInt16 without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt16 PeekUInt16()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 16, c_readOverflowError);
 			uint retval = NetBitWriter.ReadUInt16(m_data, 16, m_readPosition);
@@ -165,7 +169,9 @@ namespace Lidgren.Network
 		/// Reads a UInt32 without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt32 PeekUInt32()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 32, c_readOverflowError);
 			uint retval = NetBitWriter.ReadUInt32(m_data, 32, m_readPosition);
@@ -176,7 +182,9 @@ namespace Lidgren.Network
 		/// Reads the specified number of bits into a UInt32 without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt32 PeekUInt32(int numberOfBits)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert((numberOfBits > 0 && numberOfBits <= 32), "ReadUInt() can only read between 1 and 32 bits");
 			//NetException.Assert(m_bitLength - m_readBitPtr >= numberOfBits, "tried to read past buffer size");
@@ -192,7 +200,9 @@ namespace Lidgren.Network
 		/// Reads a UInt64 without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt64 PeekUInt64()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 64, c_readOverflowError);
 
@@ -222,7 +232,9 @@ namespace Lidgren.Network
 		/// Reads the specified number of bits into an UInt64 without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt64 PeekUInt64(int numberOfBits)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert((numberOfBits > 0 && numberOfBits <= 64), "ReadUInt() can only read between 1 and 64 bits");
 			NetException.Assert(m_bitLength - m_readPosition >= numberOfBits, c_readOverflowError);

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace SPFLib.Types
+﻿namespace SPFLib.Types
 {
     public class LoginRequest
     {

@@ -10,12 +10,36 @@ static MemoryAccess::MemoryAccess()
 	GetAddressOfEntity = reinterpret_cast<uintptr_t(*)(int)>(*reinterpret_cast<int *>(address + 3) + address + 7);
 	address = FindPattern("\xB2\x01\xE8\x00\x00\x00\x00\x33\xC9\x48\x85\xC0\x74\x3B", "xxx????xxxxxxx");
 	GetAddressOfPlayer = reinterpret_cast<uintptr_t(*)(int)>(*reinterpret_cast<int *>(address + 3) + address + 7);
-
+	address = FindPattern("\x74\x25\xB9\x40\x00\x00\x00\xE8\x00\x00\xC4\xFF", "xxxx???x??xx");
+	SnowAddress = address;
 	address = FindPattern("\x44\x89\x71\x44\xF3\x0F\x11\x75\x47", "xxxxxxx??");
 
 	if (address) {
 		memset((void *)address, 0x90, 4);
 	}
+}
+
+void MemoryAccess::SetSnowEnabled(bool enabled)
+{
+	unsigned long OldProtection;
+	VirtualProtect((void *)SnowAddress, 20, PAGE_EXECUTE_READWRITE, &OldProtection);
+
+	if (enabled)
+	{
+		memset((void *)SnowAddress, 0x90, 20);
+		SnowEnabled = true;
+	}
+
+	else
+	{
+		byte bytes[20] = { 0x74, 0x25, 0xB9, 0x40, 0x00, 0x00, 0x00,
+			0xE8, 0xE0, 0x8B, 0xC4, 0xFF, 0x84, 0xC0, 0x74, 0x17,
+			0x84, 0xDB, 0x74, 0x13 };
+		memcpy((void *)SnowAddress, bytes, 20);
+		SnowEnabled = false;
+	}
+
+	VirtualProtect((void *)SnowAddress, 20, OldProtection, NULL);
 }
 
 System::UInt64 MemoryAccess::GetPlayerAddress(int handle)

@@ -1,11 +1,7 @@
 ﻿using System;
 using SPFClient.Types;
 using System.Drawing;
-using SPFLib.Enums;
-using SPFLib.Types;
 using SPFClient.Entities;
-using Lidgren.Network;
-using Serializer = SPFLib.Serializer;
 using Vector3 = SPFLib.Types.Vector3;
 using Quaternion = SPFLib.Types.Quaternion;
 using GTA;

@@ -217,7 +217,7 @@ namespace SPFClient.Entities
                 if (!ped.IsRagdoll)
                 {
                     ped.CanRagdoll = true;
-                    Function.Call(Hash.SET_PED_TO_RAGDOLL, ped.Handle, 0, 5000, 0, 0, 0, 0);
+                    Function.Call(Hash.SET_PED_TO_RAGDOLL, ped.Handle, 2000, 2000, 0, 1, 1, 0);
                     ragdoll = true;
                     return;
                 }
@@ -616,7 +616,10 @@ namespace SPFClient.Entities
             if (flags.HasFlag(ClientFlags.Stopped))
             {
                 if (flags.HasFlag(ClientFlags.Punch))
+                {
                     return Anims.PunchIdle;
+                }
+
                 else
                     return new Animation("move_m@generic", "idle");
             }
@@ -625,6 +628,7 @@ namespace SPFClient.Entities
                 if (flags.HasFlag(ClientFlags.Punch))
                     return Anims.PunchWalkingNoTarget;
                 else
+
                     return new Animation("move_m@generic", "walk");
             }
             if (flags.HasFlag(ClientFlags.Running))

@@ -272,7 +272,9 @@ namespace Lidgren.Network
 		/// Returns how many bits are necessary to hold a certain number
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static int BitsToHoldUInt(uint value)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int bits = 1;
 			while ((value >>= 1) != 0)
@@ -284,7 +286,9 @@ namespace Lidgren.Network
 		/// Returns how many bits are necessary to hold a certain number
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static int BitsToHoldUInt64(ulong value)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int bits = 1;
 			while ((value >>= 1) != 0)

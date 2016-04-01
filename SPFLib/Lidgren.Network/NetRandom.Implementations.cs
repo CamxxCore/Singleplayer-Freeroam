@@ -27,7 +27,9 @@ namespace Lidgren.Network
 		/// (Re)initialize this instance with provided 32 bit seed
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public override void Initialize(uint seed)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			m_w = seed;
 			m_z = seed * 16777619;
@@ -37,7 +39,9 @@ namespace Lidgren.Network
 		/// (Re)initialize this instance with provided 64 bit seed
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void Initialize(ulong seed)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			m_w = (uint)seed;
 			m_z = (uint)(seed >> 32);
@@ -47,7 +51,9 @@ namespace Lidgren.Network
 		/// Generates a random value from UInt32.MinValue to UInt32.MaxValue, inclusively
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public override uint NextUInt32()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			m_z = 36969 * (m_z & 65535) + (m_z >> 16);
 			m_w = 18000 * (m_w & 65535) + (m_w >> 16);
@@ -84,7 +90,9 @@ namespace Lidgren.Network
 		/// Constructor with provided 64 bit seed
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public XorShiftRandom(ulong seed)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			Initialize(seed);
 		}
@@ -93,7 +101,9 @@ namespace Lidgren.Network
 		/// (Re)initialize this instance with provided 32 bit seed
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public override void Initialize(uint seed)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			m_x = (uint)seed;
 			m_y = c_y;
@@ -105,7 +115,9 @@ namespace Lidgren.Network
 		/// (Re)initialize this instance with provided 64 bit seed
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void Initialize(ulong seed)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			m_x = (uint)seed;
 			m_y = c_y;
@@ -117,7 +129,9 @@ namespace Lidgren.Network
 		/// Generates a random value from UInt32.MinValue to UInt32.MaxValue, inclusively
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public override uint NextUInt32()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			uint t = (m_x ^ (m_x << 11));
 			m_x = m_y; m_y = m_z; m_z = m_w;
@@ -165,7 +179,9 @@ namespace Lidgren.Network
 		/// Constructor with provided 32 bit seed
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public MersenneTwisterRandom(uint seed)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			Initialize(seed);
 		}
@@ -174,7 +190,9 @@ namespace Lidgren.Network
 		/// (Re)initialize this instance with provided 32 bit seed
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public override void Initialize(uint seed)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			mt = new UInt32[N];
 			mti = N + 1;
@@ -188,7 +206,9 @@ namespace Lidgren.Network
 		/// Generates a random value from UInt32.MinValue to UInt32.MaxValue, inclusively
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public override uint NextUInt32()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			UInt32 y;
 			if (mti >= N)
@@ -243,7 +263,9 @@ namespace Lidgren.Network
 		/// Seed in CryptoRandom does not create deterministic sequences
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public override void Initialize(uint seed)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			byte[] tmp = new byte[seed % 16];
 			m_rnd.GetBytes(tmp); // just prime it
@@ -253,7 +275,9 @@ namespace Lidgren.Network
 		/// Generates a random value from UInt32.MinValue to UInt32.MaxValue, inclusively
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public override uint NextUInt32()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			var bytes = new byte[4];
 			m_rnd.GetBytes(bytes);

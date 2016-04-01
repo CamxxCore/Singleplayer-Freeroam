@@ -18,15 +18,12 @@ namespace SPFClient.Entities
         private int snapshotCount;
         private int currentRadioStation;
         private readonly ulong vAddress, wheelsPtr;
-        private bool hornPressed;
 
         public event NetworkVehicleEventHandler OnUpdateRecieved;
 
         public event NetworkVehicleEventHandler OnSendUpdate;
 
         private VehicleSnapshot[] moveBuffer = new VehicleSnapshot[20];
-
-        private static VehicleExtrapolator extrapolator = new VehicleExtrapolator();
 
         public DateTime LastUpdateTime { get; private set; }
 
@@ -96,8 +93,6 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_VEHICLE_FRICTION_OVERRIDE, vehicle.Handle, 0.0f);
 
-
-
             return vehicle;
         }
 
@@ -106,7 +101,7 @@ namespace SPFClient.Entities
             OnSendUpdate?.Invoke(this, e);
         }
 
-        internal void HandleUpdatePacket(VehicleState state, DateTime svTime)
+        internal void HandleStateUpdate(VehicleState state, DateTime svTime)
         {
             var position = state.Position.Deserialize();
             var vel = state.Velocity.Deserialize();
@@ -129,8 +124,6 @@ namespace SPFClient.Entities
                 Function.Call(Hash.EXPLODE_VEHICLE, Handle, true, false);
             }
 
-        //    if (lastReceivedState.PrimaryColor != state.PrimaryColor ||
-        //      lastReceivedState.SecondaryColor != state.SecondaryColor)
             Function.Call(Hash.SET_VEHICLE_COLOURS, Handle, state.PrimaryColor, state.SecondaryColor);
 
             if (state.RadioStation != currentRadioStation)
@@ -218,7 +211,7 @@ namespace SPFClient.Entities
         {
             if (SPFLib.NetworkTime.Now - LastUpdateTime > TimeSpan.FromSeconds(1)) return;
 
-            var snapshot = extrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.89f, false);
+            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.89f, false);
 
             if (snapshot != null)
             {

@@ -34,7 +34,9 @@ namespace Lidgren.Network
 		/// (Re)initialize this instance with provided 32 bit seed
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public virtual void Initialize(uint seed)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			// should be abstract, but non-CLS compliant methods can't be abstract!
 			throw new NotImplementedException("Implement this in inherited classes");
@@ -44,7 +46,9 @@ namespace Lidgren.Network
 		/// Generates a random value from UInt32.MinValue to UInt32.MaxValue, inclusively
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public virtual uint NextUInt32()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			// should be abstract, but non-CLS compliant methods can't be abstract!
 			throw new NotImplementedException("Implement this in inherited classes");
@@ -116,7 +120,9 @@ namespace Lidgren.Network
 		/// Generates a random value between UInt64.MinValue to UInt64.MaxValue
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public ulong NextUInt64()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			ulong retval = NextUInt32();
 			retval |= NextUInt32() << 32;

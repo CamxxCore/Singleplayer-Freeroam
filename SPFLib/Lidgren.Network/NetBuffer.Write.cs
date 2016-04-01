@@ -42,7 +42,9 @@ namespace Lidgren.Network
 		/// </summary>
 		[FieldOffset(0)]
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public uint UIntValue;
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 	}
 
 	public partial class NetBuffer
@@ -113,7 +115,9 @@ namespace Lidgren.Network
 		/// Writes a signed byte
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void Write(sbyte source)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			EnsureBufferSize(m_bitLength + 8);
 			NetBitWriter.WriteByte((byte)source, 8, m_data, m_bitLength);
@@ -162,7 +166,9 @@ namespace Lidgren.Network
 		/// </summary>
 		/// <param name="source"></param>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void Write(UInt16 source)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			EnsureBufferSize(m_bitLength + 16);
 			NetBitWriter.WriteUInt16(source, 16, m_data, m_bitLength);
@@ -173,7 +179,9 @@ namespace Lidgren.Network
 		/// Writes a 16 bit unsigned integer at a given offset in the buffer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void WriteAt(Int32 offset, UInt16 source)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int newBitLength = Math.Max(m_bitLength, offset + 16);
 			EnsureBufferSize(newBitLength);
@@ -185,7 +193,9 @@ namespace Lidgren.Network
 		/// Writes an unsigned integer using 1 to 16 bits
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void Write(UInt16 source, int numberOfBits)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert((numberOfBits > 0 && numberOfBits <= 16), "Write(ushort, numberOfBits) can only write between 1 and 16 bits");
 			EnsureBufferSize(m_bitLength + numberOfBits);
@@ -287,7 +297,9 @@ namespace Lidgren.Network
 		/// Writes a 32 bit unsigned integer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void Write(UInt32 source)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			EnsureBufferSize(m_bitLength + 32);
 			NetBitWriter.WriteUInt32(source, 32, m_data, m_bitLength);
@@ -299,7 +311,9 @@ namespace Lidgren.Network
 		/// Writes a 32 bit unsigned integer at a given offset in the buffer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void WriteAt(Int32 offset, UInt32 source)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int newBitLength = Math.Max(m_bitLength, offset + 32);
 			EnsureBufferSize(newBitLength);
@@ -311,7 +325,9 @@ namespace Lidgren.Network
 		/// Writes a 32 bit signed integer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void Write(UInt32 source, int numberOfBits)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert((numberOfBits > 0 && numberOfBits <= 32), "Write(uint, numberOfBits) can only write between 1 and 32 bits");
 			EnsureBufferSize(m_bitLength + numberOfBits);
@@ -346,7 +362,9 @@ namespace Lidgren.Network
 		/// Writes a 64 bit unsigned integer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void Write(UInt64 source)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			EnsureBufferSize(m_bitLength + 64);
 			NetBitWriter.WriteUInt64(source, 64, m_data, m_bitLength);
@@ -357,7 +375,9 @@ namespace Lidgren.Network
 		/// Writes a 64 bit unsigned integer at a given offset in the buffer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void WriteAt(Int32 offset, UInt64 source)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int newBitLength = Math.Max(m_bitLength, offset + 64);
 			EnsureBufferSize(newBitLength);
@@ -369,7 +389,9 @@ namespace Lidgren.Network
 		/// Writes an unsigned integer using 1 to 64 bits
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public void Write(UInt64 source, int numberOfBits)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			EnsureBufferSize(m_bitLength + numberOfBits);
 			NetBitWriter.WriteUInt64(source, numberOfBits, m_data, m_bitLength);
@@ -484,7 +506,9 @@ namespace Lidgren.Network
 		/// </summary>
 		/// <returns>number of bytes written</returns>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public int WriteVariableUInt32(uint value)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int retval = 1;
 			uint num1 = (uint)value;
@@ -523,7 +547,9 @@ namespace Lidgren.Network
 		/// </summary>
 		/// <returns>number of bytes written</returns>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public int WriteVariableUInt64(UInt64 value)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int retval = 1;
 			UInt64 num1 = (UInt64)value;

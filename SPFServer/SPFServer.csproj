@@ -55,27 +55,29 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AI\AIFactory.cs" />
-    <Compile Include="Config.cs" />
-    <Compile Include="Example\Script.cs" />
-    <Compile Include="Helpers.cs" />
-    <Compile Include="Logger.cs" />
-    <Compile Include="Natives\NativeFunctions.cs" />
-    <Compile Include="Main.cs" />
-    <Compile Include="NetworkService.cs" />
+    <Compile Include="Source\Types\AIClient.cs" />
+    <Compile Include="Source\Types\GameClient.cs" />
+    <Compile Include="Source\Types\IGameEntity.cs" />
+    <Compile Include="Source\Utility\Config.cs" />
+    <Compile Include="Source\Example\Script.cs" />
+    <Compile Include="Source\Utility\Helpers.cs" />
+    <Compile Include="Source\Utility\Logger.cs" />
+    <Compile Include="Source\Natives\NativeFunctions.cs" />
+    <Compile Include="Source\Server\Main.cs" />
+    <Compile Include="Source\WCF\NetworkService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Ranks\RankTables.cs" />
-    <Compile Include="Scripting\IScriptBase.cs" />
-    <Compile Include="Scripting\ScriptBase.cs" />
-    <Compile Include="Scripting\ScriptManager.cs" />
-    <Compile Include="Types\ServerVarCollection.cs" />
-    <Compile Include="Time\TimeCycleManager.cs" />
-    <Compile Include="Types\ServerVar.cs" />
-    <Compile Include="Weather\WeatherManager.cs" />
-    <Compile Include="ServiceClient.cs" />
-    <Compile Include="ThreadQueue.cs" />
-    <Compile Include="SessionServer.cs" />
-    <Compile Include="Weather\WeatherType.cs" />
+    <Compile Include="Source\Ranks\RankTables.cs" />
+    <Compile Include="Source\Scripting\IScriptBase.cs" />
+    <Compile Include="Source\Scripting\ScriptBase.cs" />
+    <Compile Include="Source\Scripting\ScriptManager.cs" />
+    <Compile Include="Source\Types\ServerVarCollection.cs" />
+    <Compile Include="Source\Time\TimeCycleManager.cs" />
+    <Compile Include="Source\Types\ServerVar.cs" />
+    <Compile Include="Source\Weather\WeatherManager.cs" />
+    <Compile Include="Source\WCF\ServiceClient.cs" />
+    <Compile Include="Source\Utility\ThreadQueue.cs" />
+    <Compile Include="Source\Server\SessionServer.cs" />
+    <Compile Include="Source\Weather\WeatherType.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

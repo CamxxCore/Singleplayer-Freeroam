@@ -13,7 +13,9 @@ namespace Lidgren.Network
 		/// Generates a 32 bit random seed
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static uint GetUInt32()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			ulong seed = GetUInt64();
 			uint low = (uint)seed;
@@ -25,7 +27,9 @@ namespace Lidgren.Network
 		/// Generates a 64 bit random seed
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static ulong GetUInt64()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			var guidBytes = Guid.NewGuid().ToByteArray();
 			ulong seed =

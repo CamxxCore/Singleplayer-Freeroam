@@ -85,16 +85,21 @@ namespace SPFLib
             state.Timestamp = new DateTime(message.ReadInt64());
             var clientCount = message.ReadInt32();
             state.Clients = GetClientStates(message, clientCount).ToArray();
+            clientCount = message.ReadInt32();
+            state.AI = GetAIStates(message, clientCount).ToArray();
             return state;
         }
 
-        public static void Write(this NetOutgoingMessage message, SessionState state)
+        public static void Write(this NetOutgoingMessage message, SessionState state, bool sendNames)
         {
             message.Write(state.Sequence);
             message.Write(state.Timestamp.Ticks);
             message.Write(state.Clients.Length);
             foreach (var client in state.Clients)
-                message.Write(client);
+                message.Write(client, sendNames);
+            message.Write(state.AI.Length);
+            foreach (var client in state.AI)
+                message.Write(client, sendNames);
         }
 
         private static IEnumerable<ClientState> GetClientStates(this NetIncomingMessage message, int clientCount)
@@ -102,6 +107,13 @@ namespace SPFLib
             ClientState[] clients = new ClientState[clientCount];
             for (int i = 0; i < clientCount; i++)
                 yield return message.ReadClientState();
+        }
+
+        private static IEnumerable<AIState> GetAIStates(this NetIncomingMessage message, int aiCount)
+        {
+            AIState[] clients = new AIState[aiCount];
+            for (int i = 0; i < aiCount; i++)
+                yield return message.ReadAIState();
         }
 
         public static WeaponData ReadWeaponData(this NetIncomingMessage message)
@@ -268,7 +280,7 @@ namespace SPFLib
                 var state = new ClientState();
                 state.ClientID = message.ReadInt32();
                 state.InVehicle = message.ReadBoolean();
-                state.PedID = message.ReadInt16();
+                state.PedType = (PedType) message.ReadInt16();
                 state.WeaponID = message.ReadInt16();
                 state.Health = message.ReadInt16();
 
@@ -315,6 +327,11 @@ namespace SPFLib
                     state.VehicleState.ID = message.ReadInt32();
                 }
 
+                int nameLen = message.ReadInt32();
+
+                if (nameLen > 0)
+                    state.Name = System.Text.Encoding.UTF8.GetString(message.ReadBytes(nameLen));
+
                 return state;
             }
 
@@ -324,11 +341,11 @@ namespace SPFLib
             }
         }
 
-        public static void Write(this NetOutgoingMessage message, ClientState state)
+        public static void Write(this NetOutgoingMessage message, ClientState state, bool sendName)
         {
             message.Write(state.ClientID);
             message.Write(state.InVehicle);
-            message.Write(state.PedID);
+            message.Write((short)state.PedType);
             message.Write(state.WeaponID);
             message.Write(state.Health);
 
@@ -372,6 +389,50 @@ namespace SPFLib
 
                 message.Write(state.VehicleState.ID);
             }
+
+            if (sendName && state.Name != null)
+            {
+                message.Write(state.Name.Length);
+                message.Write(System.Text.Encoding.UTF8.GetBytes(state.Name));
+            }
+            else message.Write(0);
+        }
+
+        public static AIState ReadAIState(this NetIncomingMessage message)
+        {
+            try
+            {
+                var state = new AIState();
+                state.ClientID = message.ReadInt32();
+                state.Position = message.ReadVector3();
+                state.Rotation = message.ReadVector3().ToQuaternion();
+
+                int nameLen = message.ReadInt32();
+
+                if (nameLen > 0)
+                state.Name = System.Text.Encoding.UTF8.GetString(message.ReadBytes(nameLen));
+
+                return state;
+            }
+
+            catch
+            {
+                return null;
+            }
+        }
+
+        public static void Write(this NetOutgoingMessage message, AIState state, bool sendName)
+        {
+            message.Write(state.ClientID);
+            message.Write(state.Position);
+            message.Write(state.Rotation.ToVector3());
+
+            if (sendName)
+            {
+                message.Write(state.Name.Length);
+                message.Write(System.Text.Encoding.UTF8.GetBytes(state.Name));
+            }
+            else message.Write(0);
         }
 
         public static Quaternion ReadQuaternion(this NetIncomingMessage message)

@@ -200,7 +200,10 @@ namespace Lidgren.Network
 				}
 			}
 #else
+
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static ushort ReadUInt16(byte[] fromBuffer, int numberOfBits, int readBitOffset)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			Debug.Assert(((numberOfBits > 0) && (numberOfBits <= 16)), "ReadUInt16() can only read between 1 and 16 bits");
 #endif
@@ -247,7 +250,9 @@ namespace Lidgren.Network
 			}
 #else
 		
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static uint ReadUInt32(byte[] fromBuffer, int numberOfBits, int readBitOffset)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(((numberOfBits > 0) && (numberOfBits <= 32)), "ReadUInt32() can only read between 1 and 32 bits");
 #endif
@@ -302,7 +307,9 @@ namespace Lidgren.Network
 		/// Writes an unsigned 16 bit integer
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static void WriteUInt16(ushort source, int numberOfBits, byte[] destination, int destinationBitOffset)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			if (numberOfBits == 0)
 				return;
@@ -331,7 +338,9 @@ namespace Lidgren.Network
 		/// Writes the specified number of bits into a byte array
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static int WriteUInt32(uint source, int numberOfBits, byte[] destination, int destinationBitOffset)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 #if BIGENDIAN
 			// reorder bytes
@@ -377,7 +386,9 @@ namespace Lidgren.Network
 		/// Writes the specified number of bits into a byte array
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static int WriteUInt64(ulong source, int numberOfBits, byte[] destination, int destinationBitOffset)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 #if BIGENDIAN
 			source = ((source & 0xff00000000000000L) >> 56) |
@@ -475,7 +486,9 @@ namespace Lidgren.Network
 		/// </summary>
 		/// <returns>number of bytes written</returns>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static int WriteVariableUInt32(byte[] intoBuffer, int offset, uint value)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int retval = 0;
 			uint num1 = (uint)value;
@@ -493,7 +506,9 @@ namespace Lidgren.Network
 		/// Reads a UInt32 written using WriteUnsignedVarInt(); will increment offset!
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public static uint ReadVariableUInt32(byte[] buffer, ref int offset)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int num1 = 0;
 			int num2 = 0;

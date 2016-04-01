@@ -54,7 +54,9 @@ namespace Lidgren.Network
 		/// Reads a signed byte
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public sbyte ReadSByte()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 8, c_readOverflowError);
 			byte retval = NetBitWriter.ReadByte(m_data, 8, m_readPosition);
@@ -157,7 +159,9 @@ namespace Lidgren.Network
 		/// Reads a 16 bit unsigned integer written using Write(UInt16)
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt16 ReadUInt16()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 16, c_readOverflowError);
 			uint retval = NetBitWriter.ReadUInt16(m_data, 16, m_readPosition);
@@ -180,7 +184,9 @@ namespace Lidgren.Network
 		/// Reads a 32 bit signed integer written using Write(Int32)
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public bool ReadInt32(out Int32 result)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			if (m_bitLength - m_readPosition < 32)
 			{
@@ -224,7 +230,9 @@ namespace Lidgren.Network
 		/// Reads an 32 bit unsigned integer written using Write(UInt32)
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt32 ReadUInt32()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 32, c_readOverflowError);
 			uint retval = NetBitWriter.ReadUInt32(m_data, 32, m_readPosition);
@@ -236,7 +244,9 @@ namespace Lidgren.Network
 		/// Reads an 32 bit unsigned integer written using Write(UInt32) and returns true for success
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public bool ReadUInt32(out UInt32 result)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			if (m_bitLength - m_readPosition < 32)
 			{
@@ -252,7 +262,9 @@ namespace Lidgren.Network
 		/// Reads an unsigned integer stored in 1 to 32 bits, written using Write(UInt32, Int32)
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt32 ReadUInt32(int numberOfBits)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(numberOfBits > 0 && numberOfBits <= 32, "ReadUInt32(bits) can only read between 1 and 32 bits");
 			//NetException.Assert(m_bitLength - m_readBitPtr >= numberOfBits, "tried to read past buffer size");
@@ -266,7 +278,9 @@ namespace Lidgren.Network
 		/// Reads a 64 bit unsigned integer written using Write(UInt64)
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt64 ReadUInt64()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 64, c_readOverflowError);
 
@@ -298,7 +312,9 @@ namespace Lidgren.Network
 		/// Reads an unsigned integer stored in 1 to 64 bits, written using Write(UInt64, Int32)
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt64 ReadUInt64(int numberOfBits)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			NetException.Assert(numberOfBits > 0 && numberOfBits <= 64, "ReadUInt64(bits) can only read between 1 and 64 bits");
 			NetException.Assert(m_bitLength - m_readPosition >= numberOfBits, c_readOverflowError);
@@ -402,7 +418,9 @@ namespace Lidgren.Network
 		/// Reads a variable sized UInt32 written using WriteVariableUInt32()
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public uint ReadVariableUInt32()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int num1 = 0;
 			int num2 = 0;
@@ -423,7 +441,9 @@ namespace Lidgren.Network
 		/// Reads a variable sized UInt32 written using WriteVariableUInt32() and returns true for success
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public bool ReadVariableUInt32(out uint result)
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			int num1 = 0;
 			int num2 = 0;
@@ -469,7 +489,9 @@ namespace Lidgren.Network
 		/// Reads a variable sized UInt32 written using WriteVariableInt64()
 		/// </summary>
 		[CLSCompliant(false)]
+#pragma warning disable CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		public UInt64 ReadVariableUInt64()
+#pragma warning restore CS3021 // Type or member does not need a CLSCompliant attribute because the assembly does not have a CLSCompliant attribute
 		{
 			UInt64 num1 = 0;
 			int num2 = 0;

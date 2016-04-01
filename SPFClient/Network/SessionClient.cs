@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Net.Sockets;
 using System.Net;
-using System.Linq;
-using System.Collections.Generic;
 using System.Threading;
 using SPFLib.Types;
 using SPFLib.Enums;
@@ -98,7 +96,7 @@ namespace SPFClient.Network
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.ClientState);
             msg.Write(sequence);
-            msg.Write(state);
+            msg.Write(state, false);
             client.SendMessage(msg, NetDeliveryMethod.Unreliable);
         }
 
@@ -204,6 +202,9 @@ namespace SPFClient.Network
                     OnNativeInvoked(msg.SenderEndPoint, msg.ReadNativeCall());
                     return;
                 case NetMessage.RankData:
+                    OnRankDataReceived(msg.SenderEndPoint, msg.ReadRankData());
+                    return;
+                case NetMessage.AIEvent:
                     OnRankDataReceived(msg.SenderEndPoint, msg.ReadRankData());
                     return;
             }

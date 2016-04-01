@@ -70,8 +70,8 @@
     <Compile Include="Entities\Helpers\Flares\IRFlaresManager.cs" />
     <Compile Include="Entities\Helpers\MovementController.cs" />
     <Compile Include="Entities\Helpers\SequenceAnim.cs" />
-    <Compile Include="Entities\Helpers\VehicleExtrapolator.cs" />
     <Compile Include="Entities\LocalPlayer.cs" />
+    <Compile Include="Entities\NetworkAI.cs" />
     <Compile Include="Entities\Vehicles\NetworkBicycle.cs" />
     <Compile Include="Entities\Vehicles\NetworkCar.cs" />
     <Compile Include="Entities\NetworkPlayer.cs" />
@@ -80,8 +80,8 @@
     <Compile Include="Entities\Vehicles\NetworkPlane.cs" />
     <Compile Include="Entities\Helpers\Flares\LoopedPTFX.cs" />
     <Compile Include="Logger.cs" />
-    <Compile Include="NetworkService.cs" />
-    <Compile Include="Network\Helpers\NativeHandler.cs" />
+    <Compile Include="Network\Helpers\NativeHelper.cs" />
+    <Compile Include="Network\EntityManager.cs" />
     <Compile Include="Offsets.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="Menus\MainMenu.cs" />
@@ -102,7 +102,7 @@
     <Compile Include="Network\SessionClient.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Types\Animation.cs" />
-    <Compile Include="Types\EntitySnapshot.cs" />
+    <Compile Include="Types\PlayerSnapshot.cs" />
     <Compile Include="Types\GameClient.cs" />
     <Compile Include="Types\LGearState.cs" />
     <Compile Include="Types\PlaneFlags.cs" />

@@ -15,8 +15,8 @@ namespace SPFLib.Types
         public ClientFlags MovementFlags { get; set; }
         public ActiveTask ActiveTask { get; set; }
         public VehicleSeat VehicleSeat { get; set; }
+        public PedType PedType { get; set; }
         public bool InVehicle { get; set; }
-        public short PedID { get; set; }
         public short WeaponID { get; set; }
         public short Health { get; set; }
 
@@ -38,7 +38,7 @@ namespace SPFLib.Types
             MovementFlags = 0;
             ActiveTask = 0;
             VehicleSeat = VehicleSeat.None;
-            PedID = -1;
+            PedType = PedType.None;
             WeaponID = -1;
             Health = 100;
         }    

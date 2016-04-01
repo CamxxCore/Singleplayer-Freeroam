@@ -7,6 +7,7 @@ namespace SPFLib.Types
         public uint Sequence { get; set; }
         public DateTime Timestamp { get; set; }
         public ClientState[] Clients { get; set; }
+        public AIState[] AI { get; set; }
 
         public SessionState()
         {
