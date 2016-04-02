@@ -8,7 +8,6 @@ namespace SPFLib.Enums
     [Flags]
     public enum ClientFlags
     {
-
         Aiming = 1,
         Shooting = 2,
         Running = 4,
@@ -21,7 +20,6 @@ namespace SPFLib.Enums
         Ragdoll = 512,
         Dead = 1024,
         Reloading = 2048,
-
     }
 
 }

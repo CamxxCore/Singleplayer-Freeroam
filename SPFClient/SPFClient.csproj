@@ -98,6 +98,12 @@
     <Compile Include="NativeUI\UIResText.cs" />
     <Compile Include="Network\WCF Service\WCFNetworkService.cs" />
     <Compile Include="Network\WCF Service\WCFServiceClient.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Types\AISnapshot.cs" />
     <Compile Include="Types\BicycleState.cs" />
     <Compile Include="Network\SessionClient.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -125,7 +131,15 @@
       <Name>SPFMemory</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\rank_achieved.wav" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>copy "$(TargetPath)" "C:\Program Files\Rockstar Games\Grand Theft Auto V\scripts\$(ProjectName).dll"

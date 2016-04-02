@@ -201,6 +201,114 @@ namespace SPFClient.Entities
              //   MemoryAccess.WriteSingle(vAddress + Offsets.CVehicle.Steering, value);
         }
 
+        /// <summary>
+        /// Attempts to parse the current vehicle for active flags and populates the output parameters
+        /// </summary>
+        /// <param name="owner"></param>
+        /// <param name="flags"></param>
+        /// <param name="extraFlags"></param>
+        /// <returns></returns>
+        public bool GetActiveVehicleFlags(Ped owner, out VehicleFlags flags, out ushort extraFlags)
+        {
+            Type t = GetType();
+            flags = 0;
+            extraFlags = 0;
+
+            if (owner.CurrentVehicleSeat() == GTA.VehicleSeat.Driver)
+            flags |= VehicleFlags.Driver;
+
+            if (Function.Call<bool>(Hash.IS_HORN_ACTIVE, Handle))
+                flags |= VehicleFlags.HornPressed;
+
+            if (Health <= 0)
+                flags |= VehicleFlags.Exploded;
+
+            if (t == typeof(NetworkCar))
+            {
+                if (Function.Call<bool>((Hash)0x5EF77C9ADD3B11A3, Handle)) //Left Headlight?
+                    extraFlags |= (ushort)DamageFlags.LHeadlight;
+
+                if (Function.Call<bool>((Hash)0xA7ECB73355EB2F20, Handle)) //Right Headlight?
+                    extraFlags |= (ushort)DamageFlags.RHeadlight;
+
+                if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int) VehicleDoor.FrontLeftDoor))
+                    extraFlags |= (ushort)DamageFlags.LDoor;
+
+                if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int) VehicleDoor.FrontRightDoor))
+                    extraFlags |= (ushort)DamageFlags.RDoor;
+
+                if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int) VehicleDoor.BackLeftDoor))
+                    extraFlags |= (ushort)DamageFlags.BLDoor;
+
+                if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int) VehicleDoor.BackRightDoor))
+                    extraFlags |= (ushort)DamageFlags.BRDoor;
+
+                if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int) VehicleDoor.Hood))
+                    extraFlags |= (ushort)DamageFlags.Hood;
+
+                return true;
+            }
+
+            else if (t == typeof(NetworkHeli))
+            {
+                return true;
+            }
+
+            else if (t == typeof(NetworkPlane))
+            {
+                if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehicleFlyUnderCarriage))
+                {
+                    var lgState = Function.Call<int>(Hash._GET_VEHICLE_LANDING_GEAR, Handle);
+                    extraFlags = (ushort)lgState;
+                }
+
+                if (Game.IsControlPressed(0, Control.VehicleFlyAttack) || Game.IsControlPressed(0, Control.VehicleFlyAttack2))
+                {
+                    var outArg = new OutputArgument();
+                    if (Function.Call<bool>(Hash.GET_CURRENT_PED_VEHICLE_WEAPON, owner.Handle, outArg))
+                    {
+                        unchecked
+                        {
+                            switch ((WeaponHash)outArg.GetResult<int>())
+                            {
+                                case (WeaponHash)0xCF0896E0:
+                                    flags |= VehicleFlags.VehicleRocket;
+                                    break;
+
+                                case (WeaponHash)0xE2822A29:
+                                    flags |= VehicleFlags.VehicleCannon;
+                                    break;
+                            }
+                        }
+                    }
+                }
+
+                return true;
+            }
+
+            else if (t == typeof(NetworkBicycle))
+            {
+                if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehiclePushbikePedal))
+                {
+                    if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
+                        extraFlags = (ushort)BicycleState.TuckPedaling;
+                    else extraFlags = (ushort)BicycleState.Pedaling;
+                }
+
+                else
+                {
+                    if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
+                        extraFlags = (ushort)BicycleState.TuckCruising;
+                    else extraFlags = (ushort)BicycleState.Cruising;
+                }
+
+                return true;
+            }
+
+            else return false;
+        } 
+
+
         public void SetCurrentRPM(float value)
         {
             if (vAddress <= 0) return;
@@ -211,7 +319,7 @@ namespace SPFClient.Entities
         {
             if (SPFLib.NetworkTime.Now - LastUpdateTime > TimeSpan.FromSeconds(1)) return;
 
-            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.89f, false);
+            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, this.GetType() == typeof(NetworkHeli) ? 0.1f : 0.89f, false);
 
             if (snapshot != null)
             {

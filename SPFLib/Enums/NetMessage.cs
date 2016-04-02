@@ -8,7 +8,7 @@
         SessionCommand = 1,
         SessionMessage = 2,
         ClientState = 3,
-        AIState = 4,
+        ClientStateAI = 4,
         AIEvent = 5,
         WeaponData = 6,
         ClientInfo = 7,

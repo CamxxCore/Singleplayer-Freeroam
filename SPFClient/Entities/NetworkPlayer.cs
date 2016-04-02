@@ -42,6 +42,7 @@ namespace SPFClient.Entities
         private static BicyleController bicyleController;
 
         private PlayerSnapshot[] moveBuffer = new PlayerSnapshot[20];
+
         private ClientState lastReceivedState;
 
         /// <summary>
@@ -107,10 +108,10 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_PED_MOVE_ANIMS_BLEND_OUT, ped.Handle);
 
-            var dt = DateTime.Now + TimeSpan.FromMilliseconds(250);
+         //   var dt = DateTime.Now + TimeSpan.FromMilliseconds(250);
 
-            while (DateTime.Now < dt)
-                Script.Yield();
+         //   while (DateTime.Now < dt)
+       //         Script.Yield();
 
             ped.Quaternion = rotation;
 
@@ -199,18 +200,17 @@ namespace SPFClient.Entities
                 animationManager.UpdateAnimationFlags(state.MovementFlags, state.ActiveTask);
             }
 
-            if (state.Health < Health)
+            if (state.Health <= 0) Health = -1;
+
+            else if (state.Health < Health)
             {
                 Function.Call(Hash.APPLY_DAMAGE_TO_PED, Handle, Health - state.Health, true);
-               // UI.UIManager.UISubtitleProxy("damage " + state.Health);
             }
 
             else if (state.Health > Health)
             {
                 Health = state.Health;
-             //   UI.UIManager.UISubtitleProxy("inc " + state.Health);
             }
-
 
             lastReceivedState = state;
             lastUpdateTime = NetworkTime.Now;
@@ -218,7 +218,9 @@ namespace SPFClient.Entities
 
         public override void Update()
         {
-            if (NetworkTime.Now - lastUpdateTime > TimeSpan.FromMilliseconds(1000))
+            if (NetworkTime.Now - lastUpdateTime > TimeSpan.FromMilliseconds(1000) ||
+                LastState.PedType != 0 && GetPedType() != LastState.PedType ||
+                LastState.Health > 0 && Health <= 0)
             {
                 if (Exists())
                     Dispose();
@@ -227,8 +229,13 @@ namespace SPFClient.Entities
 
             if (Health <= 0)
             {
+                if (!IsDead) Health = -1;
+
                 if (CurrentBlip.Sprite != BlipSprite.Dead)
+                {
                     CurrentBlip.Sprite = BlipSprite.Dead;
+                }
+
                 return;
             }
 
@@ -247,7 +254,7 @@ namespace SPFClient.Entities
 
             else
             {
-                var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.87f);
+                var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.6f);
 
                 if (entityPosition != null)                 
                 {

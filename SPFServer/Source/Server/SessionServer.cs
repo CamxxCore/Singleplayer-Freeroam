@@ -157,23 +157,11 @@ namespace SPFServer.Main
 
                 var timeNow = NetworkTime.Now;
 
+                var aiHost = GetActiveAIHost();
+
                 state.Sequence = tickCount;
 
                 state.Clients = GetClientStates();
-
-                // find any AI that need to be updated.
-                List<AIState> ai = new List<AIState>();
-
-                for (int i = 0; i < activeAI.Count; i++)
-                {
-                    if (activeAI[i].NeedsUpdate && activeAI[i].State != null)
-                    {
-                        ai.Add(activeAI[i].State);
-                        activeAI[i].NeedsUpdate = false;
-                    }
-                }
-
-                state.AI = ai.ToArray();
 
                 state.Timestamp = timeNow;
 
@@ -190,11 +178,21 @@ namespace SPFServer.Main
                     {
                         GameClient client = activeClients[i];
 
+                        // send a full AI update to everyone but the client hosting the AI.
+                        // also send an update if the client has just joined the server.
+                        if (client != aiHost || client.LastSequence <= 0)
+                        {
+                            state.AI = GetAIStates();
+                        }
+
+                        // let the client know if he is hosting the server AI.
+                        state.AIHost = (client == aiHost);
+
                         state.Timestamp = timeNow.Subtract(client.TimeDiff);
 
                         if (client.LastUpd.Ticks > 0 && (timeNow - client.LastUpd) > TimeSpan.FromMilliseconds(1600))
                         {
-                            // we haven't received an update from this client for >1200ms, so queue him to be removed.
+                            // we haven't received an update from this client for > 1200ms, so queue him to be removed.
                             removalList.Add(client);
                             continue;
                         }
@@ -293,6 +291,8 @@ namespace SPFServer.Main
             var dataType = (NetMessage)message.ReadByte();
             if (dataType == NetMessage.ClientState)
                 HandleClientStateUpdate(message.SenderConnection, message.ReadUInt32(), message.ReadClientState());
+            if (dataType == NetMessage.ClientStateAI)
+                HandleClientStateUpdate(message.SenderConnection, message.ReadUInt32(), message.ReadClientState(), message.GetAIStates(message.ReadInt32()).ToArray());
             else if (dataType == NetMessage.SessionMessage)
                 threadQueue.AddTask(() => HandleChatMessage(message.SenderConnection, message.ReadSessionMessage()));
             else if (dataType == NetMessage.SessionCommand)
@@ -338,7 +338,7 @@ namespace SPFServer.Main
 
         public AIClient CreateAI(string name, PedType type, Vector3 position, Quaternion rotation)
         {
-            var ai = new AIClient(name, new AIState(name, type, position, rotation));
+            var ai = new AIClient(name, new AIState(SPFLib.Helpers.GenerateUniqueID(), name, 100, type, position, rotation));
             activeAI.Add(ai);
             return ai;           
         }
@@ -557,6 +557,28 @@ namespace SPFServer.Main
             return activeClients.Select(x => x.State).ToArray();
         }
 
+        private GameClient activeAIHost;
+
+        /// <summary>
+        /// Return the best host based on latency.
+        /// </summary>
+        /// <returns></returns>
+        private GameClient GetActiveAIHost()
+        {
+            if (activeAIHost == null || !activeClients.Contains(activeAIHost))
+                activeAIHost = activeClients.OrderBy(x => x.Ping).FirstOrDefault();
+            return activeAIHost;
+        }
+
+        /// <summary>
+        /// Return an array of active client states.
+        /// </summary>
+        /// <returns></returns>
+        private AIState[] GetAIStates()
+        {
+            return activeAI.Select(x => x.State).ToArray();
+        }
+
         #region received msgs
 
         /// <summary>
@@ -573,18 +595,19 @@ namespace SPFServer.Main
 
             if (ClientFromEndpoint(sender.RemoteEndPoint, out client))
             {
+                Server.ScriptManager.DoMessageReceived(client, message.Message);
+
+                if (message.Message[0] == '/')
+                    return;
+
                 foreach (var cl in activeClients)
                 {
-                    if (cl.Connection == sender)
-                        continue;
-
+                    if (cl.Connection == sender) continue;
                     var msg = server.CreateMessage();
                     msg.Write((byte)NetMessage.SessionMessage);
                     msg.Write(message);
                     server.SendMessage(msg, cl.Connection, NetDeliveryMethod.ReliableOrdered);
                 }
-
-                Server.ScriptManager.DoMessageReceived(client, message.Message);
 
                 threadQueue.AddTask(() => Server.WriteToConsole(string.Format("{0}: {1} [{2}]", client.Info.Name, message.Message, NetworkTime.Now.ToString())));
             }
@@ -592,6 +615,42 @@ namespace SPFServer.Main
             else
             {
                 Server.WriteToConsole("Cannot send a message, the sender doesn't exist.");
+            }
+        }
+
+        /// <summary>
+        /// Handle a state update sent by a client.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="state"></param>
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        private void HandleClientStateUpdate(NetConnection sender, uint sequence, ClientState state, AIState[] ai)
+        {
+            try
+            {
+                GameClient client;
+                if (ClientFromEndpoint(sender.RemoteEndPoint, out client) &&
+                    SPFLib.Helpers.ValidateSequence(sequence, client.LastSequence, uint.MaxValue))
+                {
+                    client.LastSequence = sequence;
+                    client.UpdateState(state, NetworkTime.Now);
+
+                    AIClient aiClient;
+
+                    foreach (var aiPlayer in ai)
+                    {
+                       if ((aiClient = activeAI.Find(x => x.ID == aiPlayer.ClientID)) != null)
+                        {
+                            aiClient.UpdateState(aiPlayer, NetworkTime.Now);
+                        }
+                    }
+
+                }
+            }
+
+            catch (Exception e)
+            {
+                threadQueue.AddTask(() => Server.WriteToConsole(string.Format("Update state failed.\n\nException:\n{0}", e.ToString())));
             }
         }
 

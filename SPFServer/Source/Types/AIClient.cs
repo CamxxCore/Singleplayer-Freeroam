@@ -48,6 +48,7 @@ namespace SPFServer.Types
         {
             State = state;
             State.ClientID = ID;
+            State.Name = Name;
             LastUpd = currentTime;
             NeedsUpdate = true;
         }

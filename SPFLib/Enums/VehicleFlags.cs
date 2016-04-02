@@ -9,7 +9,7 @@ namespace SPFLib.Enums
         HornPressed = 2,
         DoorsLocked = 4,
         Driver = 8,
-        PlaneShoot = 16,
-        PlaneGun = 32
+        VehicleRocket = 16,
+        VehicleCannon = 32
     }
 }

@@ -55,19 +55,19 @@ namespace SPFClient.Entities
             if (flags.HasFlag(DamageFlags.RHeadlight) && !vehicle.RightHeadLightBroken)
                 vehicle.RightHeadLightBroken = true;
 
-            if (flags.HasFlag(DamageFlags.RRearHeadlight) && 
-                (MemoryAccess.ReadInt32(MemoryAccess.GetEntityAddress(vehicle.Handle) + 
-                Offsets.CVehicle.LightDamage) & 8) != 0)
-            {
+            /*    if (flags.HasFlag(DamageFlags.RRearHeadlight) && 
+                    (MemoryAccess.ReadInt32(MemoryAccess.GetEntityAddress(vehicle.Handle) + 
+                    Offsets.CVehicle.LightDamage) & 8) != 0)
+                {
 
-            }
+                }
 
-            if (flags.HasFlag(DamageFlags.RRearHeadlight) &&
-                (MemoryAccess.ReadInt32(MemoryAccess.GetEntityAddress(vehicle.Handle) + 
-                Offsets.CVehicle.LightDamage) & 8) != 0)
-            {
+                if (flags.HasFlag(DamageFlags.RRearHeadlight) &&
+                    (MemoryAccess.ReadInt32(MemoryAccess.GetEntityAddress(vehicle.Handle) + 
+                    Offsets.CVehicle.LightDamage) & 8) != 0)
+                {
 
-            }
+                }*/
 
 
             /*   if (Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.FrontLeftWindow))

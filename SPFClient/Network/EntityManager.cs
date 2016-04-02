@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SPFClient.Entities;
 using SPFLib.Types;
+using SPFLib.Enums;
 using GTA;
 using GTA.Native;
 
@@ -16,6 +17,8 @@ namespace SPFClient.Network
         public static List<NetworkPlayer> ActivePlayers { get { return activePlayers; } }
 
         public static List<NetworkAI> ActiveAI { get { return activeAI; } }
+
+        public static bool HostingAI { get; set; }
 
         private static Queue<KeyValuePair<ClientState, DateTime>> updateQueue =
             new Queue<KeyValuePair<ClientState, DateTime>>();
@@ -86,8 +89,7 @@ namespace SPFClient.Network
 
                 else
                 {
-                    if (clientState.PedType != SPFLib.Enums.PedType.None && client.GetPedType() != clientState.PedType ||
-                        clientState.Health > 0 && client.Health <= 0 || !client.Exists())
+                    if (!client.Exists())
                     {
                         DeleteClient(client);
                         continue;
@@ -117,7 +119,7 @@ namespace SPFClient.Network
                             }
                         }
 
-                        if (!Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
+                        if (client.IsAlive && !Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
                         {
                             Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, client.LastState.InVehicle ? 16 : 3, 0);
 
@@ -167,11 +169,13 @@ namespace SPFClient.Network
 
                 else
                 {
-                    if (aiState.PedType != SPFLib.Enums.PedType.None && client.GetPedType() != aiState.PedType || !client.Exists())
+                    if (aiState.PedType != PedType.None && client.GetPedType() != aiState.PedType || !client.Exists())
                     {
                         DeleteAI(client);
                         continue;
                     }
+
+                    client.HandleStateUpdate(aiState, remoteAI.Value, HostingAI);
                 }
             }
 
@@ -284,6 +288,17 @@ namespace SPFClient.Network
         internal static void QueueAIUpdate(AIState state, DateTime serverTime)
         {
             aiUpdateQueue.Enqueue(new KeyValuePair<AIState, DateTime>(state, serverTime));
+        }
+
+        internal static IEnumerable<AIState> GetAIForUpdate()
+        {
+            foreach (var ai in activeAI)
+            {
+                if (ai.Position != ai.LastState.Position.Deserialize())
+                {
+                    yield return new AIState(ai.ID, ai.Name, (short) ai.Health, ai.GetPedType(), ai.Position.Serialize(), ai.Quaternion.Serialize());
+                }
+            }
         }
 
         /// <summary>

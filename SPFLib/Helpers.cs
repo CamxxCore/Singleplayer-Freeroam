@@ -66,10 +66,17 @@ namespace SPFLib
 
         public static LoginRequest ReadLoginRequest(this NetIncomingMessage message)
         {
-            var req = new LoginRequest();
-            req.UID = message.ReadInt32();
-            req.Username = message.ReadString();
-            return req;
+            try
+            {
+                var req = new LoginRequest();
+                req.UID = message.ReadInt32();
+                req.Username = message.ReadString();
+                return req;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Write(this NetOutgoingMessage message, LoginRequest req)
@@ -80,26 +87,42 @@ namespace SPFLib
 
         public static SessionState ReadSessionState(this NetIncomingMessage message)
         {
-            var state = new SessionState();
-            state.Sequence = message.ReadUInt32();
-            state.Timestamp = new DateTime(message.ReadInt64());
-            var clientCount = message.ReadInt32();
-            state.Clients = GetClientStates(message, clientCount).ToArray();
-            clientCount = message.ReadInt32();
-            state.AI = GetAIStates(message, clientCount).ToArray();
-            return state;
+            try
+            {
+                var state = new SessionState();
+                state.Sequence = message.ReadUInt32();
+                state.Timestamp = new DateTime(message.ReadInt64());
+                state.AIHost = message.ReadBoolean();
+                var clientCount = message.ReadInt32();
+                state.Clients = GetClientStates(message, clientCount).ToArray();
+                clientCount = message.ReadInt32();
+                state.AI = GetAIStates(message, clientCount).ToArray();
+                return state;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Write(this NetOutgoingMessage message, SessionState state, bool sendNames)
         {
             message.Write(state.Sequence);
             message.Write(state.Timestamp.Ticks);
+            message.Write(state.AIHost);
             message.Write(state.Clients.Length);
             foreach (var client in state.Clients)
                 message.Write(client, sendNames);
-            message.Write(state.AI.Length);
-            foreach (var client in state.AI)
-                message.Write(client, sendNames);
+
+            if (state.AI != null)
+            {
+                message.Write(state.AI.Length);
+                foreach (var client in state.AI)
+                    message.Write(client, sendNames);
+            }
+
+            else message.Write(0);
+
         }
 
         private static IEnumerable<ClientState> GetClientStates(this NetIncomingMessage message, int clientCount)
@@ -109,7 +132,7 @@ namespace SPFLib
                 yield return message.ReadClientState();
         }
 
-        private static IEnumerable<AIState> GetAIStates(this NetIncomingMessage message, int aiCount)
+        public static IEnumerable<AIState> GetAIStates(this NetIncomingMessage message, int aiCount)
         {
             AIState[] clients = new AIState[aiCount];
             for (int i = 0; i < aiCount; i++)
@@ -164,16 +187,24 @@ namespace SPFLib
 
         public static NativeCall ReadNativeCall(this NetIncomingMessage message)
         {
-            var nc = new NativeCall();
-            nc.FunctionName = message.ReadString();
-            nc.ReturnType = (DataType)message.ReadByte();
-            var argsCount = message.ReadInt16();
-            nc.Args = new NativeArg[argsCount];
-            for (int i = 0; i < argsCount; i++)
+            try
             {
-               nc.Args[i] = ReadNativeArg(message);
+                var nc = new NativeCall();
+                nc.FunctionName = message.ReadString();
+                nc.ReturnType = (DataType)message.ReadByte();
+                var argsCount = message.ReadInt16();
+                nc.Args = new NativeArg[argsCount];
+                for (int i = 0; i < argsCount; i++)
+                {
+                    nc.Args[i] = ReadNativeArg(message);
+                }
+                return nc;
             }
-            return nc;
+
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Write(this NetOutgoingMessage message, NativeCall nc)
@@ -189,15 +220,23 @@ namespace SPFLib
 
         public static NativeArg ReadNativeArg(this NetIncomingMessage message)
         {
-            var na = new NativeArg();
-            na.Type = (DataType)message.ReadByte();
-            var valueLen = message.ReadInt32();
-            if (valueLen > 0)
+            try
             {
-                byte[] bytes = message.ReadBytes(valueLen);
-                na.Value = Serializer.DeserializeObject<object>(bytes);
+                var na = new NativeArg();
+                na.Type = (DataType)message.ReadByte();
+                var valueLen = message.ReadInt32();
+                if (valueLen > 0)
+                {
+                    byte[] bytes = message.ReadBytes(valueLen);
+                    na.Value = Serializer.DeserializeObject<object>(bytes);
+                }
+                return na;
             }
-            return na;
+
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Write(this NetOutgoingMessage message, NativeArg na)
@@ -215,15 +254,23 @@ namespace SPFLib
 
         public static NativeCallback ReadNativeCallback(this NetIncomingMessage message)
         {
-            var nc = new NativeCallback();
-            nc.Type = (DataType)message.ReadByte();
-            var valueLen = message.ReadInt32();
-            if (valueLen > 0)
+            try
             {
-                byte[] bytes = message.ReadBytes(valueLen);
-                nc.Value = Serializer.DeserializeObject<object>(bytes);
+                var nc = new NativeCallback();
+                nc.Type = (DataType)message.ReadByte();
+                var valueLen = message.ReadInt32();
+                if (valueLen > 0)
+                {
+                    byte[] bytes = message.ReadBytes(valueLen);
+                    nc.Value = Serializer.DeserializeObject<object>(bytes);
+                }
+                return nc;
             }
-            return nc;
+
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Write(this NetOutgoingMessage message, NativeCallback nc)
@@ -241,11 +288,19 @@ namespace SPFLib
 
         public static SessionEvent ReadSessionEvent(this NetIncomingMessage message)
         {
-            var sEvent = new SessionEvent();
-            sEvent.SenderID = message.ReadInt32();
-            sEvent.SenderName = message.ReadString();
-            sEvent.EventType = (EventType)message.ReadInt16();
-            return sEvent;
+            try
+            {
+                var sEvent = new SessionEvent();
+                sEvent.SenderID = message.ReadInt32();
+                sEvent.SenderName = message.ReadString();
+                sEvent.EventType = (EventType)message.ReadInt16();
+                return sEvent;
+            }
+
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Write(this NetOutgoingMessage message, SessionEvent sEvent)
@@ -257,12 +312,20 @@ namespace SPFLib
 
         public static SessionMessage ReadSessionMessage(this NetIncomingMessage message)
         {
-            var msg = new SessionMessage();
-            msg.Timestamp = new DateTime(message.ReadInt64());
-            msg.SenderName = message.ReadString();
-            int messageLength = message.ReadInt32();
-            msg.Message = System.Text.Encoding.UTF8.GetString(message.ReadBytes(messageLength));
-            return msg;
+            try
+            {
+                var msg = new SessionMessage();
+                msg.Timestamp = new DateTime(message.ReadInt64());
+                msg.SenderName = message.ReadString();
+                int messageLength = message.ReadInt32();
+                msg.Message = System.Text.Encoding.UTF8.GetString(message.ReadBytes(messageLength));
+                return msg;
+            }
+
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Write(this NetOutgoingMessage message, SessionMessage sMessage)
@@ -437,12 +500,20 @@ namespace SPFLib
 
         public static Quaternion ReadQuaternion(this NetIncomingMessage message)
         {
-            Quaternion q = new Quaternion();
-            q.X = message.ReadFloat();
-            q.Y = message.ReadFloat();
-            q.Z = message.ReadFloat();
-            q.W = message.ReadFloat();
-            return q;
+            try
+            {
+                Quaternion q = new Quaternion();
+                q.X = message.ReadFloat();
+                q.Y = message.ReadFloat();
+                q.Z = message.ReadFloat();
+                q.W = message.ReadFloat();
+                return q;
+            }
+
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Write(this NetOutgoingMessage message, Quaternion q)
@@ -452,16 +523,24 @@ namespace SPFLib
             message.Write(q.Z);
             message.Write(q.W);
 
-        //    return new Quaternion(vec.X, vec.Y, vec.Z, (float)Math.Sqrt(Math.Pow(1 - vec.X, 2) - Math.Pow(vec.Y, 2) - Math.Pow(vec.Z, 2)));
+            //    return new Quaternion(vec.X, vec.Y, vec.Z, (float)Math.Sqrt(Math.Pow(1 - vec.X, 2) - Math.Pow(vec.Y, 2) - Math.Pow(vec.Z, 2)));
         }
 
         public static Vector3 ReadVector3(this NetIncomingMessage message)
         {
-            Vector3 vec = new Vector3();
-            vec.X = message.ReadFloat();
-            vec.Y = message.ReadFloat();
-            vec.Z = message.ReadFloat();
-            return vec;
+            try
+            {
+                Vector3 vec = new Vector3();
+                vec.X = message.ReadFloat();
+                vec.Y = message.ReadFloat();
+                vec.Z = message.ReadFloat();
+                return vec;
+            }
+
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Write(this NetOutgoingMessage message, Vector3 vec)
@@ -473,11 +552,19 @@ namespace SPFLib
 
         public static RankData ReadRankData(this NetIncomingMessage message)
         {
-            RankData rData = new RankData();
-            rData.RankIndex = message.ReadInt32();
-            rData.RankXP = message.ReadInt32();
-            rData.NewXP = message.ReadInt32();
-            return rData;
+            try
+            {
+                RankData rData = new RankData();
+                rData.RankIndex = message.ReadInt32();
+                rData.RankXP = message.ReadInt32();
+                rData.NewXP = message.ReadInt32();
+                return rData;
+            }
+
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Write(this NetOutgoingMessage message, RankData rData)

@@ -168,8 +168,10 @@ namespace SPFClient.Network
                 }
 
                 lastSequence = e.Sequence;
+                EntityManager.HostingAI = e.AIHost;
             }
-                         
+
+                  
             disconnectTimeout = DateTime.Now + TimeSpan.FromMilliseconds(ClTimeout);
         }
 
@@ -269,14 +271,26 @@ namespace SPFClient.Network
             if (isSynced && Game.GameTime - lastSync >= ClUpdateRate)
             {
                 SentPacketSequence++;
-
                 SentPacketSequence %= uint.MaxValue;
 
                 var localPlayer = EntityManager.LocalPlayer;
 
                 var state = localPlayer.GetClientState();
 
-                current.UpdateUserData(state, SentPacketSequence);
+                if (EntityManager.HostingAI)
+                {
+                    var localAI = EntityManager.GetAIForUpdate().ToArray();
+
+                    if (localAI.Length > 0)
+                    {
+                        current.UpdateUserData(state, localAI, SentPacketSequence);
+                    }
+
+                    else
+                        current.UpdateUserData(state, SentPacketSequence);
+                }
+                else
+                    current.UpdateUserData(state, SentPacketSequence);
 
                 lastSync = Game.GameTime;
             }
@@ -327,7 +341,11 @@ namespace SPFClient.Network
                 { x.Delete(); }
             });
 
+            // disable snow
             MemoryAccess.SetSnowEnabled(false);
+
+            Function.Call((Hash)0xAEEDAD1420C65CC0, true);
+            Function.Call((Hash)0x4CC7F0FEA5283FE0, true);
 
             base.Dispose(A_0);
         }

@@ -36,21 +36,27 @@ namespace SPFServer.Natives
         /// <summary>
         /// Teleport a client to another.
         /// </summary>
-        public static void SetPosition(GameClient client, AIClient ai, Vector3 destination)
+        public static void SetPosition(AIClient ai, Vector3 destination)
         {
-            Server.ActiveSession?.InvokeClientNative(client, "SET_ENTITY_COORDS_NO_OFFSET",
+            foreach (var client in Server.ActiveSession?.ActiveClients)
+            {
+                Server.ActiveSession.InvokeClientNative(client, "SET_ENTITY_COORDS_NO_OFFSET",
                 new NativeArg(DataType.AIHandle, ai.ID),
                 destination.X,
                 destination.Y,
                 destination.Z,
                 1, 1, 1);
+            }
         }
 
-        public static void SetPosition(GameClient client, AIClient ai, GameClient clientTP)
+        public static void SetPosition(AIClient ai, GameClient clientTP)
         {
-            var dest = clientTP.State.InVehicle ? 
+            foreach (var client in Server.ActiveSession?.ActiveClients)
+            {
+                var dest = clientTP.State.InVehicle ?
                 clientTP.State.VehicleState.Position : clientTP.State.Position;
-            SetPosition(client, ai, dest);
+                SetPosition(ai, dest);
+            }
         }
 
         #endregion Set Position
@@ -73,17 +79,60 @@ namespace SPFServer.Natives
         /// <summary>
         /// Set an AI clients rotation.
         /// </summary>
-        public static void SetRotation(GameClient client, AIClient ai, Quaternion rotation)
+        public static void SetRotation(AIClient ai, Quaternion rotation)
         {
-            Server.ActiveSession?.InvokeClientNative(client, "SET_ENTITY_QUATERNION",
+            foreach (var client in Server.ActiveSession?.ActiveClients)
+            {
+                Server.ActiveSession.InvokeClientNative(client, "SET_ENTITY_QUATERNION",
                 new NativeArg(DataType.AIHandle, ai.ID),
                 rotation.X,
                 rotation.Y,
                 rotation.Z,
                 rotation.W);
+            }
         }
 
         #endregion Set Rotation
+
+        #region Play Animation
+
+        /// <summary>
+        /// Play client animation
+        /// </summary>
+        public static void PlayAnimation(GameClient client, string animDictionary, string animationName, int duration, int flags)
+        {
+            Server.ActiveSession?.InvokeClientNative(client, "REQUEST_ANIM_DICT",
+                new NativeArg(DataType.String), animDictionary);
+
+            Server.ActiveSession?.InvokeClientNative(client, "TASK_PLAY_ANIM", new NativeArg(DataType.LocalHandle), 
+                animDictionary, 
+                animationName, 
+                8f, -8.0f, 
+                duration, 
+                flags, 1f, 0, 0, 0);
+        }
+
+
+        /// <summary>
+        /// Play AI animation
+        /// </summary>
+        public static void PlayAnimation(AIClient ai, string animDictionary, string animationName, int flags, int duration)
+        {
+            foreach (var client in Server.ActiveSession?.ActiveClients)
+            {
+                Server.ActiveSession.InvokeClientNative(client, "REQUEST_ANIM_DICT",
+                    new NativeArg(DataType.String), animDictionary);
+
+                Server.ActiveSession.InvokeClientNative(client, "TASK_PLAY_ANIM", new NativeArg(DataType.AIHandle, ai.ID),
+                    animDictionary,
+                    animationName,
+                    8f, -8.0f,
+                    duration,
+                    flags, 1f, 0, 0, 0);
+            }
+        }
+
+        #endregion
 
         #region Set Health
 
@@ -99,13 +148,17 @@ namespace SPFServer.Natives
         /// <summary>
         /// Set AI health
         /// </summary>
-        public static void SetHealth(GameClient client, AIClient ai, int health)
+        public static void SetHealth(AIClient ai, int health)
         {
-            Server.ActiveSession?.InvokeClientNative(client, "SET_ENTITY_HEALTH",
+            foreach (var client in Server.ActiveSession?.ActiveClients)
+            {
+                Server.ActiveSession.InvokeClientNative(client, "SET_ENTITY_HEALTH",
                 new NativeArg(DataType.AIHandle, ai.ID), health);
+            }
         }
 
         #endregion
+
 
         #region Set Weather
 

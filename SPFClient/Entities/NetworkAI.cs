@@ -4,6 +4,7 @@ using SPFLib.Types;
 using SPFLib.Enums;
 using SPFLib;
 using System;
+using SPFClient.Types;
 using Vector3 = GTA.Math.Vector3;
 using UIResText = NativeUI.UIResText;
 
@@ -15,7 +16,7 @@ namespace SPFClient.Entities
 
         public string Name
         {
-            get; private set;
+            get { return playerName.Caption; }
         }
 
         public AIState LastState
@@ -30,29 +31,36 @@ namespace SPFClient.Entities
 
         private int currentPedHash;
         private static PedType pedType;
-
+        private bool updatingPosition;
         private DateTime lastUpdateTime;
+        private int snapshotCount;
+        private static Vector3 lastPosition;
+        private static GTA.Math.Quaternion lastRotation;
 
         private static UIResText playerName;
+
+        private AISnapshot[] moveBuffer = new AISnapshot[20];
 
         private AIState lastReceivedState;
 
         /// <summary>
         /// Setup entity for the network client.
         /// </summary>
-        public NetworkAI(AIState state) : base(SetupPed(state))
+        public NetworkAI(AIState state) : base(SetupPed(state.Name, 
+            state.Position.Deserialize(), 
+            state.Rotation.Deserialize(), 
+            state.PedType))
         {
             ID = state.ClientID;
-            Name = state.Name;
             lastReceivedState = state;
             lastUpdateTime = NetworkTime.Now;
         }
 
-        static Ped SetupPed(AIState state)
+        static Ped SetupPed(string name, Vector3 position, GTA.Math.Quaternion rotation, PedType type)
         {
             PedHash result;
 
-            if (!Enum.TryParse(state.PedType.ToString(), out result))
+            if (!Enum.TryParse(type.ToString(), out result))
                 result = PedHash.Michael;
 
             var pedModel = new Model(result);
@@ -60,104 +68,98 @@ namespace SPFClient.Entities
             if (!pedModel.IsLoaded)
                 pedModel.Request(1000);
 
-            var position = state.Position.Deserialize();
-
-            var rotation = state.Rotation.Deserialize();
+            while (!pedModel.IsLoaded)
+            { }
 
             var spawnPos = position + new Vector3(0, 0, -1f);
 
             var ped = new Ped(Function.Call<int>(Hash.CREATE_PED, 26, pedModel.Hash, spawnPos.X, spawnPos.Y, spawnPos.Z, 0f, false, true));
 
-       /*     Function.Call(Hash.CLEAR_ALL_PED_PROPS, ped.Handle);
+            pedModel.MarkAsNoLongerNeeded();
 
-            Function.Call((Hash)0xE861D0B05C7662B8, ped.Handle, 0, 0);
-
-            Function.Call((Hash)0x4668D80430D6C299, ped.Handle);
-
-            Function.Call((Hash)0x687C0B594907D2E8, ped.Handle);
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 189, 1);
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 407, 1);
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 410, 1);
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 411, 1);
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 342, 1);
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 122, 1);
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 134, 1);
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 115, 1);
-
-            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 185, 1);
-
-            Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
-
-            //      Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED, ped.Handle, false);
-
-            Function.Call(Hash._0x26695EC767728D84, ped.Handle, 1);
-            Function.Call(Hash._0x26695EC767728D84, ped.Handle, 16);
-
-            Function.Call(Hash.SET_PED_MOVE_ANIMS_BLEND_OUT, ped.Handle);
-
-            var dt = DateTime.Now + TimeSpan.FromMilliseconds(250);
-
-            while (DateTime.Now < dt)
-                Script.Yield();
-
-            ped.Quaternion = rotation;
-
-            //  ped.BlockPermanentEvents = true;
-
-            ped.CanRagdoll = false;
-
-            Function.Call(Hash.SET_ENTITY_COLLISION, ped.Handle, true, false);
-
-            Function.Call(Hash.SET_PED_CAN_EVASIVE_DIVE, ped.Handle, false);
-
-            Function.Call(Hash.SET_PED_CAN_BE_DRAGGED_OUT, ped.Handle, true);
-
-            Function.Call((Hash)0x687C0B594907D2E8, ped.Handle);
-
-            Function.Call(Hash.SET_PLAYER_VEHICLE_DEFENSE_MODIFIER, Game.Player.Handle, 0.5);
-
-            Function.Call((Hash)0x26695EC767728D84, ped.Handle, 8208);
-
-            Function.Call(Hash.SET_PED_SUFFERS_CRITICAL_HITS, ped.Handle, false);*/
+            ped.BlockPermanentEvents = true;
 
             var blip = ped.AddBlip();
-            blip.Color = BlipColor.White;
+            blip.Color = BlipColor.Yellow;
 
-            blip.SetName(state.Name);
+            name = name ?? "";
 
-            playerName = new UIResText(state.Name,
+            blip.SetName(name);
+
+            playerName = new UIResText(name,
                 new System.Drawing.Point(),
                 0.6f,
                 System.Drawing.Color.White,
                 Font.ChaletLondon,
-                UIResText.Alignment.Centered);
+                UIResText.Alignment.Centered);     
 
-            pedType = state.PedType;
+            pedType = type;
+
+            lastPosition = position;
+            lastRotation = rotation;
 
             return ped;
         }
 
-        public void HandleUpdatePacket(AIState state, DateTime svTime)
+        public void HandleStateUpdate(AIState state, DateTime svTime, bool iAmHost)
         {
-            PositionNoOffset = state.Position.Deserialize();
-            Quaternion = state.Rotation.Deserialize();        
+            updatingPosition = !iAmHost;
+
+            for (int i = moveBuffer.Length - 1; i > 0; i--)
+                moveBuffer[i] = moveBuffer[i - 1];
+
+            moveBuffer[0] = new AISnapshot(state.Position.Deserialize(),
+                state.Rotation.Deserialize(),
+                svTime);
+
+            snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
+
             lastReceivedState = state;
             lastUpdateTime = NetworkTime.Now;
         }
 
         public override void Update()
         {
-          /*  if (NetworkTime.Now - lastUpdateTime > TimeSpan.FromMilliseconds(1000))
+            if (Health <= 0)
             {
-                if (Exists())
-                    Dispose();
+                if (!IsDead) Health = -1;
+
+                if (CurrentBlip.Sprite != BlipSprite.Dead)
+                {
+                    CurrentBlip.Sprite = BlipSprite.Dead;
+                }
+
                 return;
-            }*/
+            }
+
+            else
+            {
+                if (CurrentBlip.Sprite != BlipSprite.Standard)
+                {
+                    CurrentBlip.Sprite = BlipSprite.Standard;
+                }
+            }
+
+            if (updatingPosition)
+            {
+                var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.6f);
+
+                if (entityPosition != null)
+                {
+
+                    if (Position.DistanceTo(entityPosition.Position) > 10f)
+                    {
+                        PositionNoOffset = moveBuffer[0].Position;
+                        Quaternion = moveBuffer[0].Rotation;
+                    }
+
+                    else
+                    {
+                        PositionNoOffset = entityPosition.Position;
+                        Quaternion = entityPosition.Rotation;
+                    }
+                }
+            }
 
             if (Position.DistanceTo(Game.Player.Character.Position) < 20f)
             {
@@ -173,16 +175,14 @@ namespace SPFClient.Entities
         /// <param name="name"></param>
         public void SetName(string name)
         {
-            Name = name;
+            playerName.Caption = name == null ? "" : name;
         }
 
         /// <summary>
         /// Render the in- game player name.
         /// </summary>
         private void RenderPlayerName()
-        {
-            playerName.Caption = Name == null ? "" : Name;
-
+        {     
             var coords = Function.Call<Vector3>(Hash._GET_ENTITY_BONE_COORDS, Handle, 31086);
             var pos = coords + Position + new Vector3(0, 0, 1.50f);
 

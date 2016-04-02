@@ -23,11 +23,12 @@ namespace SPFClient.Network
 
     public class SessionClient : IDisposable
     {
-        public IPEndPoint ServerEndpoint
+
+        public NetClient Connection
         {
             get
             {
-                return serverEP;
+                return client;
             }
         }
 
@@ -63,6 +64,7 @@ namespace SPFClient.Network
         {
             serverEP = new IPEndPoint(remoteAddress, port);
             Config = new NetPeerConfiguration("spfsession");
+         
             Config.EnableMessageType(NetIncomingMessageType.ConnectionApproval);
             client = new NetClient(Config);
         }
@@ -80,7 +82,7 @@ namespace SPFClient.Network
 
         public void Say(string message)
         {
-            if (message.Length <= 0 || message.Length >= 32) return;
+            if (message.Length <= 0 || message.Length >= 50) return;
             SessionMessage sMessage = new SessionMessage();
             sMessage.SenderName = localUsername;
             sMessage.Timestamp = NetworkTime.Now;
@@ -97,6 +99,18 @@ namespace SPFClient.Network
             msg.Write((byte)NetMessage.ClientState);
             msg.Write(sequence);
             msg.Write(state, false);
+            client.SendMessage(msg, NetDeliveryMethod.Unreliable);
+        }
+
+        public void UpdateUserData(ClientState state, AIState[] ai, uint sequence)
+        {
+            var msg = client.CreateMessage();
+            msg.Write((byte)NetMessage.ClientStateAI);
+            msg.Write(sequence);
+            msg.Write(state, false);
+            msg.Write(ai.Length);
+            foreach (var aiPlayer in ai)
+                msg.Write(aiPlayer, false);
             client.SendMessage(msg, NetDeliveryMethod.Unreliable);
         }
 
@@ -180,33 +194,39 @@ namespace SPFClient.Network
 
         private void HandleIncomingDataMessage(NetIncomingMessage msg)
         {
-            if (msg == null || msg.Data.Length <= 0) return;
-
-            var dataType = (NetMessage)message.ReadByte();
-
-            switch (dataType)
+            try
             {
-                case NetMessage.SessionUpdate:
-                    OnSessionUpdate(msg.SenderEndPoint, msg.ReadSessionState());
-                    return;
-                case NetMessage.SessionMessage:
-                    OnSessionMessage(msg.SenderEndPoint, msg.ReadSessionMessage());
-                    return;
-                case NetMessage.SessionEvent:
-                    OnSessionEvent(msg.SenderEndPoint, msg.ReadSessionEvent());
-                    return;
-                case NetMessage.SessionSync:
-                    OnServerSessionSync(msg.SenderEndPoint, msg.ReadSessionSync());
-                    return;
-                case NetMessage.NativeCall:
-                    OnNativeInvoked(msg.SenderEndPoint, msg.ReadNativeCall());
-                    return;
-                case NetMessage.RankData:
-                    OnRankDataReceived(msg.SenderEndPoint, msg.ReadRankData());
-                    return;
-                case NetMessage.AIEvent:
-                    OnRankDataReceived(msg.SenderEndPoint, msg.ReadRankData());
-                    return;
+                var dataType = (NetMessage)message.ReadByte();
+
+                switch (dataType)
+                {
+                    case NetMessage.SessionUpdate:
+                        OnSessionUpdate(msg.SenderEndPoint, msg.ReadSessionState());
+                        return;
+                    case NetMessage.SessionMessage:
+                        OnSessionMessage(msg.SenderEndPoint, msg.ReadSessionMessage());
+                        return;
+                    case NetMessage.SessionEvent:
+                        OnSessionEvent(msg.SenderEndPoint, msg.ReadSessionEvent());
+                        return;
+                    case NetMessage.SessionSync:
+                        OnServerSessionSync(msg.SenderEndPoint, msg.ReadSessionSync());
+                        return;
+                    case NetMessage.NativeCall:
+                        OnNativeInvoked(msg.SenderEndPoint, msg.ReadNativeCall());
+                        return;
+                    case NetMessage.RankData:
+                        OnRankDataReceived(msg.SenderEndPoint, msg.ReadRankData());
+                        return;
+                    case NetMessage.AIEvent:
+                        OnRankDataReceived(msg.SenderEndPoint, msg.ReadRankData());
+                        return;
+                }
+            }
+
+            catch
+            {
+
             }
         }
 
@@ -231,32 +251,38 @@ namespace SPFClient.Network
 
         protected virtual void OnSessionUpdate(EndPoint sender, SessionState msg)
         {
+            if (msg == null) return;
             SessionStateEvent?.Invoke(sender, msg);
         }
 
         protected virtual void OnSessionMessage(EndPoint sender, SessionMessage msg)
         {
+            if (msg == null) return;
             ChatEvent?.Invoke(sender, msg);
         }
 
         protected virtual void OnServerSessionSync(EndPoint sender, SessionSync msg)
         {
+            if (msg == null) return;
             ReturnSessionSync(msg);
             SessionSyncEvent?.Invoke(sender, msg);
         }
 
         protected virtual void OnNativeInvoked(EndPoint sender, NativeCall msg)
         {
+            if (msg == null) return;
             NativeInvoked?.Invoke(sender, msg);
         }
 
         protected virtual void OnRankDataReceived(EndPoint sender, RankData msg)
         {
+            if (msg == null) return;
             RankDataEvent?.Invoke(sender, msg);
         }
 
         protected virtual void OnSessionEvent(EndPoint sender, SessionEvent msg)
         {
+            if (msg == null) return;
             SessionEvent?.Invoke(sender, msg);
         }
      

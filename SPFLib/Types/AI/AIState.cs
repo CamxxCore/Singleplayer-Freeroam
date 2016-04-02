@@ -8,18 +8,20 @@ namespace SPFLib.Types
     {
         public string Name { get; set; }
         public int ClientID { get; set; }
+        public short Health { get; set; }
         public Vector3 Position { get; set; }
         public Quaternion Rotation { get; set; }
         public PedType PedType { get; set; }
 
-        public AIState() : this(null, PedType.Michael, new Vector3(), new Quaternion())
+        public AIState() : this(-1, null, 100, PedType.Michael, new Vector3(), new Quaternion())
         {
         }
 
-        public AIState(string name, PedType pedType, Vector3 position, Quaternion rotation)
+        public AIState(int id, string name, short health, PedType pedType, Vector3 position, Quaternion rotation)
         {
-            ClientID = Helpers.GenerateUniqueID();
+            ClientID = id;
             Name = name;
+            Health = health;
             Position = position;
             Rotation = rotation;
             PedType = pedType;

@@ -24,12 +24,12 @@ namespace SPFClient.Entities
 
             UpdateVehicleLandingGear((LGearState)e.ExtraFlags);
 
-            if (e.Flags.HasFlag(VehicleFlags.PlaneGun))
+            if (e.Flags.HasFlag(VehicleFlags.VehicleCannon))
             {
                 FireWeapon((WeaponHash)0xE2822A29);
             }
 
-            else if (e.Flags.HasFlag(VehicleFlags.PlaneShoot))
+            else if (e.Flags.HasFlag(VehicleFlags.VehicleRocket))
             {
                 FireWeapon((WeaponHash)0xCF0896E0);
             }

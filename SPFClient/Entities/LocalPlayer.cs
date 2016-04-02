@@ -5,6 +5,7 @@ using SPFClient.Network;
 using SPFLib.Enums;
 using GTA.Native;
 using SPFClient.Types;
+using System.Collections.Generic;
 using SPFLib.Types;
 
 namespace SPFClient.Entities
@@ -66,7 +67,9 @@ namespace SPFClient.Entities
                 GameplayCamera.Position + Helpers.RotationToDirection(GameplayCamera.Rotation) * weaponRange,
                 IntersectOptions.Everything);
 
-            if (result.DitHitEntity/* && NetworkManager.ActivePlayers.Any(x => x.Handle == result.HitEntity.Handle)*/)
+            if (result.DitHitEntity &&
+                (EntityManager.ActivePlayers.Any(x => x.Handle == result.HitEntity.Handle) ||
+                EntityManager.ActiveAI.Any(x => x.Handle == result.HitEntity.Handle)))
             {
                 var hitCoords = result.HitEntity.Position.Serialize();
                 var dmg = (short)GetCurrentWeaponDamage();
@@ -81,9 +84,19 @@ namespace SPFClient.Entities
 
         private float GetCurrentWeaponDamage()
         {
-            if (Ped == null) return 0.0f;
-            return MemoryAccess.GetPedWeaponDamage(Ped.Handle);
+            if (Ped == null || Ped.Weapons.Current == null)
+                return 0.0f;
+            try
+            {
+                return MemoryAccess.GetPedWeaponDamage(Ped.Handle);
+            }
+
+            catch
+            {
+                return 0.0f;
+            }
         }
+
 
         /// <summary>
         /// Avoid iterating inside xxHashtoID while running the game loop.
@@ -127,7 +140,7 @@ namespace SPFClient.Entities
         {
             if (Ped.CurrentVehicle.Model.Hash != localVehicleHash)
             {
-                localVehicleHash = Ped.CurrentVehicle.Model.Hash;
+                localVehicleHash = Vehicle.Model.Hash;
                 localVehicleID = Helpers.VehicleHashtoID((VehicleHash)localVehicleHash);
             }
             return localVehicleID;
@@ -157,118 +170,39 @@ namespace SPFClient.Entities
                 clientState.Velocity = Ped.Velocity.Serialize();
                 clientState.Angles = GameplayCamera.Rotation.Serialize();
                 clientState.Rotation = Ped.Quaternion.Serialize();
-                clientState.MovementFlags = clientFlags;  
+                clientState.MovementFlags = clientFlags;
                 clientState.ActiveTask = GetActiveTask();
             }
 
             else if (Vehicle != null && Vehicle.Health > 0)
             {
-                if ((int)Ped.CurrentVehicleSeat() == -1)
-                {
-                    var v = new Vehicle(Vehicle.Handle);
+                // if ((int)Ped.CurrentVehicleSeat() == -1)
+                //  {
+                var v = new Vehicle(Vehicle.Handle);
 
-                    clientState.InVehicle = true;
+                clientState.InVehicle = true;
 
-                    clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
+                clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
 
-                    clientState.VehicleState = new VehicleState(Vehicle.ID,
-                        Vehicle.Position.Serialize(),
-                        Vehicle.Velocity.Serialize(),
-                        Vehicle.Quaternion.Serialize(),
-                        v.CurrentRPM,
-                        Vehicle.GetWheelRotation(),
-                        0, Convert.ToInt16(v.Health),
-                        (byte)v.PrimaryColor, (byte)v.SecondaryColor,
-                        GetActiveRadioStation(),
-                        GetVehicleID());
+                clientState.VehicleState = new VehicleState(Vehicle.ID,
+                    Vehicle.Position.Serialize(),
+                    Vehicle.Velocity.Serialize(),
+                    Vehicle.Quaternion.Serialize(),
+                    v.CurrentRPM,
+                    Vehicle.GetWheelRotation(),
+                    0, Convert.ToInt16(v.Health),
+                    (byte)v.PrimaryColor, (byte)v.SecondaryColor,
+                    GetActiveRadioStation(),
+                    GetVehicleID());
+            
+                VehicleFlags flags;
+                ushort extraFlags;
 
-                    clientState.VehicleState.Flags |= VehicleFlags.Driver;
+                Vehicle.GetActiveVehicleFlags(Ped, out flags, out extraFlags);
 
-                    if (Function.Call<bool>(Hash.IS_HORN_ACTIVE, v.Handle))
-                        clientState.VehicleState.Flags |= VehicleFlags.HornPressed;
+                clientState.VehicleState.Flags = flags;
 
-                    if (v.Health <= 0)
-                        clientState.VehicleState.Flags |= VehicleFlags.Exploded;
-
-                    if (Vehicle is NetworkCar)
-                    {
-                        if (v.LeftHeadLightBroken)
-                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.LHeadlight;
-
-                        if (v.RightHeadLightBroken)
-                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.RHeadlight;
-
-                        if (v.IsDoorBroken(VehicleDoor.FrontLeftDoor))
-                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.LDoor;
-
-                        if (v.IsDoorBroken(VehicleDoor.FrontRightDoor))
-                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.RDoor;
-
-                        if (v.IsDoorBroken(VehicleDoor.BackLeftDoor))
-                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.BLDoor;
-
-                        if (v.IsDoorBroken(VehicleDoor.BackRightDoor))
-                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.BRDoor;
-
-                        if (v.IsDoorBroken(VehicleDoor.Hood))
-                            clientState.VehicleState.ExtraFlags |= (ushort)DamageFlags.Hood;
-                    }
-
-                    else if (Vehicle is NetworkPlane)
-                    {
-                        if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehicleFlyUnderCarriage))
-                        {
-                            var lgState = Function.Call<int>(Hash._GET_VEHICLE_LANDING_GEAR, Vehicle.Handle);
-                            clientState.VehicleState.ExtraFlags = (ushort)lgState;
-                        }
-
-                        if (Game.IsControlPressed(0, Control.VehicleFlyAttack) || Game.IsControlPressed(0, Control.VehicleFlyAttack2))
-                        {
-                            var outArg = new OutputArgument();
-                            if (Function.Call<bool>(Hash.GET_CURRENT_PED_VEHICLE_WEAPON, Ped.Handle, outArg))
-                            {
-                                unchecked
-                                {
-                                    switch ((WeaponHash)outArg.GetResult<int>())
-                                    {
-                                        case (WeaponHash)0xCF0896E0:
-                                            clientState.VehicleState.Flags |= VehicleFlags.PlaneShoot;
-                                            break;
-
-                                        case (WeaponHash)0xE2822A29:
-                                            clientState.VehicleState.Flags |= VehicleFlags.PlaneGun;
-                                            break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    else if (Vehicle is NetworkBicycle)
-                    {
-                        if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehiclePushbikePedal))
-                        {
-                            if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
-                                clientState.VehicleState.ExtraFlags = (ushort)BicycleState.TuckPedaling;
-                            else clientState.VehicleState.ExtraFlags = (ushort)BicycleState.Pedaling;
-                        }
-
-                        else
-                        {
-                            if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
-                                clientState.VehicleState.ExtraFlags = (ushort)BicycleState.TuckCruising;
-                            else clientState.VehicleState.ExtraFlags = (ushort)BicycleState.Cruising;
-                        }
-                    }
-                }
-
-                // client is in a remote vehicle, get its handle 
-                else if ((Vehicle = EntityManager.VehicleFromLocalHandle(Ped.CurrentVehicle.Handle)) != null)
-                {
-                    clientState.InVehicle = true;
-                    clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
-                    clientState.VehicleState = new VehicleState(Vehicle.ID);     
-                }
+                clientState.VehicleState.ExtraFlags = extraFlags;
             }
 
             ResetClientFlags();
@@ -318,6 +252,43 @@ namespace SPFClient.Entities
         internal void ResetClientFlags()
         {
             clientFlags = 0;
+        }
+
+        private int GetClosestVehicleDoorIndex(NetworkVehicle vehicle)
+        {
+            if (vehicle is NetworkCar)
+            {
+                var bones = new int[]
+                {
+                    Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "handle_dside_f"), //-1 front left
+                    Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "handle_pside_f"), //0 front right
+                    Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "handle_dside_r"), //1 back left                     
+                    Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "handle_pside_r") //2 back right                     
+                };
+
+                var closestBone = bones.OrderBy(x =>
+                Function.Call<GTA.Math.Vector3>((Hash)0x44A8FCB8ED227738, vehicle.Handle, x)
+                .DistanceTo(Ped.Position)).First();
+
+                return (Array.IndexOf(bones, closestBone) - 1);
+            }
+
+            else
+            {
+                var bones = new int[]
+                    {
+                        Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "door_dside_f"), //-1 front left\
+                        Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "door_pside_f"), //0 front right
+                        Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "door_dside_r"), //1 back left                     
+                        Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "door_pside_r") //2 back right                     
+                    };
+
+                var closestBone = bones.OrderBy(x =>
+                Function.Call<GTA.Math.Vector3>((Hash)0x44A8FCB8ED227738, vehicle.Handle, x)
+                .DistanceTo(Ped.Position)).First();
+
+                return (Array.IndexOf(bones, closestBone) - 1);
+            }
         }
 
         /// <summary>
@@ -392,54 +363,36 @@ namespace SPFClient.Entities
             {
                 var driver = Function.Call<int>(Hash.GET_PED_IN_VEHICLE_SEAT, Vehicle.Handle, -1);
                 if (driver != 0 && driver != Ped.Handle)
-                Vehicle.Update();
+                    Vehicle.Update();
             }
 
             if (Game.IsControlJustPressed(0, Control.VehicleExit))
             {
-                var closestVehicle = Ped.GetClosestVehicle(2.223f);
+                var closestVehicle = World.GetClosestVehicle(Ped.Position, 2.223f); //Ped.GetClosestVehicle(2.223f);
 
                 if (closestVehicle != null)
                 {
-                    NetworkVehicle veh = closestVehicle.Handle == Vehicle?.Handle ? 
+                    NetworkVehicle veh = closestVehicle.Handle == Vehicle?.Handle ?
                         Vehicle : EntityManager.VehicleFromLocalHandle(closestVehicle.Handle);
 
                     if (veh != null && !Ped.IsInVehicle(closestVehicle) && veh.Handle != Ped.CurrentVehicle?.Handle)
                     {
-                        if (veh is NetworkCar)
+                        var boneIndex = GetClosestVehicleDoorIndex(veh);
+
+                        if (boneIndex == -1 && !closestVehicle.IsSeatFree((GTA.VehicleSeat)boneIndex))
                         {
-                            var bones = new int[]
+                            while (!closestVehicle.IsSeatFree((GTA.VehicleSeat)boneIndex) && boneIndex < 3)
                             {
-                            Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_dside_f"), //-1 front left
-                            Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_pside_f"), //0 front right
-                            Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_dside_r"), //1 back left                     
-                            Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "handle_pside_r") //2 back right                     
-                            };
+                                boneIndex++;
+                            }
 
-                            var closestBone = bones.OrderBy(x => Function.Call<GTA.Math.Vector3>((Hash)0x44A8FCB8ED227738, veh.Handle, x).DistanceTo(Ped.Position)).First();
-
-                            Ped.Task.ClearAll();
-
-                            Function.Call(Hash.TASK_ENTER_VEHICLE, Ped.Handle, veh.Handle, -1, (Array.IndexOf(bones, closestBone) - 1), 0.0f, 3, 0);
+                            if (boneIndex >= 3) return;
                         }
 
-                        else
-                        {
-                            var bones = new int[]
-                                {
-                                 //   Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "door_dside_f"), //-1 front left
-                                    Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "door_pside_f"), //0 front right
-                                    Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "door_dside_r"), //1 back left                     
-                                    Function.Call<int>((Hash)0xFB71170B7E76ACBA , veh.Handle, "door_pside_r") //2 back right                     
-                                };
+                        Ped.Task.ClearAll();
 
-                            var closestBone = bones.OrderBy(x => Function.Call<GTA.Math.Vector3>((Hash)0x44A8FCB8ED227738, veh.Handle, x).DistanceTo(Ped.Position)).First();
+                        Function.Call(Hash.TASK_ENTER_VEHICLE, Ped.Handle, veh.Handle, -1, boneIndex, 0.0f, 3, 0);
 
-                            Ped.Task.ClearAll();
-
-                            Function.Call(Hash.TASK_ENTER_VEHICLE, Ped.Handle, veh.Handle, -1, (Array.IndexOf(bones, closestBone)), 0.0f, 3, 0);
-
-                        }
                     }
                 }
             }

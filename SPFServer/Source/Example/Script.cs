@@ -48,7 +48,18 @@ public class Script : ScriptBase
                     break;
 
                 case "ainative":
-                    NativeFunctions.SetPosition(sender, Server.ActiveSession.ActiveAI[0], sender);
+                    foreach (var client in Server.ActiveSession.ActiveClients)
+                    {
+                        foreach (var ai in Server.ActiveSession.ActiveAI)
+                        {
+                            Server.ActiveSession.InvokeClientNative(client, "TASK_FOLLOW_TO_OFFSET_OF_ENTITY", new NativeArg(DataType.AIHandle, ai.ID), 
+                                new NativeArg(DataType.LocalHandle), 
+                                0f, 0f, 0f, 
+                                2.0f, -1, 
+                                0.0f, 1);
+                            //NativeFunctions.PlayAnimation(ai, "move_m@multiplayer", "run", 1, -1);
+                        }
+                    }
                     break;
 
             }
