@@ -469,13 +469,16 @@ namespace SPFLib
                 state.ClientID = message.ReadInt32();
                 state.Position = message.ReadVector3();
                 state.Rotation = message.ReadVector3().ToQuaternion();
-
+                state.PedType = (PedType) message.ReadInt16();
+                state.Health = (short) message.ReadInt16();
                 int nameLen = message.ReadInt32();
 
                 if (nameLen > 0)
-                state.Name = System.Text.Encoding.UTF8.GetString(message.ReadBytes(nameLen));
+                {
+                    state.Name = System.Text.Encoding.UTF8.GetString(message.ReadBytes(nameLen));
+                }
 
-                return state;
+                return state;                      
             }
 
             catch
@@ -484,17 +487,20 @@ namespace SPFLib
             }
         }
 
-        public static void Write(this NetOutgoingMessage message, AIState state, bool sendName)
+        public static void Write(this NetOutgoingMessage message, AIState state, bool sendNames)
         {
             message.Write(state.ClientID);
             message.Write(state.Position);
             message.Write(state.Rotation.ToVector3());
+            message.Write((short)state.PedType);
+            message.Write((short)state.Health);
 
-            if (sendName)
+            if (sendNames)
             {
                 message.Write(state.Name.Length);
                 message.Write(System.Text.Encoding.UTF8.GetBytes(state.Name));
             }
+
             else message.Write(0);
         }
 

@@ -24,7 +24,7 @@ namespace SPFServer
         public ScriptManager(string scriptDirectory)
         {
             scriptDir = scriptDirectory;
-            runningScripts = EnumerateScripts(scriptDir);
+            runningScripts = EnumerateScripts();
         }
 
         public void StartThreads()
@@ -74,7 +74,14 @@ namespace SPFServer
             }
         }
 
-        private List<Tuple<ScriptBase, Thread>> EnumerateScripts(string scriptDir)
+        public void Reload()
+        {
+            runningScripts.ForEach(x => { x.Item1.running = false; x.Item2.Abort(); });
+            runningScripts.Clear();
+            runningScripts = EnumerateScripts();
+        }
+
+        private List<Tuple<ScriptBase, Thread>> EnumerateScripts()
         {
             if (!Directory.Exists(scriptDir))
             {

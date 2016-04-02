@@ -9,7 +9,7 @@
         SessionMessage = 2,
         ClientState = 3,
         ClientStateAI = 4,
-        AIEvent = 5,
+        AckWorldSync = 5,
         WeaponData = 6,
         ClientInfo = 7,
         SessionUpdate = 8,

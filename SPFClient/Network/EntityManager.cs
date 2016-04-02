@@ -50,6 +50,12 @@ namespace SPFClient.Network
         private static Queue<KeyValuePair<NetworkAI, bool>> aiDeletionQueue =
          new Queue<KeyValuePair<NetworkAI, bool>>();
 
+        private bool firstSync = true;
+
+        public static event EventHandler WorldSynced;
+
+        public static bool Enabled { get; set; }
+
         public EntityManager()
         {
             localPlayer = new LocalPlayer();
@@ -58,8 +64,49 @@ namespace SPFClient.Network
 
         private void OnTick(object sender, EventArgs e)
         {
-            if (!NetworkSession.Initialized) return;
+            if (!Enabled) return;
 
+            try
+            {
+                HandleEntityQueues();
+
+                if (localPlayer != null)
+                {
+                    localPlayer.Update();
+                }
+
+                foreach (NetworkPlayer client in activePlayers)
+                {
+                    client.Update();
+                }
+
+                foreach (NetworkAI ai in activeAI)
+                {
+                    ai.Update();
+                }
+
+                foreach (NetworkVehicle vehicle in activeVehicles)
+                {
+                    if (!vehicle.Exists() || !vehicle.IsAlive)
+                        DeleteVehicle(vehicle, false);
+                    vehicle.Update();
+                }
+
+                if (firstSync)
+                {
+                    WorldSynced?.Invoke(this, new EventArgs());
+                    firstSync = false;
+                }
+            }
+
+            catch (Exception ex)
+            {
+                GTA.UI.ShowSubtitle("Error: " + ex.ToString());
+            }
+        }
+
+        private static void HandleEntityQueues()
+        {
             while (updateQueue.Count > 0)
             {
                 // dequeue the client that needs an update.
@@ -89,7 +136,7 @@ namespace SPFClient.Network
 
                 else
                 {
-                    if (!client.Exists())
+                    if (!client.Exists() || clientState.Health > 0 && client.Health <= 0)
                     {
                         DeleteClient(client);
                         continue;
@@ -121,6 +168,8 @@ namespace SPFClient.Network
 
                         if (client.IsAlive && !Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
                         {
+                            GTA.UI.ShowSubtitle("ENTER");
+
                             Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, client.LastState.InVehicle ? 16 : 3, 0);
 
                             var dt = DateTime.Now + TimeSpan.FromMilliseconds(1800);
@@ -192,11 +241,6 @@ namespace SPFClient.Network
                 }
             }
 
-            if (localPlayer != null)
-            {
-                localPlayer.Update();
-            }
-
             while (clientDeletionQueue.Count > 0)
             {
                 var client = clientDeletionQueue.Dequeue();
@@ -231,23 +275,6 @@ namespace SPFClient.Network
                 }
 
                 activeAI.Remove(ai.Key);
-            }
-
-            foreach (NetworkPlayer client in activePlayers)
-            {
-                client.Update();
-            }
-
-            foreach (NetworkAI ai in activeAI)
-            {
-                ai.Update();
-            }
-
-            foreach (NetworkVehicle vehicle in activeVehicles)
-            {
-                if (!vehicle.Exists() || !vehicle.IsAlive)
-                    DeleteVehicle(vehicle, false);
-                vehicle.Update();
             }
         }
 

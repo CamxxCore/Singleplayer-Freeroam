@@ -80,6 +80,13 @@ namespace SPFClient.Network
             client.Connect(serverEP, msg);
         }
 
+        public void SendSynchronizationAck()
+        {
+            var msg = client.CreateMessage();
+            msg.Write((byte)NetMessage.AckWorldSync);
+            client.SendMessage(msg, NetDeliveryMethod.ReliableOrdered);
+        }
+
         public void Say(string message)
         {
             if (message.Length <= 0 || message.Length >= 50) return;
@@ -216,9 +223,6 @@ namespace SPFClient.Network
                         OnNativeInvoked(msg.SenderEndPoint, msg.ReadNativeCall());
                         return;
                     case NetMessage.RankData:
-                        OnRankDataReceived(msg.SenderEndPoint, msg.ReadRankData());
-                        return;
-                    case NetMessage.AIEvent:
                         OnRankDataReceived(msg.SenderEndPoint, msg.ReadRankData());
                         return;
                 }

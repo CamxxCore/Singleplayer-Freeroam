@@ -45,7 +45,10 @@ namespace SPFClient.Entities
 
             Function.Call((Hash)0x2C2B3493FBF51C71, true);
 
-            Function.Call(Hash.SET_FADE_OUT_AFTER_DEATH, false);
+            for (int i = 0; i < 5; i++)
+            {
+                Function.Call(Hash.DISABLE_HOSPITAL_RESTART, i, true);
+            }
 
             Function.Call(Hash.SET_CAN_ATTACK_FRIENDLY, Ped.Handle, true, true);
 

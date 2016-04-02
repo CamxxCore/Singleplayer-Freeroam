@@ -34,6 +34,7 @@ namespace SPFClient.Entities
         private bool updatingPosition;
         private DateTime lastUpdateTime;
         private int snapshotCount;
+
         private static Vector3 lastPosition;
         private static GTA.Math.Quaternion lastRotation;
 
@@ -60,7 +61,7 @@ namespace SPFClient.Entities
         {
             PedHash result;
 
-            if (!Enum.TryParse(type.ToString(), out result))
+            if (!Enum.TryParse(type.ToString(), true, out result))
                 result = PedHash.Michael;
 
             var pedModel = new Model(result);
@@ -78,6 +79,8 @@ namespace SPFClient.Entities
             pedModel.MarkAsNoLongerNeeded();
 
             ped.BlockPermanentEvents = true;
+
+            Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
 
             var blip = ped.AddBlip();
             blip.Color = BlipColor.Yellow;
@@ -113,6 +116,21 @@ namespace SPFClient.Entities
                 svTime);
 
             snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
+
+            UI.UIManager.UISubtitleProxy(state.Health.ToString());
+
+            if (state.Health <= 0) Health = -1;
+
+            else if (state.Health < Health)
+            {
+                Function.Call(Hash.APPLY_DAMAGE_TO_PED, Handle, Health - state.Health, true);
+            }
+
+            else if (state.Health > Health)
+            {
+                Health = state.Health;
+            }
+
 
             lastReceivedState = state;
             lastUpdateTime = NetworkTime.Now;

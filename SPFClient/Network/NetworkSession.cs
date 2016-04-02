@@ -8,7 +8,6 @@ using GTA.Native;
 using ASUPService;
 using SPFLib.Types;
 using System.Threading;
-
 using SPFClient.UI;
 
 namespace SPFClient.Network
@@ -38,7 +37,6 @@ namespace SPFClient.Network
 
         public static bool Initialized { get; private set; } = false;
 
-        private static bool isSynced = false;
         private static int lastSync = 0;
 
         public static SessionClient Current { get { return current; } }
@@ -61,7 +59,13 @@ namespace SPFClient.Network
         {
             SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
             UIChat.MessageSent += MessageSent;
+            EntityManager.WorldSynced += WorldSynced;
             Tick += OnTick;
+        }
+
+        private void WorldSynced(object sender, EventArgs e)
+        {
+            current?.SendSynchronizationAck();
         }
 
         /// <summary>
@@ -91,6 +95,8 @@ namespace SPFClient.Network
                     });
 
                 Function.Call((Hash)0x231C8F89D0539D8F, 0, 1);
+
+                Function.Call(Hash.IGNORE_NEXT_RESTART, true);
 
                 EntityManager.LocalPlayer.Setup();
                 // wait for server callback and handle initialization there.
@@ -131,18 +137,13 @@ namespace SPFClient.Network
 
             EntityManager.DeleteAllEntities();
 
-            // restore regular game world
             Function.Call(Hash.CLEAR_OVERRIDE_WEATHER);
-
-            //     Function.Call(Hash.PAUSE_CLOCK, false);
 
             Function.Call(Hash._DISABLE_AUTOMATIC_RESPAWN, true);
 
             disconnectTimeout = new DateTime();
 
             lastSequence = 0;
-
-            isSynced = false;
         }
 
         /// <summary>
@@ -159,7 +160,6 @@ namespace SPFClient.Network
                 foreach (var client in e.Clients)
                 {
                     EntityManager.QueueClientUpdate(client, e.Timestamp, client.ClientID == UID);
-
                 }
 
                 foreach (var ai in e.AI)
@@ -170,11 +170,9 @@ namespace SPFClient.Network
                 lastSequence = e.Sequence;
                 EntityManager.HostingAI = e.AIHost;
             }
-
-                  
+                         
             disconnectTimeout = DateTime.Now + TimeSpan.FromMilliseconds(ClTimeout);
         }
-
 
         /// <summary>
         /// Chat event handler
@@ -215,8 +213,8 @@ namespace SPFClient.Network
                 case EventType.PlayerLogon:
                     if (e.SenderID == UID)
                     {
-                        isSynced = true;
                         Initialized = true;
+                        EntityManager.Enabled = true;
                         UIManager.UINotifyProxy("Successfully Connected.");
                     }
                     else
@@ -250,6 +248,7 @@ namespace SPFClient.Network
         private static void NativeInvoked(EndPoint sender, NativeCall e)
         {
             if (!Initialized) return;
+
             queuedNativeCalls.Enqueue(e);
         }
 
@@ -268,7 +267,7 @@ namespace SPFClient.Network
                 Close();
             }
 
-            if (isSynced && Game.GameTime - lastSync >= ClUpdateRate)
+            if (Game.GameTime - lastSync >= ClUpdateRate)
             {
                 SentPacketSequence++;
                 SentPacketSequence %= uint.MaxValue;
@@ -307,7 +306,7 @@ namespace SPFClient.Network
             {
                 var native = queuedNativeCalls.Dequeue();
 
-                NativeCallback callback = NativeHelper.ExecuteLocalNativeWithArgs(native);
+                var callback = NativeHelper.ExecuteLocalNativeWithArgs(native);
 
                 if (callback != null)
                     current.SendNativeCallback(callback);
@@ -326,6 +325,9 @@ namespace SPFClient.Network
             Function.Call(Hash.SET_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
 
             Function.Call(Hash.SET_RANDOM_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
+
+            Function.Call(Hash.SET_PLAYER_WANTED_LEVEL, Game.Player.Handle, 0, 0);
+            Function.Call(Hash.SET_PLAYER_WANTED_LEVEL_NOW, Game.Player.Handle, 0, 0);
         }
 
         /// <summary>
@@ -344,12 +346,11 @@ namespace SPFClient.Network
             // disable snow
             MemoryAccess.SetSnowEnabled(false);
 
-            Function.Call((Hash)0xAEEDAD1420C65CC0, true);
-            Function.Call((Hash)0x4CC7F0FEA5283FE0, true);
+            Function.Call((Hash)0xAEEDAD1420C65CC0, false);
+
+            Function.Call((Hash)0x4CC7F0FEA5283FE0, false);
 
             base.Dispose(A_0);
         }
-    }
-
-  
+    } 
 }

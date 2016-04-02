@@ -35,8 +35,10 @@ namespace SPFClient.UI
 
         private void RankBar_RankedUp(UIRankBar sender, UIRankBarEventArgs e)
         {
-            var extSound = new SoundPlayer(Properties.Resources.rank_achieved);
-            extSound.Play();
+            Game.PlaySound("MEDAL_UP", "HUD_MINI_GAME_SOUNDSET");
+            Game.PlaySound("RANK_UP", "HUD_AWARDS");
+           // var extSound = new SoundPlayer(Properties.Resources.rank_achieved);
+         //   extSound.Play();
         }
 
         /// <summary>
@@ -64,11 +66,11 @@ namespace SPFClient.UI
         UIText debugText = new UIText(string.Format("SPFClient | Beta Build # {0}\nConnected At: {1} Port: {2}\nRec: {3}\nSent: {4} \nRecycled: {5}",
             Assembly.GetExecutingAssembly().GetName().Version.ToString(),
             Network.NetworkSession.Current == null ? "N/A" :
-            Network.NetworkSession.Current.Connection?.ServerConnection.RemoteEndPoint.Address.ToString(),
-            Network.NetworkSession.Current?.Connection?.ServerConnection.RemoteEndPoint.Port,
-            Network.NetworkSession.Current?.Connection?.Statistics.ReceivedMessages,
-            Network.NetworkSession.Current?.Connection?.Statistics.SentMessages,
-            Network.NetworkSession.Current?.Connection?.Statistics.BytesInRecyclePool),
+            Network.NetworkSession.Current.Connection.ServerConnection?.RemoteEndPoint.Address.ToString(),
+            Network.NetworkSession.Current?.Connection.ServerConnection?.RemoteEndPoint.Port,
+            Network.NetworkSession.Current?.Connection.Statistics.ReceivedPackets,
+            Network.NetworkSession.Current?.Connection.Statistics.SentPackets,
+            Network.NetworkSession.Current?.Connection.Statistics.BytesInRecyclePool),
             new Point((GTA.UI.WIDTH / Game.ScreenResolution.Width) * 1080, 20),
             0.6f,
             Color.White,

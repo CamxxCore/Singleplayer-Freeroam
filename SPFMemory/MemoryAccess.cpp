@@ -109,6 +109,11 @@ void MemoryAccess::WriteUInt64(unsigned long long address, unsigned long value)
 	*reinterpret_cast<unsigned long *>(address) = value;
 }
 
+void MemoryAccess::WriteByte(unsigned long long address, System::Byte value)
+{
+	*reinterpret_cast<char *>(address) = value;
+}
+
 float MemoryAccess::ReadSingle(unsigned long long address)
 {
 	return *reinterpret_cast<const float *>(address);
@@ -142,6 +147,11 @@ unsigned int MemoryAccess::ReadUInt32(unsigned long long address)
 unsigned long long MemoryAccess::ReadUInt64(unsigned long long address)
 {
 	return *reinterpret_cast<const unsigned long *>(address);
+}
+
+System::Byte MemoryAccess::ReadByte(unsigned long long address)
+{
+	return *reinterpret_cast<const char *>(address);
 }
 
 uintptr_t MemoryAccess::FindPattern(const char *pattern, const char *mask)

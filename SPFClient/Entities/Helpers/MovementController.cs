@@ -153,7 +153,7 @@ namespace SPFClient.Entities
             pAngles = angles;
         }
 
-        public void PlayAnimation(Animation animation, int flags = 1)
+        public static void PlayAnimation(Ped ped, Animation animation, int flags = 1)
         {
             Function.Call(Hash.TASK_PLAY_ANIM, ped.Handle,
                 animation.Dictionary, animation.Name, 8f, -8.0f, -1, flags, 1f, 0, 0, 0);
@@ -265,7 +265,7 @@ namespace SPFClient.Entities
                 {
                     if (!diving)
                     {
-                        PlayAnimation(Anims.SkydiveJump);
+                        PlayAnimation(ped, Anims.SkydiveJump);
                         diving = true;
                     }
 
@@ -273,7 +273,7 @@ namespace SPFClient.Entities
                     {
                         if (!Anims.Skydive.IsPlayingOn(ped))
                         {
-                            PlayAnimation(Anims.Skydive);
+                            PlayAnimation(ped, Anims.Skydive);
                         }
                     }
                 }
@@ -308,13 +308,13 @@ namespace SPFClient.Entities
                 if (ped.Weapons.Current.Hash == WeaponHash.Unarmed || ped.Weapons.Current.IsMeleeOrThrowable())
                 {
                     // unarmed crouch walk
-                    if (!Anims.WalkUnarmedCrouched.IsPlayingOn(ped)) PlayAnimation(Anims.WalkUnarmedCrouched);
+                    if (!Anims.WalkUnarmedCrouched.IsPlayingOn(ped)) PlayAnimation(ped, Anims.WalkUnarmedCrouched);
                 }
 
                 else
                 {
                     // armed crouch walk
-                    if (!Anims.WalkStealthASMG.IsPlayingOn(ped)) PlayAnimation(Anims.WalkStealthASMG);
+                    if (!Anims.WalkStealthASMG.IsPlayingOn(ped)) PlayAnimation(ped, Anims.WalkStealthASMG);
                 }
             }
 
@@ -325,7 +325,7 @@ namespace SPFClient.Entities
                 {
                     if (!Anims.QuickStop2.IsPlayingOn(ped))
                     {
-                        PlayAnimation(Anims.QuickStop2);
+                        PlayAnimation(ped, Anims.QuickStop2);
                     }
                 }
 
@@ -333,7 +333,7 @@ namespace SPFClient.Entities
                 {
                     if (!Anims.QuickStop1.IsPlayingOn(ped))
                     {
-                        PlayAnimation(Anims.QuickStop1);
+                        PlayAnimation(ped, Anims.QuickStop1);
                     }
                 }
 
@@ -345,30 +345,25 @@ namespace SPFClient.Entities
                 if (!Anims.Walk.IsPlayingOn(ped))
                 {
                     ped.Task.ClearAll();
-                    PlayAnimation(Anims.Walk);
+                    PlayAnimation(ped, Anims.Walk);
                 }
             }
 
             else
             {
                 if (currentAnimation != null && !currentAnimation.IsPlayingOn(ped))
-                    PlayAnimation(currentAnimation);
+                    PlayAnimation(ped, currentAnimation);
 
                 if (upperAnimation != null && !upperAnimation.IsPlayingOn(ped))
                 {
-                    PlayAnimation(upperAnimation, 48);
+                    PlayAnimation(ped, upperAnimation, 48);
                 }
             }
 
             if (CurrentFlagIsSet(ClientFlags.Shooting))
             {
-                /*   var shootPos = pPosition + Helpers.RotationToDirection(pAngles) * 10;
-                   var dir = shootPos - Game.Player.Character.GetBoneCoord(Bone.SKEL_R_Hand);
-                   var pitchToTarget = Helpers.DirectionToRotation(dir).X;
-                   PlayShootingAnimation(pitchToTarget);*/
                 HandleShootAnim();
-            }
-               
+            }          
 
             else if (CurrentFlagIsSet(ClientFlags.Aiming)) HandleAimAnim();
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using SPFLib.Types;
+using SPFServer.Natives;
 
 namespace SPFServer.Types
 {
@@ -29,6 +30,12 @@ namespace SPFServer.Types
                 State.Rotation = value;
                 NeedsUpdate = true;
             }
+        }
+
+        public int Health
+        {
+            get { return State.Health; }
+            set { NativeFunctions.SetHealth(this, value); }
         }
 
         internal AIState State { get; private set; }

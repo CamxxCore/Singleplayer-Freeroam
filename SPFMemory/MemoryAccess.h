@@ -28,6 +28,8 @@ public:
 	static unsigned int ReadUInt32(unsigned long long address);
 	static unsigned long long ReadUInt64(unsigned long long address);
 
+	static System::Byte ReadByte(unsigned long long address);
+
 	static void WriteSingle(unsigned long long address, float value);
 
 	static void WriteInt16(unsigned long long address, short value);
@@ -37,6 +39,7 @@ public:
 	static void WriteUInt16(unsigned long long address, unsigned short value);
 	static void WriteUInt32(unsigned long long address, unsigned int value);
 	static void WriteUInt64(unsigned long long address, unsigned long value);
+	static void WriteByte(unsigned long long address, System::Byte value);
 
 private:
 	static System::UInt64(*GetAddressOfEntity)(int handle);

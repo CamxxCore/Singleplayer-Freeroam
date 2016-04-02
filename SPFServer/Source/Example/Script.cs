@@ -17,11 +17,23 @@ public class Script : ScriptBase
     private void Script_Tick(object sender, EventArgs e)
     {
 
-        //  Console.WriteLine("tick");
+         Console.WriteLine("tick");
     }
 
     public override void OnClientConnect(GameClient sender, DateTime time)
     {
+        foreach (var ai in Server.ActiveSession.ActiveAI)
+        {
+            Server.ActiveSession.InvokeClientNative(sender, "TASK_FOLLOW_TO_OFFSET_OF_ENTITY", new NativeArg(DataType.AIHandle, ai.ID),
+                new NativeArg(DataType.LocalHandle),
+                0f, 0f, 0f,
+                2.0f, -1,
+                0.0f, 1);
+
+            Server.ActiveSession.InvokeClientNative(sender, "SET_PED_MOVEMENT_CLIPSET", new NativeArg(DataType.AIHandle, ai.ID), "move_m@drunk@verydrunk", 0x3e800000);
+        }
+
+
         base.OnClientConnect(sender, time);
     }
 
@@ -38,7 +50,7 @@ public class Script : ScriptBase
                     if (int.TryParse(command[1], out clientNum))
                     {
                         var tpTarget = Server.ActiveSession.ActiveClients.ElementAt(clientNum);
-
+                        
                         if (tpTarget != null)
                             NativeFunctions.SetPosition(sender, tpTarget);
                     }
@@ -57,7 +69,6 @@ public class Script : ScriptBase
                                 0f, 0f, 0f, 
                                 2.0f, -1, 
                                 0.0f, 1);
-                            //NativeFunctions.PlayAnimation(ai, "move_m@multiplayer", "run", 1, -1);
                         }
                     }
                     break;
