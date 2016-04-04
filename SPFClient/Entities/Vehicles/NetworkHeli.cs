@@ -2,17 +2,45 @@
 using GTA;
 using GTA.Native;
 using GTA.Math;
+using SPFLib.Types;
+using SPFClient.Types;
+using System;
+using Vector3 = GTA.Math.Vector3;
+
 namespace SPFClient.Entities
 {
     public sealed class NetworkHeli : NetworkVehicle
     {
-        public NetworkHeli(SPFLib.Types.VehicleState state) : base(state)
+        HeliState updatedState;
+
+        private HeliSnapshot[] stateBuffer = new HeliSnapshot[20];
+
+        private int snapshotCount = 0;
+
+        public NetworkHeli(VehicleState state) : base(state)
         {
-            OnUpdateRecieved += UpdateRecieved;
+            OnUpdateReceived += UpdateReceived;
         }
 
-        private void UpdateRecieved(NetworkVehicle sender, SPFLib.Types.VehicleState e)
+        public NetworkHeli(Vehicle vehicle, int id) : base(vehicle, id)
         {
+        }
+
+        private void UpdateReceived(DateTime timeSent, VehicleState e)
+        {
+            updatedState = e as HeliState;
+
+            var position = updatedState.Position.Deserialize();
+            var vel = updatedState.Velocity.Deserialize();
+            var rotation = updatedState.Rotation.Deserialize();
+
+            for (int i = stateBuffer.Length - 1; i > 0; i--)
+                stateBuffer[i] = stateBuffer[i - 1];
+
+            stateBuffer[0] = new HeliSnapshot(position, vel, rotation, updatedState.RotorSpeed, timeSent);
+
+            snapshotCount = Math.Min(snapshotCount + 1, stateBuffer.Length);
+
             if (e.Flags.HasFlag(VehicleFlags.VehicleCannon))
             {
                 FireWeapon((WeaponHash)0xE2822A29);
@@ -22,10 +50,6 @@ namespace SPFClient.Entities
             {
                 FireWeapon((WeaponHash)0xCF0896E0);
             }
-        }
-
-        public NetworkHeli(Vehicle vehicle, int id) : base(vehicle, id)
-        {
         }
 
         public void FireWeapon(WeaponHash hash)
@@ -50,12 +74,42 @@ namespace SPFClient.Entities
             vStartPos = GetOffsetInWorldCoords(vOffset1); //Function.Call<Vector3>(Hash.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS, _ped.Handle, vStartPos.X, vStartPos.Y, vStartPos.Z);
             vEndPos = Position + new Vector3(vOffset1.X, 0, vOffset1.Z) + ForwardVector * 20;
             Function.Call(Hash.SHOOT_SINGLE_BULLET_BETWEEN_COORDS, vStartPos.X, vStartPos.Y, vStartPos.Z, vEndPos.X, vEndPos.Y, vEndPos.Z,
-         15, 1, (int)hash, Handle, 1, 1, 0xBF800000);
+                15, 1, (int)hash, Handle, 1, 1, 0xBF800000);
+        }
+
+        public HeliState GetExclusiveState()
+        {
+            var v = new Vehicle(Handle);
+
+            var state = new HeliState(ID,
+                 Position.Serialize(),
+                 Velocity.Serialize(),
+                 Quaternion.Serialize(),
+                 0f,
+                 0, Convert.ToInt16(Health),
+                 (byte)v.PrimaryColor, (byte)v.SecondaryColor,
+                 GetRadioStation(),
+                 GetVehicleID());
+
+            if (IsDead)
+                state.Flags |= VehicleFlags.Exploded;
+
+            return state;
         }
 
         public override void Update()
         {
-            //         Function.Call(Hash.SET_HELI_BLADES_FULL_SPEED, Handle);
+            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, stateBuffer, snapshotCount, 0.1f, false);
+
+            if (snapshot != null)
+            {
+                PositionNoOffset = snapshot.Position;
+                Quaternion = snapshot.Rotation;
+                Velocity = snapshot.Velocity;
+            }
+
+            //Function.Call(Hash.SET_HELI_BLADES_FULL_SPEED, Handle);
+
             base.Update();
         }
     }

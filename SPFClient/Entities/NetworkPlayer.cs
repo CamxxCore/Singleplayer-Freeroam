@@ -162,7 +162,7 @@ namespace SPFClient.Entities
             return ped;
         }
 
-        public void HandleStateUpdate(ClientState state, DateTime svTime)
+        public void HandleStateUpdate(DateTime timeSent, ClientState state)
         {
             if (!state.InVehicle)
             {
@@ -192,8 +192,8 @@ namespace SPFClient.Entities
                     state.Rotation.Deserialize(), 
                     state.Angles.Deserialize(), 
                     state.ActiveTask, 
-                    state.MovementFlags, 
-                    svTime);
+                    state.MovementFlags,
+                    timeSent);
 
                 snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
 
@@ -304,9 +304,9 @@ namespace SPFClient.Entities
         /// Set the state of the players bicycle.
         /// </summary>
         /// <param name="state"></param>
-        public void SetBicycleState(BicycleState state)
+        public void SetBicycleState(BicycleTask state)
         {
-            bicyleController.SetBicycleState(state);
+            bicyleController.SetCurrentBicycleTask(state);
         }
 
         /// <summary>
@@ -315,7 +315,7 @@ namespace SPFClient.Entities
         /// <param name="state"></param>
         public void SetBicycleState(short state)
         {
-            bicyleController.SetBicycleState((BicycleState)state);
+            bicyleController.SetCurrentBicycleTask((BicycleTask)state);
         }
 
         /// <summary>

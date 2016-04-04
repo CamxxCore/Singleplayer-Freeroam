@@ -4,7 +4,7 @@ namespace SPFLib.Types
 {
     public class NativeCall
     {
-        public int NetID { get; private set; }
+        public int NetID { get; set; }
         public string FunctionName { get; set; }
         public NativeArg[] Args { get; set; }
         public DataType ReturnType { get; set; }

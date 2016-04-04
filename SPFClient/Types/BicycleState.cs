@@ -1,6 +1,6 @@
 ﻿namespace SPFClient.Types
 {
-    public enum BicycleState
+    public enum BicycleTask
     {
         Pedaling,
         TuckPedaling,

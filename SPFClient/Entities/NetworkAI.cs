@@ -82,6 +82,36 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
 
+            Function.Call(Hash.CLEAR_ALL_PED_PROPS, ped.Handle);
+
+            Function.Call((Hash)0xE861D0B05C7662B8, ped.Handle, 0, 0);
+
+            Function.Call((Hash)0x4668D80430D6C299, ped.Handle);
+
+            Function.Call((Hash)0x687C0B594907D2E8, ped.Handle);
+
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 189, 1);
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 407, 1);
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 410, 1);
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 411, 1);
+
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 342, 1);
+
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 122, 1);
+
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 134, 1);
+
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 115, 1);
+
+            Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 185, 1);
+
+            Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
+
+            Function.Call(Hash._0x26695EC767728D84, ped.Handle, 1);
+            Function.Call(Hash._0x26695EC767728D84, ped.Handle, 16);
+
+            Function.Call(Hash.SET_PED_MOVE_ANIMS_BLEND_OUT, ped.Handle);
+
             var blip = ped.AddBlip();
             blip.Color = BlipColor.Yellow;
 
@@ -117,8 +147,6 @@ namespace SPFClient.Entities
 
             snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
 
-            UI.UIManager.UISubtitleProxy(state.Health.ToString());
-
             if (state.Health <= 0) Health = -1;
 
             else if (state.Health < Health)
@@ -130,7 +158,6 @@ namespace SPFClient.Entities
             {
                 Health = state.Health;
             }
-
 
             lastReceivedState = state;
             lastUpdateTime = NetworkTime.Now;
@@ -155,6 +182,7 @@ namespace SPFClient.Entities
                 if (CurrentBlip.Sprite != BlipSprite.Standard)
                 {
                     CurrentBlip.Sprite = BlipSprite.Standard;
+                    CurrentBlip.Color = BlipColor.Yellow;
                 }
             }
 

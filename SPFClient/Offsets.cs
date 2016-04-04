@@ -21,13 +21,20 @@ namespace SPFClient
             public static readonly ushort FiringType = 0x3C;
         }
 
-        public static class CVehicle
+        public abstract class CVehicle
         {
             public static readonly ushort WheelsPtr = (ushort)((int)Game.Version > 3 ? 2720 : 2688);
             public static readonly ushort RPM = (ushort)((int)Game.Version > 3 ? 2004 : 1988);
             public static readonly ushort CurrentGear = (ushort)((int)Game.Version > 3 ? 0x7A2 : 0x792);
-            public static readonly ushort Steering = 2212;
+            public static readonly ushort Steering = 2220;
             public static readonly ushort LightDamage = 0x77C;
+        }
+
+        public class CPlane : CVehicle
+        {
+            public static readonly ushort Rudder = 0x1B08;
+            public static readonly ushort Flaps = 0x1B10;
+            public static readonly ushort Stabs = 0x1B0C;
         }
 
         public static class CWheel

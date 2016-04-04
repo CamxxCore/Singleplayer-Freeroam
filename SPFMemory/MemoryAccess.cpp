@@ -56,21 +56,35 @@ float MemoryAccess::GetPedWeaponDamage(int handle)
 {
 	System::UInt64 entity = MemoryAccess::GetEntityAddress(handle);
 	System::UInt64 weaponsPtr = *reinterpret_cast<unsigned long long *>(entity + 0x1098);
-	System::UInt64 currentWeapon = *reinterpret_cast<unsigned long long *>(weaponsPtr + 0x20);
-	return *reinterpret_cast<float *>(currentWeapon + 0x98);
-}
 
+	if (weaponsPtr)
+	{
+		System::UInt64 currentWeapon = *reinterpret_cast<unsigned long long *>(weaponsPtr + 0x20);
+		return *reinterpret_cast<float *>(currentWeapon + 0x98);
+	}
+
+	else
+	{
+		return 0;
+	}
+}
 
 float MemoryAccess::GetWheelRotation(unsigned long long address, int index)
 {
 	unsigned long long wAddress = *reinterpret_cast<unsigned long long *>(address + index * 8);
 
+	if (wAddress)
 	return *reinterpret_cast<float *>(wAddress + 0x164);
+	else
+	{
+		return 0;
+	}
 }
 
 void MemoryAccess::SetWheelRotation(unsigned long long address, int index, float value) {
 
 	unsigned long long wAddress = *reinterpret_cast<unsigned long long *>(address + index * 8);
+	if (wAddress)
 	*reinterpret_cast<float *>(wAddress + 0x164) = value;
 }
 

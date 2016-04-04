@@ -38,9 +38,6 @@ namespace SPFClient.Network
         private static List<NetworkAI> activeAI =
             new List<NetworkAI>();
 
-        private static List<Ped> localAI =
-            new List<Ped>();
-
         private static Queue<KeyValuePair<NetworkPlayer, bool>> clientDeletionQueue =
             new Queue<KeyValuePair<NetworkPlayer, bool>>();
 
@@ -65,6 +62,42 @@ namespace SPFClient.Network
         private void OnTick(object sender, EventArgs e)
         {
             if (!Enabled) return;
+
+            while (clientDeletionQueue.Count > 0)
+            {
+                var client = clientDeletionQueue.Dequeue();
+                if (client.Value)
+                {
+                    client.Key.MarkAsNoLongerNeeded();
+                    client.Key.Dispose();
+                }
+
+                activePlayers.Remove(client.Key);
+            }
+
+            while (vehicleDeletionQueue.Count > 0)
+            {
+                var vehicle = vehicleDeletionQueue.Dequeue();
+                if (vehicle.Value)
+                {
+                    vehicle.Key.MarkAsNoLongerNeeded();
+                    vehicle.Key.Dispose();
+                }
+
+                activeVehicles.Remove(vehicle.Key);
+            }
+
+            while (aiDeletionQueue.Count > 0)
+            {
+                var ai = aiDeletionQueue.Dequeue();
+                if (ai.Value)
+                {
+                    ai.Key.MarkAsNoLongerNeeded();
+                    ai.Key.Dispose();
+                }
+
+                activeAI.Remove(ai.Key);
+            }
 
             try
             {
@@ -101,7 +134,7 @@ namespace SPFClient.Network
 
             catch (Exception ex)
             {
-                GTA.UI.ShowSubtitle("Error: " + ex.ToString());
+                UI.UIManager.UINotifyProxy("Exception Details:\n" + ex.ToString());
             }
         }
 
@@ -168,27 +201,31 @@ namespace SPFClient.Network
 
                         if (client.IsAlive && !Function.Call<bool>(Hash.IS_PED_IN_VEHICLE, client.Handle, vehicle.Handle, true))
                         {
-                            GTA.UI.ShowSubtitle("ENTER");
+                            if (Game.Player.Character.Position.DistanceTo(vehicle.Position) < 1000f)
+                            {
+                                Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1,
+                                    (int)clientState.VehicleSeat, 0.0f, client.LastState.InVehicle ? 16 : 3, 0);
 
-                            Function.Call(Hash.TASK_ENTER_VEHICLE, client.Handle, vehicle.Handle, -1, (int)clientState.VehicleSeat, 0.0f, client.LastState.InVehicle ? 16 : 3, 0);
+                                var dt = DateTime.Now + TimeSpan.FromMilliseconds(1800);
 
-                            var dt = DateTime.Now + TimeSpan.FromMilliseconds(1800);
+                                while (DateTime.Now < dt)
+                                    Yield();
+                            }
+                            else
+                                Function.Call(Hash.SET_PED_INTO_VEHICLE, client.Handle, vehicle.Handle, (int)clientState.VehicleSeat);
 
-                            while (DateTime.Now < dt)
-                                Yield();
                         }
 
                         if (Function.Call<bool>(Hash.IS_THIS_MODEL_A_BICYCLE, vehicle.Model.Hash))
                         {
-                            client.SetBicycleState((Types.BicycleState)vehicleState.ExtraFlags);
+                            client.SetBicycleState((Types.BicycleTask)vehicleState.ExtraFlags);
                         }
 
-                        // if it isnt the driver, we don't need to handle the update.
                         if (clientState.VehicleSeat == SPFLib.Enums.VehicleSeat.Driver)
-                            vehicle.HandleStateUpdate(vehicleState, remoteClient.Value);
+                            vehicle.HandleStateUpdate(remoteClient.Value, vehicleState);
                     }
 
-                    client.HandleStateUpdate(clientState, remoteClient.Value);
+                    client.HandleStateUpdate(remoteClient.Value, clientState);
                 }
             }
 
@@ -239,42 +276,6 @@ namespace SPFClient.Network
                 {
                     Game.Player.Character.Health = clientUpdate.Health;
                 }
-            }
-
-            while (clientDeletionQueue.Count > 0)
-            {
-                var client = clientDeletionQueue.Dequeue();
-                if (client.Value)
-                {
-                    client.Key.MarkAsNoLongerNeeded();
-                    client.Key.Dispose();
-                }
-
-                activePlayers.Remove(client.Key);
-            }
-
-            while (vehicleDeletionQueue.Count > 0)
-            {
-                var vehicle = vehicleDeletionQueue.Dequeue();
-                if (vehicle.Value)
-                {
-                    vehicle.Key.MarkAsNoLongerNeeded();
-                    vehicle.Key.Dispose();
-                }
-
-                activeVehicles.Remove(vehicle.Key);
-            }
-
-            while (aiDeletionQueue.Count > 0)
-            {
-                var ai = aiDeletionQueue.Dequeue();
-                if (ai.Value)
-                {
-                    ai.Key.MarkAsNoLongerNeeded();
-                    ai.Key.Dispose();
-                }
-
-                activeAI.Remove(ai.Key);
             }
         }
 
@@ -471,9 +472,6 @@ namespace SPFClient.Network
             activePlayers.ForEach(x => DeleteClient(x, removeFromWorld));
             activeVehicles.ForEach(x => DeleteVehicle(x, removeFromWorld));
             activeAI.ForEach(x => DeleteAI(x, removeFromWorld));
-            activePlayers.Clear();
-            activeVehicles.Clear();
-            activeAI.Clear();
         }
     }
 }

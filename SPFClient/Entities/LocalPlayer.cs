@@ -100,7 +100,6 @@ namespace SPFClient.Entities
             }
         }
 
-
         /// <summary>
         /// Avoid iterating inside xxHashtoID while running the game loop.
         /// </summary>
@@ -149,16 +148,6 @@ namespace SPFClient.Entities
             return localVehicleID;
         }
 
-        /// <summary>
-        /// Get the vehicle radio station.
-        /// </summary>
-        /// <param name="handle"></param>
-        /// <returns></returns>
-        private byte GetActiveRadioStation()
-        {
-            return Convert.ToByte(Function.Call<int>(Hash.GET_PLAYER_RADIO_STATION_INDEX));
-        }
-
         public ClientState GetClientState()
         {
             var clientState = new ClientState();
@@ -167,7 +156,7 @@ namespace SPFClient.Entities
             clientState.WeaponID = GetWeaponID();
             clientState.PedType = GetPedType();
 
-            if (!Ped.IsInVehicle())
+            if (!Ped.IsInVehicle() && !Ped.IsGettingIntoAVehicle)
             {
                 clientState.Position = Ped.Position.Serialize();
                 clientState.Velocity = Ped.Velocity.Serialize();
@@ -187,25 +176,19 @@ namespace SPFClient.Entities
 
                 clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
 
-                clientState.VehicleState = new VehicleState(Vehicle.ID,
-                    Vehicle.Position.Serialize(),
-                    Vehicle.Velocity.Serialize(),
-                    Vehicle.Quaternion.Serialize(),
-                    v.CurrentRPM,
-                    Vehicle.GetWheelRotation(),
-                    0, Convert.ToInt16(v.Health),
-                    (byte)v.PrimaryColor, (byte)v.SecondaryColor,
-                    GetActiveRadioStation(),
-                    GetVehicleID());
-            
-                VehicleFlags flags;
-                ushort extraFlags;
+                if (Vehicle is NetworkCar)
+                    clientState.VehicleState = (Vehicle as NetworkCar).GetExclusiveState();
 
-                Vehicle.GetActiveVehicleFlags(Ped, out flags, out extraFlags);
+                else if (Vehicle is NetworkPlane)
+                    clientState.VehicleState = (Vehicle as NetworkPlane).GetExclusiveState();
 
-                clientState.VehicleState.Flags = flags;
+                else if (Vehicle is NetworkHeli)
+                    clientState.VehicleState = (Vehicle as NetworkHeli).GetExclusiveState();
 
-                clientState.VehicleState.ExtraFlags = extraFlags;
+                else if (Vehicle is NetworkPlane)
+                    clientState.VehicleState = (Vehicle as NetworkPlane).GetExclusiveState();
+
+                else clientState.VehicleState = Vehicle.GetState();
             }
 
             ResetClientFlags();
@@ -304,7 +287,7 @@ namespace SPFClient.Entities
 
             if (Ped.IsInMeleeCombat)
             {
-                UI.UIManager.UISubtitleProxy("melee");
+                UpdateWeaponDamage();
                 SetClientFlag(ClientFlags.Punch);
             }
 
@@ -371,7 +354,7 @@ namespace SPFClient.Entities
 
             if (Game.IsControlJustPressed(0, Control.VehicleExit))
             {
-                var closestVehicle = World.GetClosestVehicle(Ped.Position, 2.223f); //Ped.GetClosestVehicle(2.223f);
+                var closestVehicle = World.GetClosestVehicle(Ped.Position, 6.223f); //Ped.GetClosestVehicle(2.223f);
 
                 if (closestVehicle != null)
                 {
@@ -395,7 +378,6 @@ namespace SPFClient.Entities
                         Ped.Task.ClearAll();
 
                         Function.Call(Hash.TASK_ENTER_VEHICLE, Ped.Handle, veh.Handle, -1, boneIndex, 0.0f, 3, 0);
-
                     }
                 }
             }

@@ -53,7 +53,7 @@ namespace SPFClient.Network
 
         private static uint lastSequence;
 
-        public uint SentPacketSequence { get; private set; }
+        public static uint PacketsSent { get; private set; }
 
         public NetworkSession()
         {
@@ -82,6 +82,7 @@ namespace SPFClient.Network
             current.NativeInvoked += NativeInvoked;
             current.SessionEvent += SessionEvent;
             current.RankDataEvent += RankDataEvent;
+            current.OnDisconnect += OnDisconnected;
 
             if (current.Inititialize(UID, Game.Player.Name ?? "Unknown Player"))
             {
@@ -109,9 +110,18 @@ namespace SPFClient.Network
             }
         }
 
-        private static void RankDataEvent(EndPoint sender, RankData e)
+        /// <summary>
+        /// Join a session directly.
+        /// </summary>
+        /// <param name="session"></param>
+        public static void JoinSessionDirect(IPAddress address)
         {
-            queuedRankData.Enqueue(e);
+            ActiveSession session = new ActiveSession()
+            {
+                Address = address.GetAddressBytes()
+            };
+
+            JoinActiveSession(session);
         }
 
         /// <summary>
@@ -133,7 +143,7 @@ namespace SPFClient.Network
                 current.RankDataEvent -= RankDataEvent;
                 current.Dispose();
                 current = null;
-            }     
+            }
 
             EntityManager.DeleteAllEntities();
 
@@ -170,7 +180,7 @@ namespace SPFClient.Network
                 lastSequence = e.Sequence;
                 EntityManager.HostingAI = e.AIHost;
             }
-                         
+
             disconnectTimeout = DateTime.Now + TimeSpan.FromMilliseconds(ClTimeout);
         }
 
@@ -200,6 +210,16 @@ namespace SPFClient.Network
         }
 
         /// <summary>
+        /// Rank data handler
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private static void RankDataEvent(EndPoint sender, RankData e)
+        {
+            queuedRankData.Enqueue(e);
+        }
+
+        /// <summary>
         /// User event handler
         /// </summary>
         /// <param name="sender"></param>
@@ -218,7 +238,7 @@ namespace SPFClient.Network
                         UIManager.UINotifyProxy("Successfully Connected.");
                     }
                     else
-                    UIManager.UINotifyProxy(e.SenderName + " joined. " + e.SenderID.ToString());
+                        UIManager.UINotifyProxy(e.SenderName + " joined. " + e.SenderID.ToString());
                     break;
 
                 case EventType.PlayerLogout:
@@ -227,7 +247,7 @@ namespace SPFClient.Network
                     {
                         EntityManager.DeleteClient(client);
                         if (client.ActiveVehicle != null)
-                            EntityManager.DeleteVehicle(client.ActiveVehicle);           
+                            EntityManager.DeleteVehicle(client.ActiveVehicle);
                     }
                     UIManager.UINotifyProxy(e.SenderName + " left. " + e.SenderID.ToString());
                     break;
@@ -248,7 +268,6 @@ namespace SPFClient.Network
         private static void NativeInvoked(EndPoint sender, NativeCall e)
         {
             if (!Initialized) return;
-
             queuedNativeCalls.Enqueue(e);
         }
 
@@ -267,67 +286,97 @@ namespace SPFClient.Network
                 Close();
             }
 
-            if (Game.GameTime - lastSync >= ClUpdateRate)
+            try
             {
-                SentPacketSequence++;
-                SentPacketSequence %= uint.MaxValue;
-
-                var localPlayer = EntityManager.LocalPlayer;
-
-                var state = localPlayer.GetClientState();
-
-                if (EntityManager.HostingAI)
+                if (Game.GameTime - lastSync >= ClUpdateRate)
                 {
-                    var localAI = EntityManager.GetAIForUpdate().ToArray();
+                    PacketsSent++;
+                    PacketsSent %= uint.MaxValue;
 
-                    if (localAI.Length > 0)
+                    var localPlayer = EntityManager.LocalPlayer;
+
+                    var state = localPlayer.GetClientState();
+
+                    if (EntityManager.HostingAI)
                     {
-                        current.UpdateUserData(state, localAI, SentPacketSequence);
+                        var localAI = EntityManager.GetAIForUpdate().ToArray();
+
+                        if (localAI.Length > 0)
+                        {
+                            current.UpdateUserData(state, localAI, PacketsSent);
+                        }
+
+                        else
+                            current.UpdateUserData(state, PacketsSent);
                     }
-
                     else
-                        current.UpdateUserData(state, SentPacketSequence);
+                        current.UpdateUserData(state, PacketsSent);
+
+                    lastSync = Game.GameTime;
                 }
-                else
-                    current.UpdateUserData(state, SentPacketSequence);
 
-                lastSync = Game.GameTime;
+                while (msgQueue.Count > 0)
+                {
+                    var message = msgQueue.Dequeue();
+                    UIChat.AddFeedMessage(message.SenderName, message.Message);
+                }
+
+                #region native invocation
+
+                while (queuedNativeCalls.Count > 0)
+                {
+                    var native = queuedNativeCalls.Dequeue();
+
+                    var callback = NativeHelper.ExecuteLocalNativeWithArgs(native);
+
+                    if (callback != null)
+                        current.SendNativeCallback(callback);
+                }
+
+                while (queuedRankData.Count > 0)
+                {
+                    var rData = queuedRankData.Dequeue();
+                    UIManager.RankBar.ShowRankBar(rData.RankIndex, rData.RankXP, rData.NewXP, 123, 3000, 2000);
+                }
+
+                #endregion
+
+                Function.Call(Hash.SET_PED_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
+
+                Function.Call(Hash.SET_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
+
+                Function.Call(Hash.SET_RANDOM_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
+
+                Function.Call(Hash.SET_WANTED_LEVEL_MULTIPLIER, 0f);
+                Function.Call(Hash.SET_MAX_WANTED_LEVEL, 0);
+
+                Game.Player.WantedLevel = 0;
+
             }
 
-            while (msgQueue.Count > 0)
+            catch (Exception ex)
             {
-                var message = msgQueue.Dequeue();
-                UIChat.AddFeedMessage(message.SenderName, message.Message);
+                UIManager.UINotifyProxy("Exception Details:\n" + ex.ToString());
             }
+        }
 
-            #region native invocation
-
-            while (queuedNativeCalls.Count > 0)
+        private static void OnDisconnected(EndPoint sender, string message)
+        {
+            switch (message)
             {
-                var native = queuedNativeCalls.Dequeue();
-
-                var callback = NativeHelper.ExecuteLocalNativeWithArgs(native);
-
-                if (callback != null)
-                    current.SendNativeCallback(callback);
+                case "NC_TOOFREQUENT":
+                    UIManager.UINotifyProxy("Server refused the connection\nYou are connecting too frequently.");
+                    break;
+                case "NC_REVMISMATCH":
+                    UIManager.UINotifyProxy("Server refused the connection.\nClient/ server version mismatch.");
+                    break;
+                case "NC_INVALID":
+                    UIManager.UINotifyProxy("Server refused the connection. Failed to login the user.");
+                    break;
+                case "NC_LOBBYFULL":
+                    UIManager.UINotifyProxy("The lobby is full.");
+                    break;
             }
-
-            while (queuedRankData.Count > 0)
-            {
-                var rData = queuedRankData.Dequeue();
-                UIManager.RankBar.ShowRankBar(rData.RankIndex, rData.RankXP, rData.NewXP, 123, 3000, 2000);
-            }
-
-            #endregion
-
-            Function.Call(Hash.SET_PED_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
-
-            Function.Call(Hash.SET_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
-
-            Function.Call(Hash.SET_RANDOM_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
-
-            Function.Call(Hash.SET_PLAYER_WANTED_LEVEL, Game.Player.Handle, 0, 0);
-            Function.Call(Hash.SET_PLAYER_WANTED_LEVEL_NOW, Game.Player.Handle, 0, 0);
         }
 
         /// <summary>
@@ -352,5 +401,5 @@ namespace SPFClient.Network
 
             base.Dispose(A_0);
         }
-    } 
+    }
 }

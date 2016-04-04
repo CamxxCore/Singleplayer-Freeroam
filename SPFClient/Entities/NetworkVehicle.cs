@@ -10,20 +10,20 @@ using Quaternion = GTA.Math.Quaternion;
 
 namespace SPFClient.Entities
 {
-    public delegate void NetworkVehicleEventHandler(NetworkVehicle sender, VehicleState e);
+    public delegate void NetworkVehicleEventHandler(DateTime timeSent, VehicleState e);
 
     public class NetworkVehicle : GameEntity
     {
         public readonly int ID;
-        private int snapshotCount;
+        public readonly ulong Address;
+
+        private int lastVehicleHash;
+        private short lastVehicleID;
         private int currentRadioStation;
-        private readonly ulong vAddress, wheelsPtr;
 
-        public event NetworkVehicleEventHandler OnUpdateRecieved;
+        private readonly ulong wheelsPtr;
 
-        public event NetworkVehicleEventHandler OnSendUpdate;
-
-        private VehicleSnapshot[] moveBuffer = new VehicleSnapshot[20];
+        public event NetworkVehicleEventHandler OnUpdateReceived;
 
         public DateTime LastUpdateTime { get; private set; }
 
@@ -41,8 +41,8 @@ namespace SPFClient.Entities
                 state.SecondaryColor))
         {
             ID = state.ID;
-            vAddress = MemoryAccess.GetEntityAddress(Handle);
-            wheelsPtr = GetWheelPointer(vAddress);
+            Address = MemoryAccess.GetEntityAddress(Handle);
+            wheelsPtr = GetWheelPointer(Address);
             lastReceivedState = state;
         }
 
@@ -53,8 +53,8 @@ namespace SPFClient.Entities
             base(vehicle)
         {
             ID = id;
-            vAddress = MemoryAccess.GetEntityAddress(Handle);
-            wheelsPtr = GetWheelPointer(vAddress);
+            Address = MemoryAccess.GetEntityAddress(Handle);
+            wheelsPtr = GetWheelPointer(Address);
             lastReceivedState = new VehicleState();
         }
 
@@ -78,8 +78,7 @@ namespace SPFClient.Entities
 
             var dt = DateTime.Now + TimeSpan.FromMilliseconds(300);
 
-            while (DateTime.Now < dt)
-                Script.Yield();
+            while (DateTime.Now < dt) Script.Yield();
 
             vehicle.IsInvincible = true;
 
@@ -96,23 +95,8 @@ namespace SPFClient.Entities
             return vehicle;
         }
 
-        internal virtual void UpdateSent(VehicleState e)
+        public virtual void HandleStateUpdate(DateTime timeSent, VehicleState state)
         {
-            OnSendUpdate?.Invoke(this, e);
-        }
-
-        internal void HandleStateUpdate(VehicleState state, DateTime svTime)
-        {
-            var position = state.Position.Deserialize();
-            var vel = state.Velocity.Deserialize();
-            var rotation = state.Rotation.Deserialize();
-
-            for (int i = moveBuffer.Length - 1; i > 0; i--)
-                moveBuffer[i] = moveBuffer[i - 1];
-
-            moveBuffer[0] = new VehicleSnapshot(position, vel, rotation, state.WheelRotation, svTime);
-            snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
-
             if ((state.Flags & VehicleFlags.DoorsLocked) != (lastReceivedState?.Flags & VehicleFlags.DoorsLocked))
             {
                 Function.Call(Hash.SET_VEHICLE_DOORS_LOCKED_FOR_PLAYER, Handle, Game.Player.Handle, state.Flags.HasFlag(VehicleFlags.DoorsLocked));
@@ -122,6 +106,7 @@ namespace SPFClient.Entities
             {
                 IsInvincible = false;
                 Function.Call(Hash.EXPLODE_VEHICLE, Handle, true, false);
+                return;
             }
 
             Function.Call(Hash.SET_VEHICLE_COLOURS, Handle, state.PrimaryColor, state.SecondaryColor);
@@ -143,22 +128,23 @@ namespace SPFClient.Entities
 
             LastUpdateTime = SPFLib.NetworkTime.Now;
 
-            OnUpdateRecieved?.Invoke(this, state);
+            OnUpdateReceived?.Invoke(timeSent, state);
         }
 
-         private static ulong GetWheelPointer(ulong baseAddress)
-          {
-            if (baseAddress <= 0) return 0;
+        internal byte GetRadioStation()
+        {
+            return Convert.ToByte(Function.Call<int>(Hash.GET_PLAYER_RADIO_STATION_INDEX));
+        }
 
-              var wheelsAddr = MemoryAccess.ReadUInt64(baseAddress + Offsets.CVehicle.WheelsPtr);
-
-              if (baseAddress > wheelsAddr)
-              {
-                  wheelsAddr = ulong.Parse(baseAddress.ToString("X").Substring(0, 3) + wheelsAddr.ToString("X"), System.Globalization.NumberStyles.HexNumber);
-              }
-
-              return wheelsAddr;
-          }
+        public short GetVehicleID()
+        {
+            if (Model.Hash != lastVehicleHash)
+            {
+                lastVehicleHash = Model.Hash;
+                lastVehicleID = Helpers.VehicleHashtoID((VehicleHash)lastVehicleHash);
+            }
+            return lastVehicleID;
+        }
 
         internal Color GetVehicleColor()
         {
@@ -177,162 +163,56 @@ namespace SPFClient.Entities
 
         public void SetWheelRotation(float value)
         {
-            if (!Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, Model.Hash) || wheelsPtr <= 0) return;
+            if (wheelsPtr <= 0) return;
             for (int i = 0; i < 4; i++)
                 MemoryAccess.SetWheelRotation(wheelsPtr, i, value);
         }
 
-        public byte GetCurrentGear()
+        public float GetSteering()
         {
-            if (vAddress <= 0) return 0;
-            return (byte)MemoryAccess.ReadInt16(vAddress + Offsets.CVehicle.CurrentGear);
-        }
-
-        public void SetCurrentGear(byte gear)
-        {
-            if (vAddress <= 0) return;
-            MemoryAccess.WriteInt16(vAddress + Offsets.CVehicle.CurrentGear, (short)gear);
+            if (Address <= 0) return 0;
+            return MemoryAccess.ReadSingle(Address + Offsets.CVehicle.Steering);
         }
 
         public void SetSteering(float value)
         {
-            Function.Call(Hash.SET_VEHICLE_STEER_BIAS, Handle, value);
-            //if (!Function.Call<bool>(Hash.IS_THIS_MODEL_A_CAR, Model.Hash) || vAddress <= 0) return;
-             //   MemoryAccess.WriteSingle(vAddress + Offsets.CVehicle.Steering, value);
+            if (Address <= 0) return;
+            MemoryAccess.WriteSingle(Address + Offsets.CVehicle.Steering, value);
         }
 
-        /// <summary>
-        /// Attempts to parse the current vehicle for active flags and populates the output parameters
-        /// </summary>
-        /// <param name="owner"></param>
-        /// <param name="flags"></param>
-        /// <param name="extraFlags"></param>
-        /// <returns></returns>
-        public bool GetActiveVehicleFlags(Ped owner, out VehicleFlags flags, out ushort extraFlags)
+        private static ulong GetWheelPointer(ulong baseAddress)
         {
-            Type t = GetType();
-            flags = 0;
-            extraFlags = 0;
+            if (baseAddress <= 0) return 0;
 
-            if (owner.CurrentVehicleSeat() == GTA.VehicleSeat.Driver)
-            flags |= VehicleFlags.Driver;
+            var wheelsAddr = MemoryAccess.ReadUInt64(baseAddress + Offsets.CVehicle.WheelsPtr);
 
-            if (Function.Call<bool>(Hash.IS_HORN_ACTIVE, Handle))
-                flags |= VehicleFlags.HornPressed;
-
-            if (Health <= 0)
-                flags |= VehicleFlags.Exploded;
-
-            if (t == typeof(NetworkCar))
+            if (baseAddress > wheelsAddr)
             {
-                if (Function.Call<bool>((Hash)0x5EF77C9ADD3B11A3, Handle)) //Left Headlight?
-                    extraFlags |= (ushort)DamageFlags.LHeadlight;
-
-                if (Function.Call<bool>((Hash)0xA7ECB73355EB2F20, Handle)) //Right Headlight?
-                    extraFlags |= (ushort)DamageFlags.RHeadlight;
-
-                if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int) VehicleDoor.FrontLeftDoor))
-                    extraFlags |= (ushort)DamageFlags.LDoor;
-
-                if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int) VehicleDoor.FrontRightDoor))
-                    extraFlags |= (ushort)DamageFlags.RDoor;
-
-                if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int) VehicleDoor.BackLeftDoor))
-                    extraFlags |= (ushort)DamageFlags.BLDoor;
-
-                if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int) VehicleDoor.BackRightDoor))
-                    extraFlags |= (ushort)DamageFlags.BRDoor;
-
-                if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int) VehicleDoor.Hood))
-                    extraFlags |= (ushort)DamageFlags.Hood;
-
-                return true;
+                wheelsAddr = ulong.Parse(baseAddress.ToString("X").Substring(0, 3) + wheelsAddr.ToString("X"), System.Globalization.NumberStyles.HexNumber);
             }
 
-            else if (t == typeof(NetworkHeli))
-            {
-                return true;
-            }
+            return wheelsAddr;
+        }
 
-            else if (t == typeof(NetworkPlane))
-            {
-                if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehicleFlyUnderCarriage))
-                {
-                    var lgState = Function.Call<int>(Hash._GET_VEHICLE_LANDING_GEAR, Handle);
-                    extraFlags = (ushort)lgState;
-                }
-
-                if (Game.IsControlPressed(0, Control.VehicleFlyAttack) || Game.IsControlPressed(0, Control.VehicleFlyAttack2))
-                {
-                    var outArg = new OutputArgument();
-                    if (Function.Call<bool>(Hash.GET_CURRENT_PED_VEHICLE_WEAPON, owner.Handle, outArg))
-                    {
-                        unchecked
-                        {
-                            switch ((WeaponHash)outArg.GetResult<int>())
-                            {
-                                case (WeaponHash)0xCF0896E0:
-                                    flags |= VehicleFlags.VehicleRocket;
-                                    break;
-
-                                case (WeaponHash)0xE2822A29:
-                                    flags |= VehicleFlags.VehicleCannon;
-                                    break;
-                            }
-                        }
-                    }
-                }
-
-                return true;
-            }
-
-            else if (t == typeof(NetworkBicycle))
-            {
-                if (Function.Call<bool>(Hash.IS_CONTROL_PRESSED, 2, (int)Control.VehiclePushbikePedal))
-                {
-                    if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
-                        extraFlags = (ushort)BicycleState.TuckPedaling;
-                    else extraFlags = (ushort)BicycleState.Pedaling;
-                }
-
-                else
-                {
-                    if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_PRESSED, 2, (int)Control.ReplayPreviewAudio))
-                        extraFlags = (ushort)BicycleState.TuckCruising;
-                    else extraFlags = (ushort)BicycleState.Cruising;
-                }
-
-                return true;
-            }
-
-            else return false;
-        } 
-
-
-        public void SetCurrentRPM(float value)
+        public virtual VehicleState GetState()
         {
-            if (vAddress <= 0) return;
-            MemoryAccess.WriteSingle(vAddress + Offsets.CVehicle.RPM, value);
+            var v = new Vehicle(Handle);
+
+            var state = new VehicleState(ID,
+                Position.Serialize(),
+                Velocity.Serialize(),
+                Quaternion.Serialize(),
+                0, Convert.ToInt16(Health),
+                (byte)v.PrimaryColor, (byte)v.SecondaryColor,
+                GetRadioStation(),
+                GetVehicleID());
+
+            return state;
         }
 
         public override void Update()
         {
             if (SPFLib.NetworkTime.Now - LastUpdateTime > TimeSpan.FromSeconds(1)) return;
-
-            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, this.GetType() == typeof(NetworkHeli) ? 0.1f : 0.89f, false);
-
-            if (snapshot != null)
-            {
-                PositionNoOffset = snapshot.Position;
-                Quaternion = snapshot.Rotation;
-                Velocity = snapshot.Velocity;
-                SetWheelRotation(snapshot.WheelRotation);    
-            }
-
-            SetCurrentRPM(lastReceivedState.CurrentRPM);
-
-            if (lastReceivedState.Flags.HasFlag(VehicleFlags.HornPressed))
-            Function.Call(Hash.OVERRIDE_VEH_HORN, Handle, 1, 0x2445ad61);
 
             //IS_VEHICLE_ENGINE_ON
             if (!Function.Call<bool>((Hash)0xAE31E7DF9B5B132E, Handle))

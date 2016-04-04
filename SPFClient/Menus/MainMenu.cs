@@ -4,6 +4,7 @@ using NativeUI;
 using SPFClient.Network;
 using SPFClient.UI;
 using GTA;
+using System.Net;
 
 namespace SPFClient.Menus
 {
@@ -19,8 +20,11 @@ namespace SPFClient.Menus
             WCFNetworkService.Init();
             serverListMenu = new UIMenu("Server Browser", "Active Sessions");
             serverListMenu.CounterEnabled = false;
-            mainMenu = new UIMenu("V-Net", "BETA");
+            mainMenu = new UIMenu("SPF Menu", "BETA");
             var menuItem = new UIMenuItem("Server Browser");
+            mainMenu.AddItem(menuItem);
+            menuItem = new UIMenuItem("Direct Connect");
+            menuItem.Activated += (s, e) => GetIPAddressInput();
             mainMenu.AddItem(menuItem);
             mainMenu.BindMenuToItem(serverListMenu, mainMenu.MenuItems[0]);         
             mainMenu.OnItemSelect += MainMenu_OnItemSelect;
@@ -57,6 +61,8 @@ namespace SPFClient.Menus
 
                     Wait(500);
 
+                    GTA.UI.ShowSubtitle(new IPAddress(menuItem.Session.Address).ToString());
+
                     NetworkSession.JoinActiveSession(menuItem.Session);
 
                     //Scripts.FadeInScreen(500, 1000);
@@ -80,6 +86,25 @@ namespace SPFClient.Menus
                 }
         }
 
+        private void GetIPAddressInput()
+        {
+            menuPool.CloseAllMenus();
+           NetworkSession.JoinSessionDirect(IPAddress.Parse("192.168.1.100"));
+      //     UIManager.UIInput.ReturnedResult += UIInput_ReturnedResult;
+       //     UIManager.UIInput.Display();                
+        }
+        private void UIInput_ReturnedResult(UIInput sender, string result)
+        {
+            IPAddress addr;
+
+            if (IPAddress.TryParse(result, out addr))
+            {
+                NetworkSession.JoinSessionDirect(addr);
+            }
+
+            else GTA.UI.Notify("Invalid IP address specified. \"" + result + "\"");
+        }
+
         private void OnTick(object sender, EventArgs e)
         {    
             menuPool.ProcessMenus();
@@ -97,7 +122,6 @@ namespace SPFClient.Menus
                 Wait(100);
                 UIChat.SetVisibleState(UIChat.VisibleState.Typing, UIChat.TypeMode.All);
             }
-
         }
     }
 }

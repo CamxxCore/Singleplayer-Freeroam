@@ -55,7 +55,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Source\Server\GameStateManager.cs" />
+    <Compile Include="Source\Server\GameManager.cs" />
     <Compile Include="Source\Types\AIClient.cs" />
     <Compile Include="Source\Types\GameClient.cs" />
     <Compile Include="Source\Types\IGameEntity.cs" />

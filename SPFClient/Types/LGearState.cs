@@ -1,7 +1,10 @@
-﻿public enum LGearState
+﻿namespace SPFClient.Types
 {
-    Deployed,
-    Closing,
-    Opening,
-    Retracted
+    public enum LGearState
+    {
+        Deployed,
+        Closing,
+        Opening,
+        Retracted
+    }
 }

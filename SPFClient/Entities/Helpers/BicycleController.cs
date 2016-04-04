@@ -31,7 +31,7 @@ namespace SPFClient.Entities
             #endregion
         }
        
-        private BicycleState currentState;
+        private BicycleTask currentTask;
         private Animation currentAnimation;
         private Ped ped;
 
@@ -40,10 +40,10 @@ namespace SPFClient.Entities
             this.ped = ped;
         }
 
-        public void SetBicycleState(BicycleState state)
+        public void SetCurrentBicycleTask(BicycleTask task)
         {
-            currentState = state;
-            currentAnimation = AnimationFromState(state);
+            currentTask = task;
+            currentAnimation = AnimationFromState(currentTask);
         }
 
         private void PlayAnimation(Animation animation, int flags = 1)
@@ -66,17 +66,17 @@ namespace SPFClient.Entities
                 PlayAnimation(currentAnimation);
         }
 
-        public Animation AnimationFromState(BicycleState state)
+        public Animation AnimationFromState(BicycleTask task)
         {
-            switch (currentState)
+            switch (task)
             {
-                case BicycleState.Cruising:
+                case BicycleTask.Cruising:
                     return Anims.CruiseFreewheel;
-                case BicycleState.TuckCruising:
+                case BicycleTask.TuckCruising:
                     return Anims.TuckFreewheel;
-                case BicycleState.Pedaling:
+                case BicycleTask.Pedaling:
                     return Anims.CruisePedal;
-                case BicycleState.TuckPedaling:
+                case BicycleTask.TuckPedaling:
                     return Anims.TuckPedal;                  
                 default: return null;
             }

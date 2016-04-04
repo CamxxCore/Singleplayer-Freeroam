@@ -1,24 +1,51 @@
 ﻿using SPFLib.Types;
 using SPFLib.Enums;
+using SPFClient.Types;
 using GTA.Native;
 using GTA;
+using System;
 
 namespace SPFClient.Entities
 {
     public sealed class NetworkCar : NetworkVehicle
     {
+        AutomobileState updatedState;
+
+        private VehicleSnapshot[] stateBuffer = new VehicleSnapshot[20];
+
+        private int snapshotCount = 0;
+
         public NetworkCar(VehicleState state) : base(state)
         {
-            OnUpdateRecieved += UpdateReceived;
+            OnUpdateReceived += UpdateReceived;
         }
 
         public NetworkCar(Vehicle vehicle, int id) : base(vehicle, id)
         {
-            OnUpdateRecieved += UpdateReceived;
+            OnUpdateReceived += UpdateReceived;
         }
 
-        private void UpdateReceived(NetworkVehicle sender, VehicleState e)
+        public void SetCurrentRPM(float value)
         {
+            if (Address <= 0) return;
+            MemoryAccess.WriteSingle(Address + Offsets.CVehicle.RPM, value);
+        }
+
+        private void UpdateReceived(DateTime timeSent, VehicleState e)
+        {
+            updatedState = e as AutomobileState;
+
+            var position = updatedState.Position.Deserialize();
+            var vel = updatedState.Velocity.Deserialize();
+            var rotation = updatedState.Rotation.Deserialize();
+
+            for (int i = stateBuffer.Length - 1; i > 0; i--)
+                stateBuffer[i] = stateBuffer[i - 1];
+
+            stateBuffer[0] = new VehicleSnapshot(position, vel, rotation, updatedState.WheelRotation, updatedState.Steering, timeSent);
+
+            snapshotCount = Math.Min(snapshotCount + 1, stateBuffer.Length);
+
             var flags = (DamageFlags)e.ExtraFlags;
             var vehicle = new Vehicle(Handle);
 
@@ -54,37 +81,69 @@ namespace SPFClient.Entities
 
             if (flags.HasFlag(DamageFlags.RHeadlight) && !vehicle.RightHeadLightBroken)
                 vehicle.RightHeadLightBroken = true;
+        }
 
-            /*    if (flags.HasFlag(DamageFlags.RRearHeadlight) && 
-                    (MemoryAccess.ReadInt32(MemoryAccess.GetEntityAddress(vehicle.Handle) + 
-                    Offsets.CVehicle.LightDamage) & 8) != 0)
-                {
+        public AutomobileState GetExclusiveState()
+        {
+            var v = new Vehicle(Handle);
 
-                }
+            var state = new AutomobileState(ID,
+                Position.Serialize(),
+                Velocity.Serialize(),
+                Quaternion.Serialize(),
+                v.CurrentRPM,
+                GetWheelRotation(),
+                GetSteering(),
+                0, Convert.ToInt16(Health),
+                (byte)v.PrimaryColor, (byte)v.SecondaryColor,
+                GetRadioStation(),
+                GetVehicleID());
 
-                if (flags.HasFlag(DamageFlags.RRearHeadlight) &&
-                    (MemoryAccess.ReadInt32(MemoryAccess.GetEntityAddress(vehicle.Handle) + 
-                    Offsets.CVehicle.LightDamage) & 8) != 0)
-                {
+            if (IsDead)
+                state.Flags |= VehicleFlags.Exploded;
 
-                }*/
+            if (Function.Call<bool>((Hash)0x5EF77C9ADD3B11A3, Handle)) //Left Headlight?
+                state.ExtraFlags |= (ushort)DamageFlags.LHeadlight;
 
+            if (Function.Call<bool>((Hash)0xA7ECB73355EB2F20, Handle)) //Right Headlight?
+                state.ExtraFlags |= (ushort)DamageFlags.RHeadlight;
 
-            /*   if (Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.FrontLeftWindow))
-                   state.VehicleState.Flags |= VehicleDMGFlags.LWindow;
+            if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int)VehicleDoor.FrontLeftDoor))
+                state.ExtraFlags |= (ushort)DamageFlags.LDoor;
 
-               if (Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.FrontRightWindow))
-                   state.VehicleState.Flags |= VehicleDMGFlags.RWindow;
+            if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int)VehicleDoor.FrontRightDoor))
+                state.ExtraFlags |= (ushort)DamageFlags.RDoor;
 
-               if (Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.BackLeftWindow))
-                   state.VehicleState.Flags |= VehicleDMGFlags.BLWindow;
+            if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int)VehicleDoor.BackLeftDoor))
+                state.ExtraFlags |= (ushort)DamageFlags.BLDoor;
 
-               if (Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.BackRightWindow))
-                   state.VehicleState.Flags |= VehicleDMGFlags.BRWindow;*/
+            if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int)VehicleDoor.BackRightDoor))
+                state.ExtraFlags |= (ushort)DamageFlags.BRDoor;
+
+            if (Function.Call<bool>(Hash.IS_VEHICLE_DOOR_DAMAGED, Handle, (int)VehicleDoor.Hood))
+                state.ExtraFlags |= (ushort)DamageFlags.Hood;
+
+            return state;
         }
 
         public override void Update()
         {
+            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, stateBuffer, snapshotCount, 0.89f, false);
+
+            if (snapshot != null)
+            {
+                PositionNoOffset = snapshot.Position;
+                Quaternion = snapshot.Rotation;
+                Velocity = snapshot.Velocity;
+                SetWheelRotation(snapshot.WheelRotation);
+                SetSteering(snapshot.Steering);
+            }
+
+            SetCurrentRPM(updatedState.CurrentRPM);
+
+            if (updatedState.Flags.HasFlag(VehicleFlags.HornPressed))
+                Function.Call(Hash.OVERRIDE_VEH_HORN, Handle, 1, 0x2445ad61);
+
             base.Update();
         }
     }

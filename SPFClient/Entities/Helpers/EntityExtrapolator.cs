@@ -132,7 +132,9 @@ namespace SPFClient.Entities
 
                         var wRot = lastState.WheelRotation * (1.0f - t) + newState.WheelRotation * t;
 
-                        return new VehicleSnapshot(position, velocity, quaternion, wRot);  // Tuple<Vector3, Quaternion>(position, quaternion);
+                        var steering = lastState.Steering * (1.0f - t) + newState.Steering * t;
+
+                        return new VehicleSnapshot(position, velocity, quaternion, wRot, steering);  // Tuple<Vector3, Quaternion>(position, quaternion);
                     }
                 }
 
@@ -211,6 +213,151 @@ namespace SPFClient.Entities
                         var quaternion = Helpers.Slerp(curRotation, Helpers.Slerp(lastState.Rotation, newState.Rotation, t), lerpFactor);
 
                         return new AISnapshot(position, quaternion);  // Tuple<Vector3, Quaternion>(position, quaternion);
+                    }
+                }
+
+                return extrpBuffer[0];
+            }
+
+            else return null;
+        }
+
+        public static HeliSnapshot GetExtrapolatedPosition(Vector3 curPosition, Quaternion curRotation, HeliSnapshot[] extrpBuffer, int validSnapshots, float lerpFactor = 1.0f, bool forceExtrp = false)
+        {
+            if (validSnapshots < SnapshotMin) return null;
+
+            var timeNow = NetworkTime.Now;
+
+            var interpolationTime = timeNow - TimeSpan.FromMilliseconds(InterpDelay);
+
+            if (extrpBuffer[0].Timestamp > interpolationTime && !forceExtrp)
+            {
+                for (int i = 0; i < validSnapshots; i++)
+                {
+                    if (extrpBuffer[i].Timestamp <= interpolationTime || i == extrpBuffer.Length - 1)
+                    {
+                        HeliSnapshot newState = extrpBuffer[Math.Max(i - 1, 0)];
+                        HeliSnapshot lastState = extrpBuffer[i];
+
+                        if (newState.Timestamp <= lastState.Timestamp) continue;
+
+                        float t = 0.0f;
+
+                        var currentTime = (interpolationTime - lastState.Timestamp).TotalMilliseconds / 1000f;
+                        var duration = (newState.Timestamp - lastState.Timestamp).TotalMilliseconds / 1000f;
+
+                        if (duration > 0.001f)
+                        {
+                            t = (float)(currentTime / duration);
+                        }
+
+                        var position = Vector3.Lerp(curPosition, Vector3.Lerp(lastState.Position, newState.Position, t), lerpFactor);
+
+                        var velocity = Vector3.Lerp(lastState.Velocity, newState.Velocity, t);
+
+                        var quaternion = Helpers.Slerp(curRotation, Helpers.Slerp(lastState.Rotation, newState.Rotation, t), lerpFactor);
+
+                        return new HeliSnapshot(position, velocity, quaternion, 1f);  // Tuple<Vector3, Quaternion>(position, quaternion);
+                    }
+                }
+
+                return extrpBuffer[0];
+            }
+
+            else return null;
+        }
+
+        public static PlaneSnapshot GetExtrapolatedPosition(Vector3 curPosition, Quaternion curRotation, PlaneSnapshot[] extrpBuffer, int validSnapshots, float lerpFactor = 1.0f, bool forceExtrp = false)
+        {
+            if (validSnapshots < SnapshotMin) return null;
+
+            var timeNow = NetworkTime.Now;
+
+            var interpolationTime = timeNow - TimeSpan.FromMilliseconds(InterpDelay);
+
+            if (extrpBuffer[0].Timestamp > interpolationTime && !forceExtrp)
+            {
+                for (int i = 0; i < validSnapshots; i++)
+                {
+                    if (extrpBuffer[i].Timestamp <= interpolationTime || i == extrpBuffer.Length - 1)
+                    {
+                        PlaneSnapshot newState = extrpBuffer[Math.Max(i - 1, 0)];
+                        PlaneSnapshot lastState = extrpBuffer[i];
+
+                        if (newState.Timestamp <= lastState.Timestamp) continue;
+
+                        float t = 0.0f;
+
+                        var currentTime = (interpolationTime - lastState.Timestamp).TotalMilliseconds / 1000f;
+                        var duration = (newState.Timestamp - lastState.Timestamp).TotalMilliseconds / 1000f;
+
+                        if (duration > 0.001f)
+                        {
+                            t = (float)(currentTime / duration);
+                        }
+
+                        var position = Vector3.Lerp(curPosition, Vector3.Lerp(lastState.Position, newState.Position, t), lerpFactor);
+
+                        var velocity = Vector3.Lerp(lastState.Velocity, newState.Velocity, t);
+
+                        var quaternion = Helpers.Slerp(curRotation, Helpers.Slerp(lastState.Rotation, newState.Rotation, t), lerpFactor);
+
+                        var flaps = Helpers.Lerp(lastState.Flaps, newState.Flaps, t);
+
+                        var stabs = Helpers.Lerp(lastState.Stabs, newState.Stabs, t);
+
+                        var rudder = Helpers.Lerp(lastState.Rudder, newState.Rudder, t);
+
+                        return new PlaneSnapshot(position, velocity, quaternion, flaps, stabs, rudder);  // Tuple<Vector3, Quaternion>(position, quaternion);
+                    }
+                }
+
+                return extrpBuffer[0];
+            }
+
+            else return null;
+        }
+
+        public static BicycleSnapshot GetExtrapolatedPosition(Vector3 curPosition, Quaternion curRotation, BicycleSnapshot[] extrpBuffer, int validSnapshots, float lerpFactor = 1.0f, bool forceExtrp = false)
+        {
+            if (validSnapshots < SnapshotMin) return null;
+
+            var timeNow = NetworkTime.Now;
+
+            var interpolationTime = timeNow - TimeSpan.FromMilliseconds(InterpDelay);
+
+            if (extrpBuffer[0].Timestamp > interpolationTime && !forceExtrp)
+            {
+                for (int i = 0; i < validSnapshots; i++)
+                {
+                    if (extrpBuffer[i].Timestamp <= interpolationTime || i == extrpBuffer.Length - 1)
+                    {
+                        BicycleSnapshot newState = extrpBuffer[Math.Max(i - 1, 0)];
+                        BicycleSnapshot lastState = extrpBuffer[i];
+
+                        if (newState.Timestamp <= lastState.Timestamp) continue;
+
+                        float t = 0.0f;
+
+                        var currentTime = (interpolationTime - lastState.Timestamp).TotalMilliseconds / 1000f;
+                        var duration = (newState.Timestamp - lastState.Timestamp).TotalMilliseconds / 1000f;
+
+                        if (duration > 0.001f)
+                        {
+                            t = (float)(currentTime / duration);
+                        }
+
+                        var position = Vector3.Lerp(curPosition, Vector3.Lerp(lastState.Position, newState.Position, t), lerpFactor);
+
+                        var velocity = Vector3.Lerp(lastState.Velocity, newState.Velocity, t);
+
+                        var quaternion = Helpers.Slerp(curRotation, Helpers.Slerp(lastState.Rotation, newState.Rotation, t), lerpFactor);
+
+                        var wheelRot = Helpers.Lerp(lastState.WheelRotation, newState.WheelRotation, t);
+
+                        var steering = Helpers.Lerp(lastState.Steering, newState.Steering, t);
+
+                        return new BicycleSnapshot(position, velocity, quaternion, wheelRot, steering);  // Tuple<Vector3, Quaternion>(position, quaternion);
                     }
                 }
 

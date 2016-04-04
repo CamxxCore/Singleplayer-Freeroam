@@ -49,6 +49,21 @@ namespace SPFLib.Types
             return (position - this).Length();
         }
 
+        public Vector3 Around(float distance)
+        {
+            return this + RandomXY() * distance;
+        }
+
+        Vector3 RandomXY()
+        {
+            Vector3 v = new Vector3();
+            double radian = new Random().NextDouble() * 2 * Math.PI;
+            v.X = (float)(Math.Cos(radian));
+            v.Y = (float)(Math.Sin(radian));
+            v.Normalize();
+            return v;
+        }
+
         public void Normalize()
         {
             float length = Length();

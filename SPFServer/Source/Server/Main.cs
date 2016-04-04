@@ -1,8 +1,10 @@
-﻿using System;
+﻿#define debug
+using System;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
 using SPFServer.WCF;
+using System.Reflection;
 
 namespace SPFServer.Main
 {
@@ -15,7 +17,9 @@ namespace SPFServer.Main
 
         internal static ScriptManager ScriptManager;
 
-        static void Main(string[] args)
+        public static int RevisionNumber {  get { return Assembly.GetExecutingAssembly().GetName().Version.Revision; } }
+
+            static void Main(string[] args)
         {
             SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
 
@@ -27,12 +31,15 @@ namespace SPFServer.Main
 
             NetworkService.Initialize();
 
-            int sessionID = NetworkService.AnnounceSession("session1");
+            int sessionID = -1;
+#if debug
+#elif true
+            sessionID = NetworkService.AnnounceSession("session1");
 
             if (sessionID != -1)
             {
                 Console.WriteLine("[INIT] Starting session server...\n");
-
+#endif
                 activeSession = new SessionServer(sessionID);
                 activeSession.StartListening();
 
@@ -40,14 +47,17 @@ namespace SPFServer.Main
                 ScriptManager.StartThreads();
 
                 Run();
+#if debug
+#elif true
             }
 
             else
             {
                 WriteErrorToConsole("Failed while initializing the server. \n\nAborting...");
                 Environment.Exit(0);
-            }
-        }   
+            }            
+#endif
+        }
 
         internal static void Run()
         {
@@ -93,6 +103,7 @@ namespace SPFServer.Main
             Console.Write(message);
             Console.WriteLine();
         }
+
 
         public static IPAddress GetExternAddress()
         {

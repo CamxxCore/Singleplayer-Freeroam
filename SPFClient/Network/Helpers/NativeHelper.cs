@@ -49,12 +49,12 @@ namespace SPFClient.Network
 
             if (Enum.TryParse(native.FunctionName, out hResult))
             {
-                hash = (Hash)hResult;
+                hash = hResult;
                 args = argsList.ToArray();
                 return true;
             }
 
-            if (long.TryParse(native.FunctionName.StartsWith("0x") ? native.FunctionName.Substring(2) : 
+            if (long.TryParse(native.FunctionName.StartsWith("0x") ? native.FunctionName.Substring(2) :
                 native.FunctionName, NumberStyles.HexNumber, CultureInfo.CurrentCulture, out result))
             {
                 hash = (Hash)result;
@@ -133,7 +133,7 @@ namespace SPFClient.Network
                     break;
             }
 
-            return new NativeCallback(value);
+            return new NativeCallback(native.NetID, value);
         }
     }
 }

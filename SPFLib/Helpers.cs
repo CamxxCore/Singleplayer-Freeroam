@@ -69,6 +69,7 @@ namespace SPFLib
             try
             {
                 var req = new LoginRequest();
+                req.Revision = message.ReadInt32();
                 req.UID = message.ReadInt32();
                 req.Username = message.ReadString();
                 return req;
@@ -81,6 +82,7 @@ namespace SPFLib
 
         public static void Write(this NetOutgoingMessage message, LoginRequest req)
         {
+            message.Write(req.Revision);
             message.Write(req.UID);
             message.Write(req.Username);
         }
@@ -190,6 +192,7 @@ namespace SPFLib
             try
             {
                 var nc = new NativeCall();
+                nc.NetID = message.ReadInt32();
                 nc.FunctionName = message.ReadString();
                 nc.ReturnType = (DataType)message.ReadByte();
                 var argsCount = message.ReadInt16();
@@ -211,6 +214,7 @@ namespace SPFLib
         {
             if (nc.Args.Length > short.MaxValue)
                 throw new ArgumentOutOfRangeException("nc.Args: Array length exeeds maximum range of serializable items.");
+            message.Write(nc.NetID);
             message.Write(nc.FunctionName);
             message.Write((byte)nc.ReturnType);
             message.Write((short)nc.Args.Length);
@@ -257,6 +261,7 @@ namespace SPFLib
             try
             {
                 var nc = new NativeCallback();
+                nc.NetID = message.ReadInt32();
                 nc.Type = (DataType)message.ReadByte();
                 var valueLen = message.ReadInt32();
                 if (valueLen > 0)
@@ -275,8 +280,9 @@ namespace SPFLib
 
         public static void Write(this NetOutgoingMessage message, NativeCallback nc)
         {
+            message.Write(nc.NetID);
             message.Write((byte)nc.Type);
-            if (nc.Value != null)
+            if (nc.Type != DataType.None && nc.Value != null)
             {
                 var bytes = Serializer.SerializeObject(nc.Value);
                 message.Write(bytes.Length);
@@ -343,7 +349,7 @@ namespace SPFLib
                 var state = new ClientState();
                 state.ClientID = message.ReadInt32();
                 state.InVehicle = message.ReadBoolean();
-                state.PedType = (PedType) message.ReadInt16();
+                state.PedType = (PedType)message.ReadInt16();
                 state.WeaponID = message.ReadInt16();
                 state.Health = message.ReadInt16();
 
@@ -354,40 +360,13 @@ namespace SPFLib
                     state.Position = message.ReadVector3();
                     state.Velocity = message.ReadVector3();
                     state.Angles = message.ReadVector3();
-                    state.Rotation = message.ReadVector3().ToQuaternion();
+                    state.Rotation = message.ReadQuaternion();//ReadVector3().ToQuaternion();
                 }
 
                 else
                 {
                     state.VehicleSeat = (VehicleSeat)message.ReadInt16();
-
-                    state.VehicleState = new VehicleState();
-
-                    state.VehicleState.Position = message.ReadVector3();
-
-                    state.VehicleState.Velocity = message.ReadVector3();
-
-                    state.VehicleState.Rotation = message.ReadQuaternion();
-
-                    state.VehicleState.CurrentRPM = message.ReadInt16().Deserialize();
-
-                    state.VehicleState.WheelRotation = message.ReadInt16().Deserialize();
-
-                    state.VehicleState.Health = message.ReadInt16();
-
-                    state.VehicleState.VehicleID = message.ReadInt16();
-
-                    state.VehicleState.PrimaryColor = message.ReadByte();
-
-                    state.VehicleState.SecondaryColor = message.ReadByte();
-
-                    state.VehicleState.RadioStation = message.ReadByte();
-
-                    state.VehicleState.Flags = (VehicleFlags)message.ReadByte();
-
-                    state.VehicleState.ExtraFlags = message.ReadUInt16();
-
-                    state.VehicleState.ID = message.ReadInt32();
+                    state.VehicleState = message.ReadVehicleState();
                 }
 
                 int nameLen = message.ReadInt32();
@@ -419,38 +398,13 @@ namespace SPFLib
                 message.Write(state.Position);
                 message.Write(state.Velocity);
                 message.Write(state.Angles);
-                message.Write(state.Rotation.ToVector3());
+                message.Write(state.Rotation);
             }
 
             else
             {
                 message.Write((short)state.VehicleSeat);
-
-                message.Write(state.VehicleState.Position);
-
-                message.Write(state.VehicleState.Velocity);
-
-                message.Write(state.VehicleState.Rotation);
-
-                message.Write(state.VehicleState.CurrentRPM.Serialize());
-
-                message.Write(state.VehicleState.WheelRotation.Serialize());
-
-                message.Write(state.VehicleState.Health);
-
-                message.Write(state.VehicleState.VehicleID);
-
-                message.Write(state.VehicleState.PrimaryColor);
-
-                message.Write(state.VehicleState.SecondaryColor);
-
-                message.Write(state.VehicleState.RadioStation);
-
-                message.Write((byte)state.VehicleState.Flags);
-
-                message.Write(state.VehicleState.ExtraFlags);
-
-                message.Write(state.VehicleState.ID);
+                message.Write(state.VehicleState);
             }
 
             if (sendName && state.Name != null)
@@ -459,6 +413,261 @@ namespace SPFLib
                 message.Write(System.Text.Encoding.UTF8.GetBytes(state.Name));
             }
             else message.Write(0);
+        }
+
+        public static VehicleState ReadVehicleState(this NetIncomingMessage message)
+        {
+            try
+            {
+                var type = (VehicleType)message.ReadByte();
+
+                if (type == VehicleType.Automobile)
+                {
+                    var state = new AutomobileState();
+
+                    state.CurrentRPM = message.ReadInt16().Deserialize();
+
+                    state.WheelRotation = message.ReadInt16().Deserialize();
+
+                    state.Steering = message.ReadInt16().Deserialize();
+
+                    #region global vehicle attributes
+
+                    state.Position = message.ReadVector3();
+
+                    state.Velocity = message.ReadVector3();
+
+                    state.Rotation = message.ReadQuaternion();
+
+                    state.Health = message.ReadInt16();
+
+                    state.VehicleID = message.ReadInt16();
+
+                    state.PrimaryColor = message.ReadByte();
+
+                    state.SecondaryColor = message.ReadByte();
+
+                    state.RadioStation = message.ReadByte();
+
+                    state.Flags = (VehicleFlags)message.ReadByte();
+
+                    state.ExtraFlags = message.ReadUInt16();
+
+                    state.ID = message.ReadInt32();
+
+                    #endregion
+
+                    return state;
+                }
+
+                else if (type == VehicleType.Plane)
+                {
+                    var state = new PlaneState();
+
+                    state.Flaps = message.ReadInt16().Deserialize();
+
+                    state.Stabs = message.ReadInt16().Deserialize();
+
+                    state.Rudder = message.ReadInt16().Deserialize();
+
+                    #region global vehicle attributes
+
+                    state.Position = message.ReadVector3();
+
+                    state.Velocity = message.ReadVector3();
+
+                    state.Rotation = message.ReadQuaternion();
+
+                    state.Health = message.ReadInt16();
+
+                    state.VehicleID = message.ReadInt16();
+
+                    state.PrimaryColor = message.ReadByte();
+
+                    state.SecondaryColor = message.ReadByte();
+
+                    state.RadioStation = message.ReadByte();
+
+                    state.Flags = (VehicleFlags)message.ReadByte();
+
+                    state.ExtraFlags = message.ReadUInt16();
+
+                    state.ID = message.ReadInt32();
+
+                    #endregion
+
+                    return state;
+                }
+
+                else if (type == VehicleType.Heli)
+                {
+                    var state = new HeliState();
+
+                    state.RotorSpeed = message.ReadInt16().Deserialize();
+
+                    #region global vehicle attributes
+
+                    state.Position = message.ReadVector3();
+
+                    state.Velocity = message.ReadVector3();
+
+                    state.Rotation = message.ReadQuaternion();
+
+                    state.Health = message.ReadInt16();
+
+                    state.VehicleID = message.ReadInt16();
+
+                    state.PrimaryColor = message.ReadByte();
+
+                    state.SecondaryColor = message.ReadByte();
+
+                    state.RadioStation = message.ReadByte();
+
+                    state.Flags = (VehicleFlags)message.ReadByte();
+
+                    state.ExtraFlags = message.ReadUInt16();
+
+                    state.ID = message.ReadInt32();
+
+                    #endregion
+
+                    return state;
+                }
+
+                else if (type == VehicleType.Bike)
+                {
+                    var state = new BicycleState();
+
+                    state.WheelRotation = message.ReadInt16().Deserialize();
+
+                    state.Steering = message.ReadInt16().Deserialize();
+
+                    state.Velocity = message.ReadVector3();
+
+                    state.Rotation = message.ReadQuaternion();
+
+                    state.Health = message.ReadInt16();
+
+                    state.VehicleID = message.ReadInt16();
+
+                    state.PrimaryColor = message.ReadByte();
+
+                    state.SecondaryColor = message.ReadByte();
+
+                    state.RadioStation = message.ReadByte();
+
+                    state.Flags = (VehicleFlags)message.ReadByte();
+
+                    state.ExtraFlags = message.ReadUInt16();
+
+                    state.ID = message.ReadInt32();
+
+                    return state;
+                }
+
+                else
+                {
+                    var state = new VehicleState();
+
+                    state.Position = message.ReadVector3();
+
+                    state.Velocity = message.ReadVector3();
+
+                    state.Rotation = message.ReadQuaternion();
+
+                    state.Health = message.ReadInt16();
+
+                    state.VehicleID = message.ReadInt16();
+
+                    state.PrimaryColor = message.ReadByte();
+
+                    state.SecondaryColor = message.ReadByte();
+
+                    state.RadioStation = message.ReadByte();
+
+                    state.Flags = (VehicleFlags)message.ReadByte();
+
+                    state.ExtraFlags = message.ReadUInt16();
+
+                    state.ID = message.ReadInt32();
+
+                    return state;
+                }
+            }
+
+            catch
+            {
+                return null;
+            }
+        }
+
+        public static void Write(this NetOutgoingMessage message, VehicleState state)
+        {
+            if (state is AutomobileState)
+            {
+                var activeState = state as AutomobileState;
+
+                message.Write((byte)VehicleType.Automobile);
+
+                message.Write(activeState.CurrentRPM.Serialize());
+
+                message.Write(activeState.WheelRotation.Serialize());
+
+                message.Write(activeState.Steering.Serialize());
+            }
+
+            else if (state is PlaneState)
+            {
+                var activeState = state as PlaneState;
+
+                message.Write((byte)VehicleType.Plane);
+
+                message.Write(activeState.Flaps.Serialize());
+
+                message.Write(activeState.Stabs.Serialize());
+
+                message.Write(activeState.Rudder.Serialize());
+            }
+
+            else if (state is HeliState)
+            {
+                message.Write((byte)VehicleType.Heli);
+
+                message.Write((state as HeliState).RotorSpeed.Serialize());
+            }
+
+            else if (state is BicycleState)
+            {
+                message.Write((byte)VehicleType.Bike);
+
+                message.Write((state as BicycleState).WheelRotation.Serialize());
+
+                message.Write((state as BicycleState).Steering.Serialize());
+            }
+
+            else message.Write((byte)VehicleType.Any);
+
+            message.Write(state.Position);
+
+            message.Write(state.Velocity);
+
+            message.Write(state.Rotation);
+
+            message.Write(state.Health);
+
+            message.Write(state.VehicleID);
+
+            message.Write(state.PrimaryColor);
+
+            message.Write(state.SecondaryColor);
+
+            message.Write(state.RadioStation);
+
+            message.Write((byte)state.Flags);
+
+            message.Write(state.ExtraFlags);
+
+            message.Write(state.ID);
         }
 
         public static AIState ReadAIState(this NetIncomingMessage message)
@@ -528,8 +737,6 @@ namespace SPFLib
             message.Write(q.Y);
             message.Write(q.Z);
             message.Write(q.W);
-
-            //    return new Quaternion(vec.X, vec.Y, vec.Z, (float)Math.Sqrt(Math.Pow(1 - vec.X, 2) - Math.Pow(vec.Y, 2) - Math.Pow(vec.Z, 2)));
         }
 
         public static Vector3 ReadVector3(this NetIncomingMessage message)

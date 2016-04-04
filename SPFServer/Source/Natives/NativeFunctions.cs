@@ -175,6 +175,7 @@ namespace SPFServer.Natives
         public static void SetClock(GameClient client, int hour, int minute, int second)
         {
             Server.ActiveSession?.InvokeClientNative(client, "0x47C3B5848C3E45D8", hour, minute, second);
+            Server.ActiveSession?.InvokeClientNative(client, "0xE679E3E06E363892", hour, minute, second);
         }
 
         #endregion

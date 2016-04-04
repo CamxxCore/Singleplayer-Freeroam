@@ -64,6 +64,7 @@
     <Compile Include="Enums\PedType.cs" />
     <Compile Include="Enums\VehicleFlags.cs" />
     <Compile Include="Enums\VehicleSeat.cs" />
+    <Compile Include="Enums\VehicleType.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="NetworkTime.cs" />
     <Compile Include="Serializer.cs" />
@@ -142,13 +143,17 @@
     <Compile Include="Lidgren.Network\Platform\PlatformWin32.cs" />
     <Compile Include="Lidgren.Network\Platform\PlatformWinRT.cs" />
     <Compile Include="Types\AI\AIState.cs" />
+    <Compile Include="Types\State\AutomobileState.cs" />
+    <Compile Include="Types\State\BicycleState.cs" />
+    <Compile Include="Types\State\HeliState.cs" />
+    <Compile Include="Types\State\PlaneState.cs" />
     <Compile Include="Types\LoginRequest.cs" />
     <Compile Include="Types\RankData.cs" />
     <Compile Include="Types\SessionNotification.cs" />
     <Compile Include="Types\Weapon\WeaponData.cs" />
-    <Compile Include="Types\Client\State\IEntityState.cs" />
+    <Compile Include="Types\State\Base\IEntityState.cs" />
     <Compile Include="Types\Client\ClientInfo.cs" />
-    <Compile Include="Types\Client\State\ClientState.cs" />
+    <Compile Include="Types\State\Base\ClientState.cs" />
     <Compile Include="Types\Data\Quaternion.cs" />
     <Compile Include="Types\Data\Vector3.cs" />
     <Compile Include="Types\SessionMessage.cs" />
@@ -159,7 +164,7 @@
     <Compile Include="Types\SessionState.cs" />
     <Compile Include="Types\SessionSync.cs" />
     <Compile Include="Types\SessionEvent.cs" />
-    <Compile Include="Types\Client\State\VehicleState.cs" />
+    <Compile Include="Types\State\Base\VehicleState.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup />

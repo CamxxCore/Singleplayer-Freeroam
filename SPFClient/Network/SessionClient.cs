@@ -5,6 +5,7 @@ using System.Threading;
 using SPFLib.Types;
 using SPFLib.Enums;
 using SPFLib;
+using System.Reflection;
 using Lidgren.Network;
 
 namespace SPFClient.Network
@@ -20,6 +21,8 @@ namespace SPFClient.Network
     public delegate void NativeInvocationHandler(EndPoint sender, NativeCall e);
 
     public delegate void RankDataHandler(EndPoint sender, RankData e);
+
+    public delegate void DisconnectEventHandler(EndPoint sender, string message);
 
     public class SessionClient : IDisposable
     {
@@ -58,13 +61,15 @@ namespace SPFClient.Network
         /// fired when the server sends new rank data
         internal event RankDataHandler RankDataEvent;
 
+        /// fired when the server has refused the local connection
+        internal event DisconnectEventHandler OnDisconnect;
+
         NetIncomingMessage message;
 
         public SessionClient(IPAddress remoteAddress, int port)
         {
             serverEP = new IPEndPoint(remoteAddress, port);
-            Config = new NetPeerConfiguration("spfsession");
-         
+            Config = new NetPeerConfiguration("spfsession");       
             Config.EnableMessageType(NetIncomingMessageType.ConnectionApproval);
             client = new NetClient(Config);
         }
@@ -74,6 +79,7 @@ namespace SPFClient.Network
             LoginRequest req = new LoginRequest();
             req.UID = localUID;
             req.Username = localUsername;
+            req.Revision = Assembly.GetExecutingAssembly().GetName().Version.Revision;
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.LoginRequest);
             msg.Write(req);
@@ -196,6 +202,21 @@ namespace SPFClient.Network
             {
                 if (message.MessageType == NetIncomingMessageType.Data)
                     HandleIncomingDataMessage(message);
+
+                else if (message.MessageType == NetIncomingMessageType.StatusChanged)
+                {
+                    var status = (NetConnectionStatus)message.ReadByte();
+
+
+                    if (status == NetConnectionStatus.Disconnected)
+                    {
+                        string reason = message.ReadString();
+                        if (string.IsNullOrEmpty(reason))
+                            return;
+
+                        OnDisconnect?.Invoke(message.SenderConnection.RemoteEndPoint, reason);
+                    }
+                }
             }
         }
 
@@ -238,9 +259,7 @@ namespace SPFClient.Network
         {
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.NativeCallback);
-            msg.Write((short)cb.Type);
-            if (cb.Type != DataType.None && cb.Value != null)
-                msg.Write(Serializer.SerializeObject(cb.Value));
+            msg.Write(cb);
             client.SendMessage(msg, NetDeliveryMethod.ReliableOrdered);
         }
 
@@ -250,7 +269,7 @@ namespace SPFClient.Network
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.SessionSync);
             msg.Write(req);
-            client.SendMessage(msg, NetDeliveryMethod.Unreliable);
+            client.SendMessage(msg, NetDeliveryMethod.ReliableUnordered);
         }
 
         protected virtual void OnSessionUpdate(EndPoint sender, SessionState msg)

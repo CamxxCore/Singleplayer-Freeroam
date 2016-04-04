@@ -11,6 +11,7 @@ namespace SPFServer.Types
         public TimeSpan Ping { get; internal set; }
         public ClientInfo Info { get; internal set; }
         public NetConnection Connection { get; }
+        internal List<NativeCall> PendingNatives;
         internal List<TimeSpan> AvgPing;
         internal TimeSpan TimeDiff;
         internal DateTime LastUpd;
@@ -41,6 +42,7 @@ namespace SPFServer.Types
             Info = info;
             State = new ClientState(info.UID, info.Name);
             AvgPing = new List<TimeSpan>();
+            PendingNatives = new List<NativeCall>();
             Health = 100;
         }
 

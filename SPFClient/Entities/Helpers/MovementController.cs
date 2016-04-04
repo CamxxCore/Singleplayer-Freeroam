@@ -106,7 +106,6 @@ namespace SPFClient.Entities
 
             public static readonly Animation Walk2RunRight = new Animation("move_m@multiplayer", "walktorun_right");
 
-
             public static readonly SequenceAnim Jump = new SequenceAnim(
                 new Animation("move_jump", "jump_launch_r"), new Animation("move_jump", "land_stop_l")
                 );
@@ -217,7 +216,9 @@ namespace SPFClient.Entities
                 if (!ped.IsRagdoll)
                 {
                     ped.CanRagdoll = true;
-                    Function.Call(Hash.SET_PED_TO_RAGDOLL, ped.Handle, 2000, 2000, 0, 1, 1, 0);
+                    Function.Call(Hash.SET_PED_TO_RAGDOLL, ped.Handle, 800, 1500, 2, 1, 1, 0);
+                    Function.Call(Hash.APPLY_FORCE_TO_ENTITY, ped.Handle, 1, 2.0, 0.0, -4.0, 0.0, 0.21, 0.0, 
+                        Function.Call<int>(Hash.GET_PED_RAGDOLL_BONE_INDEX, ped.Handle, 7), 0, 0, 1, 0, 1);
                     ragdoll = true;
                     return;
                 }

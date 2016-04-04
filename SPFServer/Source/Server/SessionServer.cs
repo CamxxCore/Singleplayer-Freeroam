@@ -13,20 +13,19 @@ using SPFServer.Types;
 using SPFServer.WCF;
 using SPFServer.Natives;
 using Lidgren.Network;
+using System.Reflection;
 
 namespace SPFServer.Main
 {
     public sealed class SessionServer
     {
-        public WeatherManager WeatherManager { get { return weatherManager; } }
-
         public GameClient[] ActiveClients { get { return gameManager.ActiveClients.ToArray(); } }
 
         public AIClient[] ActiveAI { get { return gameManager.ActiveAI.ToArray(); } }
 
         private NetServer server;
 
-        private GameStateManager gameManager;
+        private GameManager gameManager;
 
         private WeatherManager weatherManager;
 
@@ -51,7 +50,7 @@ namespace SPFServer.Main
 
         private SessionState state = new SessionState();
 
-        private uint tickCount;
+        private uint sentPackets;
 
         private ServerVarCollection<string> serverStrings = new ServerVarCollection<string>()
         {
@@ -60,11 +59,13 @@ namespace SPFServer.Main
 
         private ServerVarCollection<int> serverVars = new ServerVarCollection<int>()
         {
+            { "revision", Server.RevisionNumber},
             { "sv_maxplayers", 12 },
             { "sv_maxping", 999 },
             { "sv_tickrate", 12 },
             { "sv_pingrate", 10000 },
-            { "sv_cltimeout", 2000 },
+            { "sv_cltimeout", 5000 },
+            { "sv_broadcast", 1 },
             { "sv_mintimesamples", 5 },
             { "scr_kill_xp", 100 },
             { "scr_ai_xp", 50 },
@@ -104,10 +105,11 @@ namespace SPFServer.Main
             commands.Add("help", ShowHelp);
             commands.Add("?", ShowHelp);
             commands.Add("screload", ScriptReload);
+            commands.Add("screl", ScriptReload);
             timeManager = new TimeCycleManager(initialTime);
             weatherManager = new WeatherManager(weatherType);
             weatherManager.OnServerWeatherChanged += OnServerWeatherChanged;
-            gameManager = new GameStateManager();
+            gameManager = new GameManager();
             Config.GetOverrideVarsInt(AppDomain.CurrentDomain.BaseDirectory + "server.cfg", ref serverVars);
             Config.GetOverrideVarsString(AppDomain.CurrentDomain.BaseDirectory + "server.cfg", ref serverStrings);
         }
@@ -151,18 +153,15 @@ namespace SPFServer.Main
         {
             while (true)
             {
-                // increment tick count for packet sequencing.
-                tickCount += 1;
-                tickCount %= uint.MaxValue;
-
                 var timeNow = NetworkTime.Now;
 
                 var aiHost = gameManager.GetActiveAIHost();
-
-                state.Sequence = tickCount;
+                          
                 state.Clients = gameManager.GetClientStates();
-                state.Timestamp = timeNow;
 
+                state.Sequence = sentPackets;
+                state.Timestamp = timeNow;
+      
                 gameManager.SaveGameState(state);
 
                 lock (gameManager.SyncObj)
@@ -171,17 +170,17 @@ namespace SPFServer.Main
                     {
                         GameClient client = gameManager.ActiveClients[i];
 
+                        state.Timestamp = timeNow.Subtract(client.TimeDiff);
+
+                        // let the client know if he is hosting the server AI.
+                        state.AIHost = aiHost == client;
+
                         // send a full AI update to everyone but the client hosting the AI.
                         // also send an update if the client has just joined the server.
                         if (client != aiHost || client.LastSequence <= 0)
                         {
                             state.AI = gameManager.GetAIStates();
                         }
-
-                        // let the client know if he is hosting the server AI.
-                        state.AIHost = (client == aiHost);
-
-                        state.Timestamp = timeNow.Subtract(client.TimeDiff);
 
                         if (client.LastUpd.Ticks > 0 && (timeNow - client.LastUpd).TotalMilliseconds > serverVars["sv_cltimeout"])
                         {
@@ -190,7 +189,7 @@ namespace SPFServer.Main
                             continue;
                         }
 
-                        if (client.AvgPing.Count < serverVars["sv_mintimesamples"] &&  timeNow - client.LastSync > TimeSpan.FromMilliseconds(100))
+                        if (client.AvgPing.Count < serverVars["sv_mintimesamples"] && timeNow - client.LastSync > TimeSpan.FromMilliseconds(100))
                         {
                             // Client will continue to execute this until we have received the needed amount of time samples to start syncing.
                             SendSynchronizationRequest(client.Connection);
@@ -198,7 +197,7 @@ namespace SPFServer.Main
                             continue;
                         }
 
-                        if (client.State.MovementFlags.HasFlag(ClientFlags.Dead) && !client.WaitForRespawn)
+                        if ((client.State.MovementFlags.HasFlag(ClientFlags.Dead) || client.Health < 0) && !client.WaitForRespawn)
                         {
                             client.WaitForRespawn = true;
 
@@ -225,6 +224,14 @@ namespace SPFServer.Main
                             aiRemovalList.Add(client);
                         }
                     }
+
+                    // remove any clients queued for removal and notify all participants they have left the session.
+                    foreach (var client in aiRemovalList)
+                    {
+                        gameManager.RemoveAI(client);
+                    }
+
+                    aiRemovalList.Clear();
                 }
 
                 // remove any clients queued for removal and notify all participants they have left the session.
@@ -237,17 +244,9 @@ namespace SPFServer.Main
 
                 removalList.Clear();
 
-                // remove any clients queued for removal and notify all participants they have left the session.
-                foreach (var client in aiRemovalList)
-                {
-                    gameManager.RemoveAI(client);
-                }
-
-                aiRemovalList.Clear();
-
                 // handle master server sync, if needed.
 
-                if (NetworkTime.Now > lastMasterUpdate +
+                if (serverVars["sv_broadcast"] > 0 && NetworkTime.Now > lastMasterUpdate +
                     TimeSpan.FromMilliseconds(serverVars["sv_pingrate"]))
                 {
                     var maxPlayers = serverVars["sv_maxplayers"];
@@ -264,6 +263,9 @@ namespace SPFServer.Main
                 }
 
                 Server.ScriptManager?.DoTick();
+
+                sentPackets += 1;
+                sentPackets %= uint.MaxValue;
 
                 Thread.Sleep(1000 / serverVars["sv_tickrate"]);
             }
@@ -285,7 +287,6 @@ namespace SPFServer.Main
             else if (message.MessageType == NetIncomingMessageType.ConnectionApproval &&
                 message.ReadByte() == (byte)NetMessage.LoginRequest)
             {
-                message.SenderConnection.Approve();
                 HandleLoginRequest(message.SenderConnection, message.ReadLoginRequest());
             }
 
@@ -459,6 +460,7 @@ namespace SPFServer.Main
             msg.Write((byte)NetMessage.NativeCall);
             msg.Write(native);
             server.SendMessage(msg, client.Connection, NetDeliveryMethod.ReliableOrdered);
+            client.PendingNatives.Add(native);
         }
 
         /// <summary>
@@ -477,6 +479,8 @@ namespace SPFServer.Main
             msg.WriteAllProperties(native);
 
             server.SendMessage(msg, client.Connection, NetDeliveryMethod.ReliableOrdered);
+
+            client.PendingNatives.Add(native);
         }
 
         #region received msgs
@@ -509,7 +513,7 @@ namespace SPFServer.Main
                     server.SendMessage(msg, cl.Connection, NetDeliveryMethod.ReliableOrdered);
                 }
 
-                threadQueue.AddTask(() => Server.WriteToConsole(string.Format("{0}: {1} [{2}]", client.Info.Name, message.Message, NetworkTime.Now.ToString())));
+                Server.WriteToConsole(string.Format("{0}: {1} [{2}]", client.Info.Name, message.Message, NetworkTime.Now.ToString()));
             }
 
             else
@@ -550,12 +554,29 @@ namespace SPFServer.Main
         [MethodImpl(MethodImplOptions.Synchronized)]
         private void HandleLoginRequest(NetConnection sender, LoginRequest req)
         {
-            if (StressMitigationCheck(sender, 5000) ||
-                gameManager.ActiveClients.Count > serverVars["sv_maxplayers"] ||
-                req == null ||
-                req.Username == null ||
-                req.UID == 0)
+            if (StressMitigationCheck(sender, 5000))
+            {
+                sender.Deny("NC_TOOFREQUENT");
                 return;
+            }
+
+            if (req.Revision != serverVars["revision"])
+            {
+                sender.Deny("NC_REVMISMATCH");
+                return;
+            }
+
+            if (gameManager.ActiveClients.Count > serverVars["sv_maxplayers"])
+            {
+                sender.Deny("NC_LOBBYFULL");
+                return;
+            }
+
+            if (req == null || req.Username == null || req.UID == 0)            
+            {
+                sender.Deny("NC_INVALID");
+                return;
+            }
 
             GameClient client;
 
@@ -568,6 +589,8 @@ namespace SPFServer.Main
                 {
                     Server.NetworkService.CreateUser(req.UID, req.Username);
                 }
+
+                sender.Approve();
             }
 
             else
@@ -689,7 +712,7 @@ namespace SPFServer.Main
                               client.VehicleState.Position.DistanceTo(wh.HitCoords) :
                               client.Position.DistanceTo(wh.HitCoords);
 
-                            if (dist > 2f) continue;
+                            if (dist > 1.1f) continue;
 
                             // make sure the target exists
                             if (gameManager.ClientFromID(client.ClientID, out target))
@@ -723,7 +746,7 @@ namespace SPFServer.Main
 
                 for (int i = 0; i < gameState.AI.Length; i++)
                 {
-                    if (gameState.AI[i].Position.DistanceTo(wh.HitCoords) < 2f)
+                    if (gameState.AI[i].Position.DistanceTo(wh.HitCoords) < 1.11435f)
                     {
                         // make sure the target exists
                         if (gameManager.AIFromID(gameState.AI[i].ClientID, out aiTarget))
@@ -762,9 +785,22 @@ namespace SPFServer.Main
         [MethodImpl(MethodImplOptions.Synchronized)]
         private void HandleNativeCallback(NetConnection sender, NativeCallback cb)
         {
-            string cMessage = cb.Type == DataType.None ?
-                "Executed Successfully." : string.Format("Returned value from native: {0}", cb.Value);
-            threadQueue.AddTask(() => Console.WriteLine(cMessage));
+            GameClient client;
+            NativeCall native;
+
+            if (gameManager.ClientFromEndpoint(sender.RemoteEndPoint, out client))
+            {
+                if ((native = client.PendingNatives.Find(x => x.NetID == cb.NetID)) != null)
+                {
+                    client.PendingNatives.Remove(native);
+
+                   /* string cMessage = cb.Type == DataType.None ?
+                         string.Format("{0} executed {1} successfully.", client.Info.Name, native.FunctionName) : 
+                         string.Format("{0} executed {1} successfully. Returned value from native: {2}", client.Info.Name, native.FunctionName, cb.Value);
+
+                    threadQueue.AddTask(() => Console.WriteLine(cMessage));*/
+                }
+            }
         }
 
         /// <summary>
@@ -790,6 +826,16 @@ namespace SPFServer.Main
         }
 
         #endregion
+
+        public void SetWeather(WeatherType weather)
+        {
+            weatherManager.SetWeatherType(weather);
+
+            foreach (var cl in gameManager.ActiveClients)
+            {
+                NativeFunctions.SetWeatherTypeNow(cl, weather);
+            }
+        }
 
         #region command line functions
 

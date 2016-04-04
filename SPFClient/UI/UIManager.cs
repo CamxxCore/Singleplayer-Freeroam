@@ -17,6 +17,8 @@ namespace SPFClient.UI
 
         public static UIRankBar RankBar { get { return rankBar; } }
 
+        public static UIInput UIInput {  get { return uiInput; } }
+
         private UIText centerText;
         private static string _uiText1, _uiText2, _uiText3, _uiText4;
 
@@ -24,6 +26,8 @@ namespace SPFClient.UI
         private static int notificationTimeout = 5000;
 
         private static UIRankBar rankBar = new UIRankBar();
+
+        private static UIInput uiInput = new UIInput();
 
         public UIManager()
         {
@@ -63,14 +67,13 @@ namespace SPFClient.UI
             }
 
 #if debug
-        UIText debugText = new UIText(string.Format("SPFClient | Beta Build # {0}\nConnected At: {1} Port: {2}\nRec: {3}\nSent: {4} \nRecycled: {5}",
+        UIText debugText = new UIText(string.Format("SPFClient | Beta Build # {0}\nConnected At: {1} Port: {2}\nSent: {3} RTT: {4}",
             Assembly.GetExecutingAssembly().GetName().Version.ToString(),
             Network.NetworkSession.Current == null ? "N/A" :
             Network.NetworkSession.Current.Connection.ServerConnection?.RemoteEndPoint.Address.ToString(),
             Network.NetworkSession.Current?.Connection.ServerConnection?.RemoteEndPoint.Port,
-            Network.NetworkSession.Current?.Connection.Statistics.ReceivedPackets,
-            Network.NetworkSession.Current?.Connection.Statistics.SentPackets,
-            Network.NetworkSession.Current?.Connection.Statistics.BytesInRecyclePool),
+            Network.NetworkSession.PacketsSent,
+            Network.NetworkSession.Current?.Connection.ServerConnection?.AverageRoundtripTime),
             new Point((GTA.UI.WIDTH / Game.ScreenResolution.Width) * 1080, 20),
             0.6f,
             Color.White,
@@ -79,7 +82,7 @@ namespace SPFClient.UI
 
             debugText.Draw();
 #endif
-
+            uiInput.Update();
             rankBar.Update();
         }
 
