@@ -51,7 +51,7 @@ namespace SPFClient.Network
         private static Queue<SessionMessage> msgQueue =
             new Queue<SessionMessage>();
 
-        private static uint lastSequence;
+        public static uint LastSequence { get; private set; }
 
         public static uint PacketsSent { get; private set; }
 
@@ -74,7 +74,7 @@ namespace SPFClient.Network
         /// <param name="session"></param>
         public static void JoinActiveSession(ActiveSession session)
         {
-            if (current != null) current.Close();
+            if (current != null) Close();
 
             current = new SessionClient(new IPAddress(session.Address), Port);
             current.ChatEvent += ChatEvent;
@@ -153,7 +153,7 @@ namespace SPFClient.Network
 
             disconnectTimeout = new DateTime();
 
-            lastSequence = 0;
+            LastSequence = 0;
         }
 
         /// <summary>
@@ -165,7 +165,7 @@ namespace SPFClient.Network
         {
             if (!Initialized) return;
 
-            if (SPFLib.Helpers.ValidateSequence(e.Sequence, lastSequence, uint.MaxValue))
+            if (SPFLib.Helpers.ValidateSequence(e.Sequence, LastSequence, uint.MaxValue))
             {
                 foreach (var client in e.Clients)
                 {
@@ -177,8 +177,8 @@ namespace SPFClient.Network
                     EntityManager.QueueAIUpdate(ai, e.Timestamp);
                 }
 
-                lastSequence = e.Sequence;
-                EntityManager.HostingAI = e.AIHost;
+                LastSequence = e.Sequence;
+                EntityManager.AIHost = e.AIHost;
             }
 
             disconnectTimeout = DateTime.Now + TimeSpan.FromMilliseconds(ClTimeout);
@@ -249,7 +249,7 @@ namespace SPFClient.Network
                         if (client.ActiveVehicle != null)
                             EntityManager.DeleteVehicle(client.ActiveVehicle);
                     }
-                    UIManager.UINotifyProxy(e.SenderName + " left. " + e.SenderID.ToString());
+                    UIManager.UINotifyProxy(e.SenderName + " left.");
                     break;
 
                 case EventType.PlayerKicked:
@@ -286,78 +286,69 @@ namespace SPFClient.Network
                 Close();
             }
 
-            try
+            if (Game.GameTime - lastSync >= ClUpdateRate)
             {
-                if (Game.GameTime - lastSync >= ClUpdateRate)
+                PacketsSent++;
+                PacketsSent %= uint.MaxValue;
+
+                var localPlayer = EntityManager.LocalPlayer;
+
+                var state = localPlayer.GetClientState();
+
+                if (EntityManager.AIHost)
                 {
-                    PacketsSent++;
-                    PacketsSent %= uint.MaxValue;
+                    var localAI = EntityManager.GetAIForUpdate().ToArray();
 
-                    var localPlayer = EntityManager.LocalPlayer;
-
-                    var state = localPlayer.GetClientState();
-
-                    if (EntityManager.HostingAI)
+                    if (localAI.Length > 0)
                     {
-                        var localAI = EntityManager.GetAIForUpdate().ToArray();
-
-                        if (localAI.Length > 0)
-                        {
-                            current.UpdateUserData(state, localAI, PacketsSent);
-                        }
-
-                        else
-                            current.UpdateUserData(state, PacketsSent);
+                        current.UpdateUserData(state, localAI, PacketsSent);
                     }
+
                     else
                         current.UpdateUserData(state, PacketsSent);
-
-                    lastSync = Game.GameTime;
                 }
+                else
+                    current.UpdateUserData(state, PacketsSent);
 
-                while (msgQueue.Count > 0)
-                {
-                    var message = msgQueue.Dequeue();
-                    UIChat.AddFeedMessage(message.SenderName, message.Message);
-                }
-
-                #region native invocation
-
-                while (queuedNativeCalls.Count > 0)
-                {
-                    var native = queuedNativeCalls.Dequeue();
-
-                    var callback = NativeHelper.ExecuteLocalNativeWithArgs(native);
-
-                    if (callback != null)
-                        current.SendNativeCallback(callback);
-                }
-
-                while (queuedRankData.Count > 0)
-                {
-                    var rData = queuedRankData.Dequeue();
-                    UIManager.RankBar.ShowRankBar(rData.RankIndex, rData.RankXP, rData.NewXP, 123, 3000, 2000);
-                }
-
-                #endregion
-
-                Function.Call(Hash.SET_PED_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
-
-                Function.Call(Hash.SET_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
-
-                Function.Call(Hash.SET_RANDOM_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
-
-                Function.Call(Hash.SET_WANTED_LEVEL_MULTIPLIER, 0f);
-                Function.Call(Hash.SET_MAX_WANTED_LEVEL, 0);
-
-                Game.Player.WantedLevel = 0;
-
+                lastSync = Game.GameTime;
             }
 
-            catch (Exception ex)
+            while (msgQueue.Count > 0)
             {
-                UIManager.UINotifyProxy("Exception Details:\n" + ex.ToString());
+                var message = msgQueue.Dequeue();
+                UIChat.AddFeedMessage(message.SenderName, message.Message);
             }
+
+            #region native invocation
+
+            while (queuedNativeCalls.Count > 0)
+            {
+                var native = queuedNativeCalls.Dequeue();
+
+                var callback = NativeHelper.ExecuteLocalNativeWithArgs(native);
+
+                if (callback != null)
+                    current.SendNativeCallback(callback);
+            }
+
+            while (queuedRankData.Count > 0)
+            {
+                var rData = queuedRankData.Dequeue();
+                UIManager.RankBar.ShowRankBar(rData.RankIndex, rData.RankXP, rData.NewXP, 123, 3000, 2000);
+            }
+
+            #endregion
+
+            Function.Call(Hash.SET_PED_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
+
+            Function.Call(Hash.SET_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
+
+            Function.Call(Hash.SET_RANDOM_VEHICLE_DENSITY_MULTIPLIER_THIS_FRAME, 0.0f);
+
+            Function.Call(Hash.SET_WANTED_LEVEL_MULTIPLIER, 0f);
+            Function.Call(Hash.SET_MAX_WANTED_LEVEL, 0);
+
+            Game.Player.WantedLevel = 0;
         }
 
         private static void OnDisconnected(EndPoint sender, string message)

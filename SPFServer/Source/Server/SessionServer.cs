@@ -64,11 +64,11 @@ namespace SPFServer.Main
             { "sv_maxping", 999 },
             { "sv_tickrate", 12 },
             { "sv_pingrate", 10000 },
-            { "sv_cltimeout", 5000 },
+            { "sv_cltimeout", 2000 },
             { "sv_broadcast", 1 },
             { "sv_mintimesamples", 5 },
             { "scr_kill_xp", 100 },
-            { "scr_ai_xp", 50 },
+            { "scr_ai_xp", 25 },
             { "scr_death_xp", 0 },
             { "scr_xpscale", 1 },
         };
@@ -82,6 +82,7 @@ namespace SPFServer.Main
             NetConfig = new NetPeerConfiguration("spfsession");
             NetConfig.EnableMessageType(NetIncomingMessageType.ConnectionApproval);
             NetConfig.Port = 27852;
+            //NetConfig.SendBufferSize = 196606;
             server = new NetServer(NetConfig);
             commands.Add("status", GetStatus);
             commands.Add("vstatus", GetVehicleStatus);
@@ -199,6 +200,7 @@ namespace SPFServer.Main
 
                         if ((client.State.MovementFlags.HasFlag(ClientFlags.Dead) || client.Health < 0) && !client.WaitForRespawn)
                         {
+
                             client.WaitForRespawn = true;
 
                             threadQueue.AddTask(() =>
@@ -211,8 +213,11 @@ namespace SPFServer.Main
 
                         var message = server.CreateMessage();
                         message.Write((byte)NetMessage.SessionUpdate);
-                        message.Write(state, client.LastSequence <= 0);
+                        message.Write(state, client.DoNameSync || client.LastSequence <= 0);
                         server.SendMessage(message, client.Connection, NetDeliveryMethod.ReliableUnordered);
+
+                        if (client.DoNameSync)
+                            client.DoNameSync = false;
                     }
 
                     for (int i = 0; i < gameManager.ActiveAI.Count; i++)
@@ -226,23 +231,22 @@ namespace SPFServer.Main
                     }
 
                     // remove any clients queued for removal and notify all participants they have left the session.
+                    foreach (var client in removalList)
+                    {
+                        threadQueue.AddTask(() => Server.WriteToConsole(string.Format("User \"{0}\" timed out.\n", client.Info.Name)));
+                        RaiseSessionEvent(client, EventType.PlayerLogout);
+                        gameManager.RemoveClient(client);
+                    }
+
+                    // remove any clients queued for removal and notify all participants they have left the session.
                     foreach (var client in aiRemovalList)
                     {
                         gameManager.RemoveAI(client);
                     }
 
                     aiRemovalList.Clear();
+                    removalList.Clear();
                 }
-
-                // remove any clients queued for removal and notify all participants they have left the session.
-                foreach (var client in removalList)
-                {
-                    threadQueue.AddTask(() => Server.WriteToConsole(string.Format("User \"{0}\" timed out.\n", client.Info.Name)));
-                    RaiseSessionEvent(client, EventType.PlayerLogout);
-                    gameManager.RemoveClient(client);
-                }
-
-                removalList.Clear();
 
                 // handle master server sync, if needed.
 
@@ -302,15 +306,19 @@ namespace SPFServer.Main
             var dataType = (NetMessage)message.ReadByte();
 
             if (dataType == NetMessage.ClientState)
-                HandleClientStateUpdate(message.SenderConnection, 
-                    message.ReadUInt32(), 
+            {
+                HandleClientStateUpdate(message.SenderConnection,
+                    message.ReadUInt32(),
                     message.ReadClientState());
+            }
 
             if (dataType == NetMessage.ClientStateAI)
-                HandleClientStateUpdate(message.SenderConnection, 
-                    message.ReadUInt32(), 
-                    message.ReadClientState(), 
+            {
+                HandleClientStateUpdate(message.SenderConnection,
+                    message.ReadUInt32(),
+                    message.ReadClientState(),
                     message.GetAIStates(message.ReadInt32()).ToArray());
+            }
 
             else if (dataType == NetMessage.AckWorldSync)
                 HandleClientInit(message.SenderConnection);
@@ -544,8 +552,14 @@ namespace SPFServer.Main
                         RaiseSessionEvent(client, EventType.PlayerLogout);
 
                         Server.ScriptManager.DoClientDisconnect(client, NetworkTime.Now);
-
-                        threadQueue.AddTask(() => Server.WriteToConsole(string.Format("User \"{0}\" left the session.", cmd.Name, cmd.UID)));
+                    }
+                    break;
+                case CommandType.GetClientNames:
+                    threadQueue.AddTask(() => Console.WriteLine("names"));
+                    if (gameManager.ClientFromEndpoint(sender.RemoteEndPoint, out client))
+                    {
+             
+                        client.DoNameSync = true;
                     }
                     break;
             }
@@ -694,10 +708,8 @@ namespace SPFServer.Main
             if (gameManager.ClientFromEndpoint(sender.RemoteEndPoint, out killer))
             {
                 var playbackTime = wh.Timestamp.Subtract(killer.TimeDiff);
-
                 // get the game state from when this bullet was fired.
                 var gameState = gameManager.FindBufferedState(playbackTime);
-
                 for (int i = 0; i < gameState.Clients.Length; i++)
                 {
                     if (gameState.Clients[i].ClientID == killer.Info.UID)
@@ -717,12 +729,12 @@ namespace SPFServer.Main
                             // make sure the target exists
                             if (gameManager.ClientFromID(client.ClientID, out target))
                             {
-                                if (target.State.Health < 0) return;
+                                if (target.State.Health <= 0) return;
 
                                 // modify health
                                 target.Health = (short)Helpers.Clamp((target.Health - wh.WeaponDamage), -1, 100);
 
-                                if (target.Health < 0)
+                                if (target.Health <= 0)
                                 {
                                     Say(string.Format("<font size =\"12\"><b>{0}</b></size></font> killed <font size=\"12\"><b>{1}</b></font>",
                                         killer.Info.Name, target.Info.Name));
@@ -746,30 +758,31 @@ namespace SPFServer.Main
 
                 for (int i = 0; i < gameState.AI.Length; i++)
                 {
-                    if (gameState.AI[i].Position.DistanceTo(wh.HitCoords) < 1.11435f)
+                    if (gameState.AI[i].Position.DistanceTo(wh.HitCoords) < 2f)
                     {
                         // make sure the target exists
-                        if (gameManager.AIFromID(gameState.AI[i].ClientID, out aiTarget))
+                        if (gameState.AI[i].ClientID == wh.TargetID && gameManager.AIFromID(gameState.AI[i].ClientID, out aiTarget))
                         {
-                            if (aiTarget.State.Health < 0) return;
-
-                            // modify health
-                            aiTarget.State.Health = (short)Helpers.Clamp((aiTarget.State.Health - wh.WeaponDamage), -1, 100);
-
-                            if (aiTarget.State.Health < 0)
+                            if (aiTarget.State.Health > 0)
                             {
-                                Say(string.Format("<font size =\"12\"><b>{0}</b></size></font> killed <font size=\"12\"><b>{1}</b></font>",
-                                    killer.Info.Name, aiTarget.Name));
+                                // modify health
+                                aiTarget.State.Health = (short)Helpers.Clamp((aiTarget.State.Health - wh.WeaponDamage), -1, 100);
 
-                                var xpToGrant = serverVars["scr_ai_xp"] * serverVars["scr_xpscale"];
+                                if (aiTarget.State.Health <= 0)
+                                {
+                                    Say(string.Format("<font size =\"12\"><b>{0}</b></size></font> killed <font size=\"12\"><b>{1}</b></font>",
+                                        killer.Info.Name, aiTarget.Name));
 
-                                var currentXP = Server.NetworkService.GetPlayerStat(killer.Info.UID, "totalExp");
+                                    var xpToGrant = serverVars["scr_ai_xp"] * serverVars["scr_xpscale"];
 
-                                SendRankData(killer.Connection, Ranks.RankTables.GetRankIndex(currentXP), currentXP, xpToGrant);
+                                    var currentXP = Server.NetworkService.GetPlayerStat(killer.Info.UID, "totalExp");
 
-                                Server.NetworkService.UpdatePlayerExp(killer.Info.UID, xpToGrant);
+                                    SendRankData(killer.Connection, Ranks.RankTables.GetRankIndex(currentXP), currentXP, xpToGrant);
 
-                                return;
+                                    Server.NetworkService.UpdatePlayerExp(killer.Info.UID, xpToGrant);
+
+                                    return;
+                                }
                             }
                         }
                     }
@@ -794,11 +807,11 @@ namespace SPFServer.Main
                 {
                     client.PendingNatives.Remove(native);
 
-                   /* string cMessage = cb.Type == DataType.None ?
+                    string cMessage = cb.Type == DataType.None ?
                          string.Format("{0} executed {1} successfully.", client.Info.Name, native.FunctionName) : 
                          string.Format("{0} executed {1} successfully. Returned value from native: {2}", client.Info.Name, native.FunctionName, cb.Value);
 
-                    threadQueue.AddTask(() => Console.WriteLine(cMessage));*/
+                    threadQueue.AddTask(() => Console.WriteLine(cMessage));
                 }
             }
         }

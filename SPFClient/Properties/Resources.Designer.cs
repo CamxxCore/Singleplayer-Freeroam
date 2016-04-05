@@ -68,5 +68,18 @@ namespace SPFClient.Properties {
                 return ResourceManager.GetStream("rank_achieved", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to [General]
+        ///
+        ///; Set online username
+        ///
+        ///Username = &quot;&quot;.
+        /// </summary>
+        internal static string SPFClient {
+            get {
+                return ResourceManager.GetString("SPFClient", resourceCulture);
+            }
+        }
     }
 }

@@ -42,39 +42,49 @@ namespace SPFClient.Entities
             for (int i = stateBuffer.Length - 1; i > 0; i--)
                 stateBuffer[i] = stateBuffer[i - 1];
 
-            stateBuffer[0] = new VehicleSnapshot(position, vel, rotation, updatedState.WheelRotation, updatedState.Steering, timeSent);
+            stateBuffer[0] = new VehicleSnapshot(position, vel, rotation, 
+                updatedState.WheelRotation, updatedState.Steering, timeSent);
 
             snapshotCount = Math.Min(snapshotCount + 1, stateBuffer.Length);
 
             var flags = (DamageFlags)e.ExtraFlags;
             var vehicle = new Vehicle(Handle);
 
-            if (flags.HasFlag(DamageFlags.LDoor) && !vehicle.IsDoorBroken(VehicleDoor.FrontLeftDoor))
-                vehicle.BreakDoor(VehicleDoor.FrontLeftDoor);
-
-            if (flags.HasFlag(DamageFlags.RDoor) && !vehicle.IsDoorBroken(VehicleDoor.FrontRightDoor))
-                vehicle.BreakDoor(VehicleDoor.FrontRightDoor);
-
-            if (flags.HasFlag(DamageFlags.BLDoor) && !vehicle.IsDoorBroken(VehicleDoor.BackLeftDoor))
-                vehicle.BreakDoor(VehicleDoor.BackLeftDoor);
-
-            if (flags.HasFlag(DamageFlags.BRDoor) && !vehicle.IsDoorBroken(VehicleDoor.BackRightDoor))
-                vehicle.BreakDoor(VehicleDoor.BackRightDoor);
-
-            if (flags.HasFlag(DamageFlags.Hood) && !vehicle.IsDoorBroken(VehicleDoor.Hood))
-                vehicle.BreakDoor(VehicleDoor.Hood);
-
-            if (flags.HasFlag(DamageFlags.LWindow) && Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.FrontLeftWindow))
+            if (flags.HasFlag(DamageFlags.LWindow) && 
+                Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.FrontLeftWindow))
                 vehicle.SmashWindow(VehicleWindow.FrontLeftWindow);
 
-            if (flags.HasFlag(DamageFlags.RWindow) && Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.FrontRightWindow))
+            if (flags.HasFlag(DamageFlags.RWindow) && 
+                Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.FrontRightWindow))
                 vehicle.SmashWindow(VehicleWindow.FrontRightWindow);
 
-            if (flags.HasFlag(DamageFlags.BLWindow) && Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.BackLeftWindow))
+            if (flags.HasFlag(DamageFlags.BLWindow) && 
+                Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.BackLeftWindow))
                 vehicle.SmashWindow(VehicleWindow.BackLeftWindow);
 
-            if (flags.HasFlag(DamageFlags.BRWindow) && Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.BackRightWindow))
+            if (flags.HasFlag(DamageFlags.BRWindow) && 
+                Function.Call<bool>(Hash.IS_VEHICLE_WINDOW_INTACT, vehicle.Handle, (int)VehicleWindow.BackRightWindow))
                 vehicle.SmashWindow(VehicleWindow.BackRightWindow);
+
+            if (flags.HasFlag(DamageFlags.LDoor) && 
+                !vehicle.IsDoorBroken(VehicleDoor.FrontLeftDoor))
+                vehicle.BreakDoor(VehicleDoor.FrontLeftDoor);
+
+            if (flags.HasFlag(DamageFlags.RDoor) &&
+                !vehicle.IsDoorBroken(VehicleDoor.FrontRightDoor))
+                vehicle.BreakDoor(VehicleDoor.FrontRightDoor);
+
+            if (flags.HasFlag(DamageFlags.BLDoor) &&
+                !vehicle.IsDoorBroken(VehicleDoor.BackLeftDoor))
+                vehicle.BreakDoor(VehicleDoor.BackLeftDoor);
+
+            if (flags.HasFlag(DamageFlags.BRDoor) &&
+                !vehicle.IsDoorBroken(VehicleDoor.BackRightDoor))
+                vehicle.BreakDoor(VehicleDoor.BackRightDoor);
+
+            if (flags.HasFlag(DamageFlags.Hood) &&
+                !vehicle.IsDoorBroken(VehicleDoor.Hood))
+                vehicle.BreakDoor(VehicleDoor.Hood);
 
             if (flags.HasFlag(DamageFlags.LHeadlight) && !vehicle.LeftHeadLightBroken)
                 vehicle.LeftHeadLightBroken = true;
@@ -83,7 +93,7 @@ namespace SPFClient.Entities
                 vehicle.RightHeadLightBroken = true;
         }
 
-        public AutomobileState GetExclusiveState()
+        public AutomobileState GetAutomobileState()
         {
             var v = new Vehicle(Handle);
 
@@ -128,7 +138,8 @@ namespace SPFClient.Entities
 
         public override void Update()
         {
-            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, stateBuffer, snapshotCount, 0.89f, false);
+            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position,
+                Quaternion, stateBuffer, snapshotCount, 0.89f);
 
             if (snapshot != null)
             {

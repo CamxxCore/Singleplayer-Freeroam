@@ -24,21 +24,20 @@ namespace SPFClient.Entities
             get { return lastReceivedState; }
         }
 
-        public NetworkVehicle ActiveVehicle
-        {
-            get; set;
-        }
-
         private int currentPedHash;
         private static PedType pedType;
         private bool updatingPosition;
         private DateTime lastUpdateTime;
         private int snapshotCount;
 
+        private int deathCounter;
+
         private static Vector3 lastPosition;
         private static GTA.Math.Quaternion lastRotation;
 
         private static UIResText playerName;
+
+        private static UIRectangle playerHealth;
 
         private AISnapshot[] moveBuffer = new AISnapshot[20];
 
@@ -74,13 +73,12 @@ namespace SPFClient.Entities
 
             var spawnPos = position + new Vector3(0, 0, -1f);
 
-            var ped = new Ped(Function.Call<int>(Hash.CREATE_PED, 26, pedModel.Hash, spawnPos.X, spawnPos.Y, spawnPos.Z, 0f, false, true));
+            var ped = new Ped(Function.Call<int>(Hash.CREATE_PED, 26, pedModel.Hash, 
+                spawnPos.X, spawnPos.Y, spawnPos.Z, 0f, false, true));
 
             pedModel.MarkAsNoLongerNeeded();
 
             ped.BlockPermanentEvents = true;
-
-            Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
 
             Function.Call(Hash.CLEAR_ALL_PED_PROPS, ped.Handle);
 
@@ -112,6 +110,8 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_PED_MOVE_ANIMS_BLEND_OUT, ped.Handle);
 
+            Function.Call(Hash.SET_PED_SUFFERS_CRITICAL_HITS, ped.Handle, false);
+
             var blip = ped.AddBlip();
             blip.Color = BlipColor.Yellow;
 
@@ -124,7 +124,11 @@ namespace SPFClient.Entities
                 0.6f,
                 System.Drawing.Color.White,
                 Font.ChaletLondon,
-                UIResText.Alignment.Centered);     
+                UIResText.Alignment.Centered);   
+            
+            var playerHealth = new UIRectangle(new System.Drawing.Point(),
+                new System.Drawing.Size(100, 40),
+                System.Drawing.Color.White);
 
             pedType = type;
 
@@ -142,22 +146,9 @@ namespace SPFClient.Entities
                 moveBuffer[i] = moveBuffer[i - 1];
 
             moveBuffer[0] = new AISnapshot(state.Position.Deserialize(),
-                state.Rotation.Deserialize(),
-                svTime);
+                state.Rotation.Deserialize(), svTime);
 
             snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
-
-            if (state.Health <= 0) Health = -1;
-
-            else if (state.Health < Health)
-            {
-                Function.Call(Hash.APPLY_DAMAGE_TO_PED, Handle, Health - state.Health, true);
-            }
-
-            else if (state.Health > Health)
-            {
-                Health = state.Health;
-            }
 
             lastReceivedState = state;
             lastUpdateTime = NetworkTime.Now;
@@ -165,9 +156,31 @@ namespace SPFClient.Entities
 
         public override void Update()
         {
-            if (Health <= 0)
+            if (LastState.Health <= 0) Health = -1;
+
+            else if (LastState.Health < Health)
             {
-                if (!IsDead) Health = -1;
+                Function.Call(Hash.APPLY_DAMAGE_TO_PED,
+                    Handle, Health - LastState.Health, true);
+            }
+
+            else if (LastState.Health > Health)
+            {
+                Health = LastState.Health;
+            }
+
+            if (LastState.Health <= 0)
+            {
+                if (deathCounter > 0 && Game.GameTime > deathCounter)
+                {
+                    CurrentBlip.Remove();
+                }
+
+                if (deathCounter == 0)
+                {
+                    deathCounter = Game.GameTime + 10000;
+                }
+              //  if (!IsDead) Health = -1;
 
                 if (CurrentBlip.Sprite != BlipSprite.Dead)
                 {
@@ -188,7 +201,8 @@ namespace SPFClient.Entities
 
             if (updatingPosition)
             {
-                var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.6f);
+                var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(
+                    Position, Quaternion, moveBuffer, snapshotCount, 0.6f);
 
                 if (entityPosition != null)
                 {
@@ -225,6 +239,21 @@ namespace SPFClient.Entities
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public PedType GetPedType()
+        {
+            if (Model.Hash != currentPedHash)
+            {
+                currentPedHash = Model.Hash;
+                Enum.TryParse(((PedHash)currentPedHash).ToString(), out pedType);
+            }
+
+            return pedType;
+        }
+
+        /// <summary>
         /// Render the in- game player name.
         /// </summary>
         private void RenderPlayerName()
@@ -237,21 +266,6 @@ namespace SPFClient.Entities
             playerName.Draw();
 
             Function.Call(Hash.CLEAR_DRAW_ORIGIN);
-        }
-
-        /// <summary>
-        /// Avoid iterating inside xxHashtoID while running the game loop.
-        /// </summary>
-        /// <returns></returns>
-        public PedType GetPedType()
-        {
-            if (Model.Hash != currentPedHash)
-            {
-                currentPedHash = Model.Hash;
-                Enum.TryParse(((PedHash)currentPedHash).ToString(), out pedType);
-            }
-
-            return pedType;
         }
     }
 }

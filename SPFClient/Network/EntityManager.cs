@@ -18,8 +18,6 @@ namespace SPFClient.Network
 
         public static List<NetworkAI> ActiveAI { get { return activeAI; } }
 
-        public static bool HostingAI { get; set; }
-
         private static Queue<KeyValuePair<ClientState, DateTime>> updateQueue =
             new Queue<KeyValuePair<ClientState, DateTime>>();
 
@@ -52,6 +50,8 @@ namespace SPFClient.Network
         public static event EventHandler WorldSynced;
 
         public static bool Enabled { get; set; }
+
+        public static bool AIHost { get; set; }
 
         public EntityManager()
         {
@@ -99,42 +99,35 @@ namespace SPFClient.Network
                 activeAI.Remove(ai.Key);
             }
 
-            try
+            HandleEntityQueues();
+
+            if (localPlayer != null)
             {
-                HandleEntityQueues();
-
-                if (localPlayer != null)
-                {
-                    localPlayer.Update();
-                }
-
-                foreach (NetworkPlayer client in activePlayers)
-                {
-                    client.Update();
-                }
-
-                foreach (NetworkAI ai in activeAI)
-                {
-                    ai.Update();
-                }
-
-                foreach (NetworkVehicle vehicle in activeVehicles)
-                {
-                    if (!vehicle.Exists() || !vehicle.IsAlive)
-                        DeleteVehicle(vehicle, false);
-                    vehicle.Update();
-                }
-
-                if (firstSync)
-                {
-                    WorldSynced?.Invoke(this, new EventArgs());
-                    firstSync = false;
-                }
+                localPlayer.Update();
             }
 
-            catch (Exception ex)
+            foreach (NetworkPlayer client in activePlayers)
             {
-                UI.UIManager.UINotifyProxy("Exception Details:\n" + ex.ToString());
+                client.Update();
+            }
+
+            foreach (NetworkAI ai in activeAI)
+            {
+                ai.Update();
+            }
+
+            foreach (NetworkVehicle vehicle in activeVehicles)
+            {
+                if (!vehicle.Exists() || !vehicle.IsAlive)
+                    DeleteVehicle(vehicle, false);
+                vehicle.Update();
+            }
+
+            if (NetworkSession.LastSequence > 0 && firstSync)
+            {
+                NetworkSession.Current.RequestNameSync();
+                WorldSynced?.Invoke(this, new EventArgs());
+                firstSync = false;
             }
         }
 
@@ -212,7 +205,8 @@ namespace SPFClient.Network
                                     Yield();
                             }
                             else
-                                Function.Call(Hash.SET_PED_INTO_VEHICLE, client.Handle, vehicle.Handle, (int)clientState.VehicleSeat);
+                                Function.Call(Hash.SET_PED_INTO_VEHICLE, client.Handle, vehicle.Handle, 
+                                    (int)clientState.VehicleSeat);
 
                         }
 
@@ -255,13 +249,14 @@ namespace SPFClient.Network
 
                 else
                 {
-                    if (aiState.PedType != PedType.None && client.GetPedType() != aiState.PedType || !client.Exists())
+                    if (!client.Exists() || aiState.PedType != PedType.None && 
+                        client.GetPedType() != aiState.PedType)
                     {
                         DeleteAI(client);
                         continue;
                     }
 
-                    client.HandleStateUpdate(aiState, remoteAI.Value, HostingAI);
+                    client.HandleStateUpdate(aiState, remoteAI.Value, AIHost);
                 }
             }
 
@@ -303,7 +298,8 @@ namespace SPFClient.Network
             }
             else
             {
-                updateQueue.Enqueue(new KeyValuePair<ClientState, DateTime>(state, serverTime));
+                updateQueue.Enqueue(
+                    new KeyValuePair<ClientState, DateTime>(state, serverTime));
             }
         }
 
@@ -315,7 +311,8 @@ namespace SPFClient.Network
         /// <param name="isLocal"></param>
         internal static void QueueAIUpdate(AIState state, DateTime serverTime)
         {
-            aiUpdateQueue.Enqueue(new KeyValuePair<AIState, DateTime>(state, serverTime));
+            aiUpdateQueue.Enqueue(
+                new KeyValuePair<AIState, DateTime>(state, serverTime));
         }
 
         internal static IEnumerable<AIState> GetAIForUpdate()
@@ -324,7 +321,8 @@ namespace SPFClient.Network
             {
                 if (ai.Position != ai.LastState.Position.Deserialize())
                 {
-                    yield return new AIState(ai.ID, ai.Name, (short) ai.Health, ai.GetPedType(), ai.Position.Serialize(), ai.Quaternion.Serialize());
+                    yield return new AIState(ai.ID, ai.Name, (short) ai.Health, ai.GetPedType(), 
+                        ai.Position.Serialize(), ai.Quaternion.Serialize());
                 }
             }
         }
@@ -366,7 +364,7 @@ namespace SPFClient.Network
         /// <returns></returns>
         internal static NetworkVehicle VehicleFromLocalHandle(int handle)
         {
-            return activeVehicles.FirstOrDefault(x => x.Handle == handle);
+            return activeVehicles.Find(x => x.Handle == handle);
         }
 
         /// <summary>
@@ -376,7 +374,7 @@ namespace SPFClient.Network
         /// <returns></returns>
         internal static NetworkAI AIFromID(int id)
         {
-            return activeAI.FirstOrDefault(x => x.ID == id);
+            return activeAI.Find(x => x.ID == id);
         }
 
         /// <summary>
@@ -386,7 +384,7 @@ namespace SPFClient.Network
         /// <returns></returns>
         internal static NetworkAI AIFromLocalHandle(int handle)
         {
-            return activeAI.FirstOrDefault(x => x.Handle == handle);
+            return activeAI.Find(x => x.Handle == handle);
         }
 
         /// <summary>
@@ -472,6 +470,9 @@ namespace SPFClient.Network
             activePlayers.ForEach(x => DeleteClient(x, removeFromWorld));
             activeVehicles.ForEach(x => DeleteVehicle(x, removeFromWorld));
             activeAI.ForEach(x => DeleteAI(x, removeFromWorld));
+            activePlayers.Clear();
+            activeVehicles.Clear();
+            activeAI.Clear();
         }
     }
 }

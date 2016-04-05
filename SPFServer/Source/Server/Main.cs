@@ -1,4 +1,4 @@
-﻿#define debug
+﻿
 using System;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -17,14 +17,14 @@ namespace SPFServer.Main
 
         internal static ScriptManager ScriptManager;
 
-        public static int RevisionNumber {  get { return Assembly.GetExecutingAssembly().GetName().Version.Revision; } }
+        public static int RevisionNumber {  get { return Assembly.GetExecutingAssembly().GetName().Version.Build; } }
 
             static void Main(string[] args)
         {
             SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
 
             Console.WriteLine("Singleplayer Freeroam Server | BETA Build # " +
-                System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() + 
+                Assembly.GetExecutingAssembly().GetName().Version.ToString() + 
                 Environment.NewLine);
 
             NetworkService = new NetworkService();

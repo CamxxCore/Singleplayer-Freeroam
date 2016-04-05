@@ -22,7 +22,6 @@ namespace SPFClient.Entities
         public NetworkBicycle(Vehicle vehicle, int id) : base(vehicle, id)
         { }
 
-
         private void UpdateReceived(DateTime timeSent, VehicleState e)
         {
             updatedState = e as BicycleState;
@@ -34,7 +33,8 @@ namespace SPFClient.Entities
             for (int i = stateBuffer.Length - 1; i > 0; i--)
                 stateBuffer[i] = stateBuffer[i - 1];
 
-            stateBuffer[0] = new BicycleSnapshot(position, vel, rotation, updatedState.WheelRotation, updatedState.Steering, timeSent);
+            stateBuffer[0] = new BicycleSnapshot(position, vel, rotation, updatedState.WheelRotation, 
+                updatedState.Steering, timeSent);
 
             snapshotCount = Math.Min(snapshotCount + 1, stateBuffer.Length);
         }
@@ -62,7 +62,8 @@ namespace SPFClient.Entities
 
         public override void Update()
         {
-            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, stateBuffer, snapshotCount, 0.89f, false);
+            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, 
+                Quaternion,stateBuffer, snapshotCount, 0.89f);
 
             if (snapshot != null)
             {

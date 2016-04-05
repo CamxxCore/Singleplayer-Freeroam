@@ -14,7 +14,7 @@ namespace SPFClient.Entities
         {
             { WeaponHash.AdvancedRifle, "weapons@submg@advanced_rifle" },
             { WeaponHash.APPistol, "weapons@pistol@ap_pistol" },
-            { WeaponHash.AssaultRifle, "weapons@rifle@hi@" },
+            { WeaponHash.AssaultRifle, "weapons@rifle@" },
             { WeaponHash.AssaultShotgun, "weapons@rifle@hi@assault_rifle" },
             { WeaponHash.AssaultSMG, "weapons@submg@assault_smg" },
             { WeaponHash.Bat, "weapons@melee_2h" },
@@ -187,12 +187,9 @@ namespace SPFClient.Entities
             var aimPos = pPosition + Helpers.RotationToDirection(pAngles) * 10;
            // Function.Call(Hash.TASK_AIM_GUN_AT_COORD, ped.Handle, aimPos.X, aimPos.Y, aimPos.Z, -1, 1, 0);
 
-             Function.Call(Hash.TASK_GO_TO_COORD_WHILE_AIMING_AT_COORD, ped.Handle, pPosition.X, pPosition.Y, pPosition.Z, aimPos.X, aimPos.Y, aimPos.Z, 1.0, 0, 0x3f000000, 0x40800000, 1, 0, 0, 
+             Function.Call(Hash.TASK_GO_TO_COORD_WHILE_AIMING_AT_COORD, ped.Handle, pPosition.X, pPosition.Y, pPosition.Z, aimPos.X, aimPos.Y, aimPos.Z, 1.0, 0, 0x3f000000, 0x40800000, 0,1, 0, 
                  Function.Call<int>(Hash.GET_HASH_KEY, "firing_pattern_full_auto"));
             lastAimPos = aimPos;
-        //    Function.Call(Hash.TASK_FORCE_MOTION_STATE, ped.Handle, 0xbac0f10b, 1);
-
-
         }
 
         public void StopAllAnimations()

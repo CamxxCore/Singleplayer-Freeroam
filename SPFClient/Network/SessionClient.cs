@@ -79,7 +79,7 @@ namespace SPFClient.Network
             LoginRequest req = new LoginRequest();
             req.UID = localUID;
             req.Username = localUsername;
-            req.Revision = Assembly.GetExecutingAssembly().GetName().Version.Revision;
+            req.Revision = Assembly.GetExecutingAssembly().GetName().Version.Build;
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.LoginRequest);
             msg.Write(req);
@@ -127,15 +127,19 @@ namespace SPFClient.Network
             client.SendMessage(msg, NetDeliveryMethod.Unreliable);
         }
 
-        public void SendWeaponData(short dmg, Vector3 hitCoords)
+        public void RequestNameSync()
+        {
+            var msg = client.CreateMessage();
+            msg.Write((byte)NetMessage.SessionCommand);
+            msg.Write(new SessionCommand(CommandType.GetClientNames));
+            client.SendMessage(msg, NetDeliveryMethod.ReliableSequenced);
+        }
+
+        public void SendWeaponData(WeaponData data)
         {
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.WeaponData);
-            msg.Write(NetworkTime.Now.Ticks);
-            msg.Write(hitCoords.X);
-            msg.Write(hitCoords.Y);
-            msg.Write(hitCoords.Z);
-            msg.Write(dmg);
+            msg.Write(data);
             client.SendMessage(msg, NetDeliveryMethod.ReliableSequenced);
         }
 

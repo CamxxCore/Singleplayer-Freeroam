@@ -2,6 +2,8 @@
 using SPFClient.Types;
 using System.Drawing;
 using SPFClient.Entities;
+using System.Collections.Generic;
+using System.IO;
 using Vector3 = SPFLib.Types.Vector3;
 using Quaternion = SPFLib.Types.Quaternion;
 using GTA;
@@ -505,7 +507,7 @@ namespace SPFClient
             return retQ;
         }
 
-        public static  Vector3 Serialize(this GTA.Math.Vector3 vec)
+        public static Vector3 Serialize(this GTA.Math.Vector3 vec)
         {
             var retVec = new  Vector3();
             retVec.X = vec.X;
@@ -531,6 +533,45 @@ namespace SPFClient
             retVec.Y = vec.Y;
             retVec.Z = vec.Z;
             return retVec;
-        }   
+        }
+
+        /// <summary>
+        /// Concatenates an array of strings with each member on a new line.
+        /// </summary>
+        /// <param name="s"></param>
+        /// <returns></returns>
+        public static string[] GetLines(this string s)
+        {
+            return s.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+        }
+
+        /// <summary>
+        /// Populates a list of strings from an embedded string resource.
+        /// </summary>
+        /// <param name="resource">The string resource (Properties.Resources.ProjectName...)</param>
+        /// <returns></returns>
+        public static IList<string> ReadEmbeddedResource(string resource)
+        {
+            string[] text = resource.GetLines();
+            return new List<string>(text);
+        }
+
+        /// <summary>
+        /// Writes a list of strings to a file at the specified path.
+        /// </summary>
+        /// <param name="list">The list to write</param>
+        /// <param name="filepath">The specified path</param>
+        public static void WriteListToFile(IList<string> list, string filepath)
+        {
+            if (File.Exists(filepath)) File.Delete(filepath);
+            using (StreamWriter stream = new StreamWriter(filepath))
+            {
+                foreach (string line in list)
+                {
+                    stream.WriteLine(line);
+                }
+            }
+        }
+
     }
 }

@@ -38,11 +38,16 @@ namespace SPFClient.Entities
             for (int i = stateBuffer.Length - 1; i > 0; i--)
                 stateBuffer[i] = stateBuffer[i - 1];
 
-            stateBuffer[0] = new PlaneSnapshot(position, vel, rotation, updatedState.Flaps, updatedState.Stabs, updatedState.Rudder, timeSent);
+            stateBuffer[0] = new PlaneSnapshot(position, vel, 
+                rotation, 
+                updatedState.Flaps, 
+                updatedState.Stabs, 
+                updatedState.Rudder, 
+                timeSent);
 
             snapshotCount = Math.Min(snapshotCount + 1, stateBuffer.Length);
 
-            UpdateVehicleLandingGear((LGearState)e.ExtraFlags);
+            SetLandingGear((LGearState)e.ExtraFlags);
 
             if (e.Flags.HasFlag(VehicleFlags.VehicleCannon))
             {
@@ -117,7 +122,7 @@ namespace SPFClient.Entities
             MemoryAccess.WriteSingle(Address + Offsets.CPlane.Rudder, value);
         }
 
-        public void UpdateVehicleLandingGear(LGearState state)
+        public void SetLandingGear(LGearState state)
         {
             var vehicle = new Vehicle(Handle);
 
@@ -134,7 +139,8 @@ namespace SPFClient.Entities
 
         public override void Update()
         {
-            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, stateBuffer, snapshotCount, 0.88f, false);
+            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, 
+                stateBuffer, snapshotCount, 0.88f);
 
             if (snapshot != null)
             {
@@ -151,7 +157,7 @@ namespace SPFClient.Entities
             base.Update();
         }
 
-        public PlaneState GetExclusiveState()
+        public PlaneState GetPlaneState()
         {
             var v = new Vehicle(Handle);
 
@@ -171,10 +177,12 @@ namespace SPFClient.Entities
                 state.ExtraFlags = (ushort)lgState;
             }
 
-            if (Game.IsControlPressed(0, Control.VehicleFlyAttack) || Game.IsControlPressed(0, Control.VehicleFlyAttack2))
+            if (Game.IsControlPressed(0, Control.VehicleFlyAttack) || 
+                Game.IsControlPressed(0, Control.VehicleFlyAttack2))
             {
                 var outArg = new OutputArgument();
-                if (Function.Call<bool>(Hash.GET_CURRENT_PED_VEHICLE_WEAPON, v.GetPedOnSeat(GTA.VehicleSeat.Driver).Handle, outArg))
+                if (Function.Call<bool>(Hash.GET_CURRENT_PED_VEHICLE_WEAPON, 
+                    v.GetPedOnSeat(GTA.VehicleSeat.Driver).Handle, outArg))
                 {
                     unchecked
                     {

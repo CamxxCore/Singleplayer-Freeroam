@@ -14,7 +14,9 @@
 
         public static readonly int[] RankData = new int[]
         {
-            0, 89, //0
+            0, 19,
+            19, 49,
+            50, 89, //0
             90, 199, //1
             200, 349, //2
             350, 499, //3

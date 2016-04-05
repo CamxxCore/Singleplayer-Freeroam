@@ -97,11 +97,6 @@ namespace SPFClient.Entities
 
         public virtual void HandleStateUpdate(DateTime timeSent, VehicleState state)
         {
-            if ((state.Flags & VehicleFlags.DoorsLocked) != (lastReceivedState?.Flags & VehicleFlags.DoorsLocked))
-            {
-                Function.Call(Hash.SET_VEHICLE_DOORS_LOCKED_FOR_PLAYER, Handle, Game.Player.Handle, state.Flags.HasFlag(VehicleFlags.DoorsLocked));
-            }
-
             if ((state.Flags & VehicleFlags.Exploded) != 0 && IsAlive)
             {
                 IsInvincible = false;
@@ -109,7 +104,12 @@ namespace SPFClient.Entities
                 return;
             }
 
-            Function.Call(Hash.SET_VEHICLE_COLOURS, Handle, state.PrimaryColor, state.SecondaryColor);
+            if ((state.Flags & VehicleFlags.DoorsLocked) != 
+                (lastReceivedState?.Flags & VehicleFlags.DoorsLocked))
+            {
+                Function.Call(Hash.SET_VEHICLE_DOORS_LOCKED_FOR_PLAYER, Handle, 
+                    Game.Player.Handle, state.Flags.HasFlag(VehicleFlags.DoorsLocked));
+            }
 
             if (state.RadioStation != currentRadioStation)
             {
@@ -117,12 +117,14 @@ namespace SPFClient.Entities
                     Function.Call(Hash.SET_VEH_RADIO_STATION, Handle, "OFF");
                 else
                 {
-                    var stName = Function.Call<string>(Hash.GET_RADIO_STATION_NAME, (int)state.RadioStation);
+                    var stName = Function.Call<string>(Hash.GET_RADIO_STATION_NAME, state.RadioStation);
                     Function.Call(Hash.SET_VEH_RADIO_STATION, Handle, stName);
                 }
 
                 currentRadioStation = state.RadioStation;
             }
+
+            Function.Call(Hash.SET_VEHICLE_COLOURS, Handle, state.PrimaryColor, state.SecondaryColor);
 
             lastReceivedState = state;
 
@@ -133,7 +135,8 @@ namespace SPFClient.Entities
 
         internal byte GetRadioStation()
         {
-            return Convert.ToByte(Function.Call<int>(Hash.GET_PLAYER_RADIO_STATION_INDEX));
+            return Convert.ToByte(
+                Function.Call<int>(Hash.GET_PLAYER_RADIO_STATION_INDEX));
         }
 
         public short GetVehicleID()
@@ -152,7 +155,9 @@ namespace SPFClient.Entities
             outR = outG = outB = new OutputArgument();
             Function.Call(Hash.GET_VEHICLE_COLOR, Handle, outR, outG, outB);
 
-            return Color.FromArgb(outR.GetResult<byte>(), outG.GetResult<byte>(), outB.GetResult<byte>());
+            return Color.FromArgb(outR.GetResult<byte>(), 
+                outG.GetResult<byte>(), 
+                outB.GetResult<byte>());
         }
 
         public float GetWheelRotation()
@@ -188,7 +193,8 @@ namespace SPFClient.Entities
 
             if (baseAddress > wheelsAddr)
             {
-                wheelsAddr = ulong.Parse(baseAddress.ToString("X").Substring(0, 3) + wheelsAddr.ToString("X"), System.Globalization.NumberStyles.HexNumber);
+                wheelsAddr = ulong.Parse(baseAddress.ToString("X").Substring(0, 3) + 
+                    wheelsAddr.ToString("X"), System.Globalization.NumberStyles.HexNumber);
             }
 
             return wheelsAddr;
@@ -214,7 +220,6 @@ namespace SPFClient.Entities
         {
             if (SPFLib.NetworkTime.Now - LastUpdateTime > TimeSpan.FromSeconds(1)) return;
 
-            //IS_VEHICLE_ENGINE_ON
             if (!Function.Call<bool>((Hash)0xAE31E7DF9B5B132E, Handle))
             {
                 Function.Call(Hash.SET_VEHICLE_ENGINE_ON, Handle, true, true, 0);

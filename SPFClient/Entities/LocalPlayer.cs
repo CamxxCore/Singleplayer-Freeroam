@@ -70,13 +70,33 @@ namespace SPFClient.Entities
                 GameplayCamera.Position + Helpers.RotationToDirection(GameplayCamera.Rotation) * weaponRange,
                 IntersectOptions.Everything);
 
-            if (result.DitHitEntity &&
-                (EntityManager.ActivePlayers.Any(x => x.Handle == result.HitEntity.Handle) ||
-                EntityManager.ActiveAI.Any(x => x.Handle == result.HitEntity.Handle)))
+            if (result.DitHitEntity)
             {
-                var hitCoords = result.HitEntity.Position.Serialize();
-                var dmg = (short)GetCurrentWeaponDamage();
-                NetworkSession.Current.SendWeaponData(dmg, hitCoords);
+                var player = EntityManager.ActivePlayers.Find(x => x.Handle == result.HitEntity.Handle);
+
+                if (player != null)
+                {
+                    var hitCoords = result.HitEntity.Position.Serialize();
+                    var dmg = GetCurrentWeaponDamage();
+
+                    NetworkSession.Current.SendWeaponData(
+                        new WeaponData(hitCoords, player.ID, dmg));
+
+                    return;
+                }
+
+                var ai = EntityManager.ActiveAI.Find(x => x.Handle == result.HitEntity.Handle);
+
+                if (ai != null)
+                {
+                    var hitCoords = result.HitEntity.Position.Serialize();
+                    var dmg = GetCurrentWeaponDamage();
+
+                    NetworkSession.Current.SendWeaponData(
+                     new WeaponData(hitCoords, ai.ID, dmg));
+
+                    return;
+                }
             }
         }
 
@@ -177,16 +197,16 @@ namespace SPFClient.Entities
                 clientState.VehicleSeat = (SPFLib.Enums.VehicleSeat)Ped.CurrentVehicleSeat();
 
                 if (Vehicle is NetworkCar)
-                    clientState.VehicleState = (Vehicle as NetworkCar).GetExclusiveState();
+                    clientState.VehicleState = (Vehicle as NetworkCar).GetAutomobileState();
 
                 else if (Vehicle is NetworkPlane)
-                    clientState.VehicleState = (Vehicle as NetworkPlane).GetExclusiveState();
+                    clientState.VehicleState = (Vehicle as NetworkPlane).GetPlaneState();
 
                 else if (Vehicle is NetworkHeli)
-                    clientState.VehicleState = (Vehicle as NetworkHeli).GetExclusiveState();
+                    clientState.VehicleState = (Vehicle as NetworkHeli).GetHeliState();
 
-                else if (Vehicle is NetworkPlane)
-                    clientState.VehicleState = (Vehicle as NetworkPlane).GetExclusiveState();
+                else if (Vehicle is NetworkBicycle)
+                    clientState.VehicleState = (Vehicle as NetworkBicycle).GetState();
 
                 else clientState.VehicleState = Vehicle.GetState();
             }
@@ -263,10 +283,10 @@ namespace SPFClient.Entities
             {
                 var bones = new int[]
                     {
-                        Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "door_dside_f"), //-1 front left\
-                        Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "door_pside_f"), //0 front right
-                        Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "door_dside_r"), //1 back left                     
-                        Function.Call<int>((Hash)0xFB71170B7E76ACBA , vehicle.Handle, "door_pside_r") //2 back right                     
+                        Function.Call<int>((Hash)0xFB71170B7E76ACBA, vehicle.Handle, "door_dside_f"), //-1 front left\
+                        Function.Call<int>((Hash)0xFB71170B7E76ACBA, vehicle.Handle, "door_pside_f"), //0 front right
+                        Function.Call<int>((Hash)0xFB71170B7E76ACBA, vehicle.Handle, "door_dside_r"), //1 back left                     
+                        Function.Call<int>((Hash)0xFB71170B7E76ACBA, vehicle.Handle, "door_pside_r") //2 back right                     
                     };
 
                 var closestBone = bones.OrderBy(x =>
@@ -283,7 +303,10 @@ namespace SPFClient.Entities
         internal void UpdateUserCommands()
         {
             if (Ped.IsDead)
+            {
+                Function.Call(Hash.IGNORE_NEXT_RESTART, true);
                 SetClientFlag(ClientFlags.Dead);
+            }
 
             if (Ped.IsInMeleeCombat)
             {
@@ -329,8 +352,6 @@ namespace SPFClient.Entities
 
         internal void Update()
         {
-            UpdateUserCommands();
-
             if (Ped.IsShooting && Ped.Weapons.Current.AmmoInClip > 0)
                 UpdateWeaponDamage();
 
@@ -381,6 +402,9 @@ namespace SPFClient.Entities
                     }
                 }
             }
+
+            UpdateUserCommands();
+
         }
     }
 }

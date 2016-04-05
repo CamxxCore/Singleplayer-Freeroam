@@ -2,6 +2,7 @@
 using GTA.Native;
 using SPFLib.Types;
 using SPFClient.Types;
+using SPFClient.UI;
 using SPFLib.Enums;
 using SPFLib;
 using System;
@@ -36,7 +37,9 @@ namespace SPFClient.Entities
 
         private DateTime lastUpdateTime;
 
-        private static UIResText playerName;
+       // private static UIResText playerName;
+
+        private static UIPlayerTag playerTag;
 
         private static MovementController animationManager;
         private static BicyleController bicyleController;
@@ -76,6 +79,12 @@ namespace SPFClient.Entities
 
             var ped = new Ped(Function.Call<int>(Hash.CREATE_PED, 26, pedModel.Hash, spawnPos.X, spawnPos.Y, spawnPos.Z, 0f, false, true));
 
+            pedModel.MarkAsNoLongerNeeded();
+
+            ped.BlockPermanentEvents = true;
+
+            Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
+
             Function.Call(Hash.CLEAR_ALL_PED_PROPS, ped.Handle);
 
             Function.Call((Hash)0xE861D0B05C7662B8, ped.Handle, 0, 0);
@@ -99,39 +108,18 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 185, 1);
 
-            Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
-
-      //      Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED, ped.Handle, false);
-
             Function.Call(Hash._0x26695EC767728D84, ped.Handle, 1);
             Function.Call(Hash._0x26695EC767728D84, ped.Handle, 16);
 
             Function.Call(Hash.SET_PED_MOVE_ANIMS_BLEND_OUT, ped.Handle);
 
-         //   var dt = DateTime.Now + TimeSpan.FromMilliseconds(250);
-
-         //   while (DateTime.Now < dt)
-       //         Script.Yield();
+            Function.Call(Hash.SET_PED_SUFFERS_CRITICAL_HITS, ped.Handle, false);
 
             ped.Quaternion = rotation;
 
-          //  ped.BlockPermanentEvents = true;
-
             ped.CanRagdoll = false;
 
-            Function.Call(Hash.SET_ENTITY_COLLISION, ped.Handle, true, false);
-
             Function.Call(Hash.SET_PED_CAN_EVASIVE_DIVE, ped.Handle, false);
-
-            Function.Call(Hash.SET_PED_CAN_BE_DRAGGED_OUT, ped.Handle, true);
-
-            Function.Call((Hash)0x687C0B594907D2E8, ped.Handle);
-
-            Function.Call(Hash.SET_PLAYER_VEHICLE_DEFENSE_MODIFIER, Game.Player.Handle, 0.5);
-
-            Function.Call((Hash)0x26695EC767728D84, ped.Handle, 8208);
-
-            Function.Call(Hash.SET_PED_SUFFERS_CRITICAL_HITS, ped.Handle, false);
 
             var curWeaponHash = Helpers.WeaponIDToHash(state.WeaponID);      
 
@@ -150,12 +138,14 @@ namespace SPFClient.Entities
 
             blip.SetName(state.Name);
 
-            playerName = new UIResText(state.Name, 
+            playerTag = new UIPlayerTag(ped, state.Name);
+
+         /*   playerName = new UIResText(state.Name, 
                 new System.Drawing.Point(), 
                 0.6f, 
                 System.Drawing.Color.White, 
                 Font.ChaletLondon, 
-                UIResText.Alignment.Centered);
+                UIResText.Alignment.Centered);*/
            
             pedType = state.PedType;
 
@@ -181,37 +171,20 @@ namespace SPFClient.Entities
                 if (Function.Call<int>(Hash.GET_SELECTED_PED_WEAPON, Handle) != weaponHash)
                 {
                     Function.Call(Hash.GIVE_WEAPON_TO_PED, Handle, weaponHash, -1, true, true);
-                  //  lastWeaponID = state.WeaponID;
                 }
 
                 for (int i = moveBuffer.Length - 1; i > 0; i--)
                     moveBuffer[i] = moveBuffer[i - 1];
 
-                moveBuffer[0] = new PlayerSnapshot(state.Position.Deserialize(), 
-                    state.Velocity.Deserialize(), 
-                    state.Rotation.Deserialize(), 
-                    state.Angles.Deserialize(), 
-                    state.ActiveTask, 
-                    state.MovementFlags,
-                    timeSent);
+                moveBuffer[0] = new PlayerSnapshot(state.Position.Deserialize(), state.Velocity.Deserialize(), 
+                    state.Rotation.Deserialize(), state.Angles.Deserialize(), state.ActiveTask, 
+                    state.MovementFlags, timeSent);
 
                 snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
 
                 animationManager.UpdateAnimationFlags(state.MovementFlags, state.ActiveTask);
             }
-
-            if (state.Health <= 0) Health = -1;
-
-            else if (state.Health < Health)
-            {
-                Function.Call(Hash.APPLY_DAMAGE_TO_PED, Handle, Health - state.Health, true);
-            }
-
-            else if (state.Health > Health)
-            {
-                Health = state.Health;
-            }
-
+         
             lastReceivedState = state;
             lastUpdateTime = NetworkTime.Now;
         }
@@ -227,10 +200,20 @@ namespace SPFClient.Entities
                 return;
             }
 
-            if (Health <= 0)
-            {
-                if (!IsDead) Health = -1;
+            if (LastState.Health <= 0) Health = -1;
 
+            else if (LastState.Health < Health)
+            {
+                Function.Call(Hash.APPLY_DAMAGE_TO_PED, Handle, Health - LastState.Health, true);
+            }
+
+            else if (LastState.Health > Health)
+            {
+                Health = LastState.Health;
+            }
+
+            if (LastState.Health <= 0)
+            { 
                 if (CurrentBlip.Sprite != BlipSprite.Dead)
                 {
                     CurrentBlip.Sprite = BlipSprite.Dead;
@@ -254,7 +237,8 @@ namespace SPFClient.Entities
 
             else
             {
-                var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, moveBuffer, snapshotCount, 0.6f);
+                var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion,
+                    moveBuffer, snapshotCount, 0.6f);
 
                 if (entityPosition != null)                 
                 {
@@ -292,9 +276,10 @@ namespace SPFClient.Entities
                 animationManager.Update();
             }
 
-            if (Position.DistanceTo(Game.Player.Character.Position) < 20f)
+            if (Position.DistanceTo(Game.Player.Character.Position) < 12f)
             {
-                RenderPlayerName();
+                //    RenderPlayerName();
+                playerTag.Update();
             }
 
             base.Update();
@@ -332,7 +317,7 @@ namespace SPFClient.Entities
         /// </summary>
         private void RenderPlayerName()
         {
-            playerName.Caption = Name == null ? "" : Name;
+            /*playerName.Caption = Name == null ? "" : Name;
 
             var coords = Function.Call<Vector3>(Hash._GET_ENTITY_BONE_COORDS, Handle, 31086);
             var pos = coords + Position + new Vector3(0, 0, 1.50f);
@@ -341,7 +326,9 @@ namespace SPFClient.Entities
 
             playerName.Draw();
 
-            Function.Call(Hash.CLEAR_DRAW_ORIGIN);
+            Function.Call(Hash.CLEAR_DRAW_ORIGIN);*/
+
+
         }
 
         /// Avoid iterating inside xxHashtoID while running the game loop.

@@ -144,32 +144,30 @@ namespace SPFLib
         public static WeaponData ReadWeaponData(this NetIncomingMessage message)
         {
             var wd = new WeaponData();
-            wd.Timestamp = new DateTime(message.ReadInt64());
+            wd.TargetID = message.ReadInt32();
             wd.HitCoords = message.ReadVector3();
             wd.WeaponDamage = message.ReadInt16();
+            wd.Timestamp = new DateTime(message.ReadInt64());
             return wd;
         }
 
         public static void Write(this NetOutgoingMessage message, WeaponData wd)
         {
-            message.Write(wd.Timestamp.Ticks);
+            message.Write(wd.TargetID);
             message.Write(wd.HitCoords);
-            message.Write(wd.WeaponDamage);
+            message.Write((short)wd.WeaponDamage);
+            message.Write(wd.Timestamp.Ticks);
         }
 
         public static SessionCommand ReadSessionCommand(this NetIncomingMessage message)
         {
             var cmd = new SessionCommand();
-            cmd.UID = message.ReadInt32();
-            cmd.Name = message.ReadString();
             cmd.Command = (CommandType)message.ReadInt16();
             return cmd;
         }
 
         public static void Write(this NetOutgoingMessage message, SessionCommand cmd)
         {
-            message.Write(cmd.UID);
-            message.Write(cmd.Name);
             message.Write((short)cmd.Command);
         }
 

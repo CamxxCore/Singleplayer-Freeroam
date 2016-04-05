@@ -16,7 +16,11 @@ namespace SPFClient.Types
         {
             Dictionary = dict;
             Name = name;
+            Load();
+        }
 
+        public void Load()
+        {
             Function.Call(Hash.REQUEST_ANIM_DICT, Dictionary);
 
             while (!Function.Call<bool>(Hash.HAS_ANIM_DICT_LOADED, Dictionary))

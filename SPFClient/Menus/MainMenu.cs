@@ -61,8 +61,6 @@ namespace SPFClient.Menus
 
                     Wait(500);
 
-                    GTA.UI.ShowSubtitle(new IPAddress(menuItem.Session.Address).ToString());
-
                     NetworkSession.JoinActiveSession(menuItem.Session);
 
                     //Scripts.FadeInScreen(500, 1000);
@@ -89,7 +87,7 @@ namespace SPFClient.Menus
         private void GetIPAddressInput()
         {
             menuPool.CloseAllMenus();
-           NetworkSession.JoinSessionDirect(IPAddress.Parse("192.168.1.100"));
+           NetworkSession.JoinSessionDirect(IPAddress.Parse("192.168.1.147"));
       //     UIManager.UIInput.ReturnedResult += UIInput_ReturnedResult;
        //     UIManager.UIInput.Display();                
         }

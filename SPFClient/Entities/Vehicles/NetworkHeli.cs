@@ -37,7 +37,8 @@ namespace SPFClient.Entities
             for (int i = stateBuffer.Length - 1; i > 0; i--)
                 stateBuffer[i] = stateBuffer[i - 1];
 
-            stateBuffer[0] = new HeliSnapshot(position, vel, rotation, updatedState.RotorSpeed, timeSent);
+            stateBuffer[0] = new HeliSnapshot(position, vel, rotation, updatedState.RotorSpeed, 
+                timeSent);
 
             snapshotCount = Math.Min(snapshotCount + 1, stateBuffer.Length);
 
@@ -77,19 +78,14 @@ namespace SPFClient.Entities
                 15, 1, (int)hash, Handle, 1, 1, 0xBF800000);
         }
 
-        public HeliState GetExclusiveState()
+        public HeliState GetHeliState()
         {
             var v = new Vehicle(Handle);
 
-            var state = new HeliState(ID,
-                 Position.Serialize(),
-                 Velocity.Serialize(),
-                 Quaternion.Serialize(),
-                 0f,
-                 0, Convert.ToInt16(Health),
+            var state = new HeliState(ID, Position.Serialize(), Velocity.Serialize(),
+                 Quaternion.Serialize(), 0f, 0, Convert.ToInt16(Health),
                  (byte)v.PrimaryColor, (byte)v.SecondaryColor,
-                 GetRadioStation(),
-                 GetVehicleID());
+                 GetRadioStation(), GetVehicleID());
 
             if (IsDead)
                 state.Flags |= VehicleFlags.Exploded;

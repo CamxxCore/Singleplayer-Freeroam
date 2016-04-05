@@ -62,6 +62,8 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Config.cs" />
+    <Compile Include="Config\INIHelper.cs" />
     <Compile Include="Entities\Event Args\EntityChangedEventArgs.cs" />
     <Compile Include="Entities\GameEntity.cs" />
     <Compile Include="Entities\Helpers\BicycleController.cs" />
@@ -79,6 +81,7 @@
     <Compile Include="Entities\Vehicles\NetworkHeli.cs" />
     <Compile Include="Entities\Vehicles\NetworkPlane.cs" />
     <Compile Include="Entities\Helpers\Flares\LoopedPTFX.cs" />
+    <Compile Include="Config\INIFile.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Network\Helpers\NativeHelper.cs" />
     <Compile Include="Network\EntityManager.cs" />
@@ -121,6 +124,7 @@
     <Compile Include="UI\UIChat.cs" />
     <Compile Include="UI\UIInput.cs" />
     <Compile Include="UI\UIManager.cs" />
+    <Compile Include="UI\UIPlayerTag.cs" />
     <Compile Include="UI\UIRankBar.cs" />
     <Compile Include="Network\NetworkSession.cs" />
     <Compile Include="KeyInterop.cs" />
@@ -143,6 +147,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\rank_achieved.wav" />
+    <None Include="Resources\SPFClient.ini" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

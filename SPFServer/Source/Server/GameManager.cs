@@ -22,6 +22,7 @@ namespace SPFServer.Main
 
         private GameClient activeAIHost;
 
+        int snapshotCount = 0;
         SessionState[] historyBuffer = new SessionState[20];
 
         internal GameManager()
@@ -118,6 +119,8 @@ namespace SPFServer.Main
                 historyBuffer[i] = historyBuffer[i - 1];
 
             historyBuffer[0] = state;
+
+            snapshotCount = Math.Min(snapshotCount + 1, historyBuffer.Length);
         }
 
         /// <summary>
@@ -126,8 +129,12 @@ namespace SPFServer.Main
         /// <returns></returns>
         internal SessionState FindBufferedState(DateTime timestamp)
         {
-            return historyBuffer.Where(x => x.Timestamp <= timestamp).
-                FirstOrDefault();
+            for (int i = 0; i < snapshotCount; i++)
+            {
+                if (historyBuffer[i].Timestamp <= timestamp)
+                    return historyBuffer[i];
+            }
+            return historyBuffer[0];
         }
 
         /// <summary>
@@ -181,7 +188,7 @@ namespace SPFServer.Main
         {
             GameClient client;
 
-            if ((client = activeClients.Where(x => x.Info.UID == clientID).FirstOrDefault()) != null)
+            if ((client = activeClients.Find(x => x.Info.UID == clientID)) != null)
             {
                 gameClient = client;
                 return true;
@@ -204,7 +211,7 @@ namespace SPFServer.Main
         {
             AIClient ai;
 
-            if ((ai = activeAI.Where(x => x.ID == aiID).FirstOrDefault()) != null)
+            if ((ai = activeAI.Find(x => x.ID == aiID)) != null)
             {
                 aiClient = ai;
                 return true;
@@ -243,10 +250,10 @@ namespace SPFServer.Main
         /// <param name="endpoint"></param>
         internal void RemoveClient(int clientID)
         {
-            var client = activeClients.Where(x =>
-             x.Info.UID == clientID).FirstOrDefault();
+            var client = activeClients.Find(x =>
+             x.Info.UID == clientID);
 
-            if (client.Connection != null)
+            if (client?.Connection != null)
                 lock (SyncObj)
                 RemoveClient(client);
         }

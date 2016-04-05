@@ -17,7 +17,8 @@ namespace SPFServer.Types
         internal DateTime LastUpd;
         internal DateTime LastSync;
         internal bool WaitForRespawn;
-        internal uint LastSequence;   
+        internal uint LastSequence;
+        internal bool DoNameSync;
         public short Health { get; set; }
 
         public Vector3 Position

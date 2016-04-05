@@ -77,8 +77,6 @@ public class Script : ScriptBase
                     {
                         var ai = Server.ActiveSession.CreateAI("test ai", PedType.Zombie01, sender.Position.Around(15f), new Quaternion());
 
-                        System.Threading.Thread.Sleep(1000);
-
                         foreach (var client in Server.ActiveSession.ActiveClients)
                         {
                             Server.ActiveSession.InvokeClientNative(client, "TASK_GOTO_ENTITY_OFFSET_XY",
