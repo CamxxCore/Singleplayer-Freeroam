@@ -6,12 +6,12 @@ using System.ComponentModel;
 
 namespace SPFClient.Config
 {
-    public static class INIHelper
+    public static class IniHelper
     {
         public static readonly string IniPath = string.Format("scripts\\{0}.ini", Assembly.GetExecutingAssembly().GetName().Name);
         public static readonly IniFile IniFile = new IniFile(IniPath);
 
-        static INIHelper()
+        static IniHelper()
         {
             if (!File.Exists(IniPath))
                 Create();

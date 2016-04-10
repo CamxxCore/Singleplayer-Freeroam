@@ -14,13 +14,14 @@ namespace SPFLib.Types
         public Quaternion Rotation { get; set; }
         public ClientFlags MovementFlags { get; set; }
         public ActiveTask ActiveTask { get; set; }
-        public VehicleSeat VehicleSeat { get; set; }
-        public PedType PedType { get; set; }
+        public PedHash PedHash { get; set; }
         public bool InVehicle { get; set; }
         public short WeaponID { get; set; }
         public short Health { get; set; }
 
-        public VehicleState VehicleState;
+        public int VehicleID { get; set; }
+        public VehicleSeat VehicleSeat { get; set; }
+
 
         public ClientState() : this(0, null)
         {
@@ -28,7 +29,6 @@ namespace SPFLib.Types
 
         public ClientState(int id, string name)
         {
-
             ClientID = id;
             Name = name;
             Position = new Vector3();
@@ -38,7 +38,8 @@ namespace SPFLib.Types
             MovementFlags = 0;
             ActiveTask = 0;
             VehicleSeat = VehicleSeat.None;
-            PedType = PedType.None;
+            VehicleID = -1;
+            PedHash = 0;
             WeaponID = -1;
             Health = 100;
         }    

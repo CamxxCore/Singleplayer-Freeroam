@@ -1,4 +1,5 @@
-﻿namespace SPFLib.Enums
+﻿
+namespace SPFLib.Enums
 {
     /// <summary>
     /// Server commands that can be invoked by the client.

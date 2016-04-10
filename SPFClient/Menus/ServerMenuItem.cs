@@ -14,6 +14,7 @@ namespace SPFClient.Menus
             session.MaxClients))
         {
             Session = session;
+            Enabled = false;
         }
     }
 }

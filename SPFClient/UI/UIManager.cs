@@ -67,13 +67,15 @@ namespace SPFClient.UI
             }
 
 #if debug
-        UIText debugText = new UIText(string.Format("SPFClient | Beta Build # {0}\nConnected At: {1} Port: {2}\nSent: {3} RTT: {4}",
+        UIText debugText = new UIText(string.Format("SPFClient | Beta Build # {0}\nConnected At: {1} Port: {2}\nSent (b): {3} RTT: {4}",
             Assembly.GetExecutingAssembly().GetName().Version.ToString(),
-            Network.NetworkSession.Current == null ? "N/A" :
-            Network.NetworkSession.Current.Connection.ServerConnection?.RemoteEndPoint.Address.ToString(),
-            Network.NetworkSession.Current?.Connection.ServerConnection?.RemoteEndPoint.Port,
-            Network.NetworkSession.PacketsSent,
-            Network.NetworkSession.Current?.Connection.ServerConnection?.AverageRoundtripTime),
+            Network.NetworkManager.Current == null ? "N/A" :
+            Network.NetworkManager.Current.Connection.ServerConnection?.RemoteEndPoint.Address.ToString(),
+            Network.NetworkManager.Current?.Connection.ServerConnection?.RemoteEndPoint.Port,
+            Network.NetworkManager.PacketsSent,
+            Network.NetworkManager.Current?.Connection.ServerConnection?.AverageRoundtripTime,
+            Network.NetworkManager.Current?.Connection.Statistics.SentBytes,
+            Network.NetworkManager.Current?.Connection.ServerConnection?.AverageRoundtripTime),
             new Point((GTA.UI.WIDTH / Game.ScreenResolution.Width) * 1080, 20),
             0.6f,
             Color.White,
@@ -124,13 +126,13 @@ namespace SPFClient.UI
         static bool drawNotify, drawSubtitle;
         static string bufferText;
 
-        public static void UINotifyProxy(string text)
+        public static void ShowNotification(string text)
         {
             bufferText = text;
             drawNotify = true;
         }
 
-        public static void UISubtitleProxy(string text)
+        public static void ShowSubtitle(string text)
         {
             bufferText = text;
             drawSubtitle = true;

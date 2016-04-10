@@ -3,11 +3,8 @@ using GTA.Native;
 using SPFLib.Types;
 using SPFClient.Types;
 using SPFClient.UI;
-using SPFLib.Enums;
 using SPFLib;
 using System;
-using Vector3 = GTA.Math.Vector3;
-using UIResText = NativeUI.UIResText;
 
 namespace SPFClient.Entities
 {
@@ -31,17 +28,14 @@ namespace SPFClient.Entities
         }
 
         private int snapshotCount;
+
         private bool frozen = false;
-        private int currentPedHash;
-        private static PedType pedType;
 
         private DateTime lastUpdateTime;
 
-       // private static UIResText playerName;
-
         private static UIPlayerTag playerTag;
 
-        private static MovementController animationManager;
+        private static AnimationManager animationManager;
         private static BicyleController bicyleController;
 
         private PlayerSnapshot[] moveBuffer = new PlayerSnapshot[20];
@@ -61,23 +55,18 @@ namespace SPFClient.Entities
 
         static Ped SetupPed(ClientState state)
         {
-            PedHash result;
-
-            if (!Enum.TryParse(state.PedType.ToString(), out result))
-                result = PedHash.Michael;
-
-            var pedModel = new Model(result);
+            var pedModel = new Model((int) state.PedHash);
 
             if (!pedModel.IsLoaded)
                 pedModel.Request(1000);
 
-            var position = state.InVehicle ? state.VehicleState.Position.Deserialize() : state.Position.Deserialize();
+            var position = state.Position.Deserialize();
 
-            var rotation = state.InVehicle ? state.VehicleState.Rotation.Deserialize() : state.Rotation.Deserialize();
+            var rotation = state.Rotation.Deserialize();
 
-            var spawnPos = position + new Vector3(0, 0, -1f);
+            var ped = new Ped(Function.Call<int>(Hash.CREATE_PED, 26, pedModel.Hash, position.X, position.Y, position.Z, 0f, false, true));
 
-            var ped = new Ped(Function.Call<int>(Hash.CREATE_PED, 26, pedModel.Hash, spawnPos.X, spawnPos.Y, spawnPos.Z, 0f, false, true));
+            ped.PositionNoOffset = position;
 
             pedModel.MarkAsNoLongerNeeded();
 
@@ -129,7 +118,9 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_PED_CAN_BE_KNOCKED_OFF_VEHICLE, ped.Handle, 3);
 
-            animationManager = new MovementController(ped);
+            Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED, ped.Handle, false);
+
+            animationManager = new AnimationManager(ped);
         
             bicyleController = new BicyleController(ped);
 
@@ -140,19 +131,10 @@ namespace SPFClient.Entities
 
             playerTag = new UIPlayerTag(ped, state.Name);
 
-         /*   playerName = new UIResText(state.Name, 
-                new System.Drawing.Point(), 
-                0.6f, 
-                System.Drawing.Color.White, 
-                Font.ChaletLondon, 
-                UIResText.Alignment.Centered);*/
-           
-            pedType = state.PedType;
-
             return ped;
         }
 
-        public void HandleStateUpdate(DateTime timeSent, ClientState state)
+        public void HandleStateUpdate(ClientState state, DateTime time)
         {
             if (!state.InVehicle)
             {
@@ -178,11 +160,14 @@ namespace SPFClient.Entities
 
                 moveBuffer[0] = new PlayerSnapshot(state.Position.Deserialize(), state.Velocity.Deserialize(), 
                     state.Rotation.Deserialize(), state.Angles.Deserialize(), state.ActiveTask, 
-                    state.MovementFlags, timeSent);
+                    state.MovementFlags, time);
 
                 snapshotCount = Math.Min(snapshotCount + 1, moveBuffer.Length);
 
-                animationManager.UpdateAnimationFlags(state.MovementFlags, state.ActiveTask);
+                animationManager.SetFlags(state.MovementFlags, state.ActiveTask);
+
+                if (!string.IsNullOrWhiteSpace(state.Name) && playerTag.Name != state.Name)
+                    playerTag.SetPlayerName(state.Name);
             }
          
             lastReceivedState = state;
@@ -192,7 +177,7 @@ namespace SPFClient.Entities
         public override void Update()
         {
             if (NetworkTime.Now - lastUpdateTime > TimeSpan.FromMilliseconds(1000) ||
-                LastState.PedType != 0 && GetPedType() != LastState.PedType ||
+                LastState.PedHash != 0 && Model.Hash != (int) LastState.PedHash ||
                 LastState.Health > 0 && Health <= 0)
             {
                 if (Exists())
@@ -200,19 +185,18 @@ namespace SPFClient.Entities
                 return;
             }
 
-            if (LastState.Health <= 0) Health = -1;
-
-            else if (LastState.Health < Health)
+            if (LastState.Health < 0)
             {
-                Function.Call(Hash.APPLY_DAMAGE_TO_PED, Handle, Health - LastState.Health, true);
+                Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED, Handle, true);
+                Health = -1;
             }
 
-            else if (LastState.Health > Health)
+            if (LastState.Health != Health)
             {
                 Health = LastState.Health;
             }
 
-            if (LastState.Health <= 0)
+            if (LastState.Health < 0)
             { 
                 if (CurrentBlip.Sprite != BlipSprite.Dead)
                 {
@@ -237,15 +221,14 @@ namespace SPFClient.Entities
 
             else
             {
-                var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion,
-                    moveBuffer, snapshotCount, 0.6f);
-
-                if (entityPosition != null)                 
+                if (snapshotCount > EntityExtrapolator.SnapshotMin)
                 {
+                    var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion,
+                        moveBuffer, snapshotCount, 0.6f);
+
                     if (frozen)
                     {
-                        FreezePosition = false;
-                        frozen = false;
+                        frozen = FreezePosition = false;
                     }
 
                     if (Position.DistanceTo(entityPosition.Position) > 10f)
@@ -259,7 +242,9 @@ namespace SPFClient.Entities
                         PositionNoOffset = entityPosition.Position;
                         Quaternion = entityPosition.Rotation;
                         Velocity = entityPosition.Velocity;
-                        animationManager.UpdateAnimationFlags(entityPosition.MovementFlags, entityPosition.ActiveTask);
+
+                        animationManager.SetFlags(entityPosition.MovementFlags, entityPosition.ActiveTask);
+
                         animationManager.UpdateLocalAngles(entityPosition.Position, entityPosition.Angles);
                     }
                 }
@@ -268,17 +253,16 @@ namespace SPFClient.Entities
                 {
                     if (!frozen)
                     {
-                        FreezePosition = true;
-                        frozen = true;
+                        frozen = FreezePosition = true;              
                     }
                 }
 
                 animationManager.Update();
             }
 
-            if (Position.DistanceTo(Game.Player.Character.Position) < 12f)
+            if (Position.DistanceTo(Game.Player.Character.Position) < 12f && 
+                Function.Call<bool>(Hash.IS_ENTITY_ON_SCREEN, Handle))
             {
-                //    RenderPlayerName();
                 playerTag.Update();
             }
 
@@ -291,16 +275,7 @@ namespace SPFClient.Entities
         /// <param name="state"></param>
         public void SetBicycleState(BicycleTask state)
         {
-            bicyleController.SetCurrentBicycleTask(state);
-        }
-
-        /// <summary>
-        /// Set the state of the players active bicycle.
-        /// </summary>
-        /// <param name="state"></param>
-        public void SetBicycleState(short state)
-        {
-            bicyleController.SetCurrentBicycleTask((BicycleTask)state);
+            bicyleController.SetTask(state);
         }
 
         /// <summary>
@@ -309,51 +284,7 @@ namespace SPFClient.Entities
         /// <param name="name"></param>
         public void SetName(string name)
         {
-            Name = name;
-        }
-
-        /// <summary>
-        /// Render the in- game player name.
-        /// </summary>
-        private void RenderPlayerName()
-        {
-            /*playerName.Caption = Name == null ? "" : Name;
-
-            var coords = Function.Call<Vector3>(Hash._GET_ENTITY_BONE_COORDS, Handle, 31086);
-            var pos = coords + Position + new Vector3(0, 0, 1.50f);
-
-            Function.Call(Hash.SET_DRAW_ORIGIN, pos.X, pos.Y, pos.Z, 0);
-
-            playerName.Draw();
-
-            Function.Call(Hash.CLEAR_DRAW_ORIGIN);*/
-
-
-        }
-
-        /// Avoid iterating inside xxHashtoID while running the game loop.
-        /// </summary>
-        /// <returns></returns>
-        public PedType GetPedType()
-        {
-            if (Model.Hash != currentPedHash)
-            {
-                currentPedHash = Model.Hash;
-                Enum.TryParse(((PedHash)currentPedHash).ToString(), out pedType);
-            }
-
-            return pedType;
-        }
-
-        /// <summary>
-        /// Get an entity snapshot from the buffer.
-        /// </summary>
-        /// <param name="index"></param>
-        /// <returns></returns>
-        public PlayerSnapshot GetEntitySnapshot(int index)
-        {
-            if (index > moveBuffer.Length - 1) throw new ArgumentOutOfRangeException("index: out of range.");
-            return moveBuffer[index];
+            playerTag.SetPlayerName(name);
         }
     }
 }

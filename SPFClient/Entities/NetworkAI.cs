@@ -26,18 +26,14 @@ namespace SPFClient.Entities
 
         private int currentPedHash;
         private static PedType pedType;
-        private bool updatingPosition;
+        private bool serverUpdating;
         private DateTime lastUpdateTime;
         private int snapshotCount;
-
-        private int deathCounter;
 
         private static Vector3 lastPosition;
         private static GTA.Math.Quaternion lastRotation;
 
         private static UIResText playerName;
-
-        private static UIRectangle playerHealth;
 
         private AISnapshot[] moveBuffer = new AISnapshot[20];
 
@@ -103,7 +99,7 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_PED_CONFIG_FLAG, ped.Handle, 185, 1);
 
-            Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
+          //  Function.Call(Hash.SET_PED_CAN_RAGDOLL_FROM_PLAYER_IMPACT, ped.Handle, false);
 
             Function.Call(Hash._0x26695EC767728D84, ped.Handle, 1);
             Function.Call(Hash._0x26695EC767728D84, ped.Handle, 16);
@@ -111,6 +107,8 @@ namespace SPFClient.Entities
             Function.Call(Hash.SET_PED_MOVE_ANIMS_BLEND_OUT, ped.Handle);
 
             Function.Call(Hash.SET_PED_SUFFERS_CRITICAL_HITS, ped.Handle, false);
+
+           //Function.Call(Hash.SET_ENTITY_CAN_BE_DAMAGED, ped.Handle, false);
 
             var blip = ped.AddBlip();
             blip.Color = BlipColor.Yellow;
@@ -140,7 +138,7 @@ namespace SPFClient.Entities
 
         public void HandleStateUpdate(AIState state, DateTime svTime, bool iAmHost)
         {
-            updatingPosition = !iAmHost;
+            serverUpdating = !iAmHost;
 
             for (int i = moveBuffer.Length - 1; i > 0; i--)
                 moveBuffer[i] = moveBuffer[i - 1];
@@ -154,8 +152,17 @@ namespace SPFClient.Entities
             lastUpdateTime = NetworkTime.Now;
         }
 
+        private int deathCounter = 0;
+
         public override void Update()
         {
+            if (NetworkTime.Now - lastUpdateTime > TimeSpan.FromMilliseconds(10000))
+            {
+                if (Exists())
+                    Dispose();
+                return;
+            }
+
             if (LastState.Health <= 0) Health = -1;
 
             else if (LastState.Health < Health)
@@ -180,7 +187,7 @@ namespace SPFClient.Entities
                 {
                     deathCounter = Game.GameTime + 10000;
                 }
-              //  if (!IsDead) Health = -1;
+                //  if (!IsDead) Health = -1;
 
                 if (CurrentBlip.Sprite != BlipSprite.Dead)
                 {
@@ -199,14 +206,14 @@ namespace SPFClient.Entities
                 }
             }
 
-            if (updatingPosition)
+
+            if (serverUpdating)
             {
                 var entityPosition = EntityExtrapolator.GetExtrapolatedPosition(
                     Position, Quaternion, moveBuffer, snapshotCount, 0.6f);
 
                 if (entityPosition != null)
                 {
-
                     if (Position.DistanceTo(entityPosition.Position) > 10f)
                     {
                         PositionNoOffset = moveBuffer[0].Position;
@@ -223,6 +230,7 @@ namespace SPFClient.Entities
 
             if (Position.DistanceTo(Game.Player.Character.Position) < 20f)
             {
+                playerName.Caption = Health.ToString();
                 RenderPlayerName();
             }
 

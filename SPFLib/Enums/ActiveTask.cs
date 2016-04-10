@@ -1,4 +1,5 @@
-﻿namespace SPFLib.Enums
+﻿
+namespace SPFLib.Enums
 {
     public enum ActiveTask
     {

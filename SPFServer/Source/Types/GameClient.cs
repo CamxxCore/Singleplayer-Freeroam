@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using SPFServer.Natives;
+using SPFServer.Main;
 using SPFLib.Types;
 using Lidgren.Network;
 
@@ -16,7 +16,9 @@ namespace SPFServer.Types
         internal TimeSpan TimeDiff;
         internal DateTime LastUpd;
         internal DateTime LastSync;
-        internal bool WaitForRespawn;
+        internal DateTime IdleTimer;
+        internal bool Respawning;
+        internal bool WaitForKick;
         internal uint LastSequence;
         internal bool DoNameSync;
         public short Health { get; set; }

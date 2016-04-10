@@ -40,32 +40,32 @@ namespace SPFClient.Entities
             this.ped = ped;
         }
 
-        public void SetCurrentBicycleTask(BicycleTask task)
+        /// <summary>
+        /// Sets the current bicycle task.
+        /// </summary>
+        /// <param name="task"></param>
+        public void SetTask(BicycleTask task)
         {
             currentTask = task;
             currentAnimation = AnimationFromState(currentTask);
         }
 
-        private void PlayAnimation(Animation animation, int flags = 1)
-        {
-            Function.Call(Hash.TASK_PLAY_ANIM, ped.Handle,
-             animation.Dictionary, animation.Name, 8f, -4.0f, -1, flags, 0, 0, 0, 0);
-        }
-
-
-        public void StopAllAnimations()
-        {
-            ped.Task.ClearAll();
-        }
-
+        /// <summary>
+        /// Update bicycle animations.
+        /// </summary>
         public void Update()
         {
             if (currentAnimation == null || ped.IsRagdoll)
                 return;
             if (!currentAnimation.IsPlayingOn(ped))
-                PlayAnimation(currentAnimation);
+               AnimationManager.PlayAnimation(ped, currentAnimation);
         }
 
+        /// <summary>
+        ///  Get the current animation for the supplied bicycle task.
+        /// </summary>
+        /// <param name="task"></param>
+        /// <returns></returns>
         public Animation AnimationFromState(BicycleTask task)
         {
             switch (task)

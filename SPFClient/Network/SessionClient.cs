@@ -12,11 +12,13 @@ namespace SPFClient.Network
 {
     public delegate void ChatEventHandler(EndPoint sender, SessionMessage e);
 
-    public delegate void SessionEventHandler(EndPoint sender, SessionEvent e);
+    public delegate void SessionEventHandler(EndPoint sender, ClientEvent e);
 
     public delegate void SessionStateHandler(EndPoint sender, SessionState e);
 
     public delegate void SessionSyncHandler(EndPoint sender, SessionSync e);
+
+    public delegate void SessionAckHandler(EndPoint sender, SessionAck e);
 
     public delegate void NativeInvocationHandler(EndPoint sender, NativeCall e);
 
@@ -86,11 +88,13 @@ namespace SPFClient.Network
             client.Connect(serverEP, msg);
         }
 
-        public void SendSynchronizationAck()
+        public void SendAck(AckType type, object value)
         {
+            SessionAck ack = new SessionAck(type, value);
             var msg = client.CreateMessage();
-            msg.Write((byte)NetMessage.AckWorldSync);
-            client.SendMessage(msg, NetDeliveryMethod.ReliableOrdered);
+            msg.Write((byte)NetMessage.Acknowledgement);
+            msg.Write(ack);
+            client.SendMessage(msg, NetDeliveryMethod.ReliableUnordered);
         }
 
         public void Say(string message)
@@ -106,24 +110,15 @@ namespace SPFClient.Network
             client.SendMessage(msg, NetDeliveryMethod.ReliableOrdered);
         }
 
-        public void UpdateUserData(ClientState state, uint sequence)
+        public void UpdateUserData(ClientState state, VehicleState vehicle, uint sequence)
         {
+            NetMessage type = vehicle == null ? NetMessage.ClientState : NetMessage.VehicleState;
             var msg = client.CreateMessage();
-            msg.Write((byte)NetMessage.ClientState);
+            msg.Write((byte)type);
             msg.Write(sequence);
             msg.Write(state, false);
-            client.SendMessage(msg, NetDeliveryMethod.Unreliable);
-        }
-
-        public void UpdateUserData(ClientState state, AIState[] ai, uint sequence)
-        {
-            var msg = client.CreateMessage();
-            msg.Write((byte)NetMessage.ClientStateAI);
-            msg.Write(sequence);
-            msg.Write(state, false);
-            msg.Write(ai.Length);
-            foreach (var aiPlayer in ai)
-                msg.Write(aiPlayer, false);
+            if (type == NetMessage.VehicleState)
+            msg.Write(vehicle);
             client.SendMessage(msg, NetDeliveryMethod.Unreliable);
         }
 
@@ -135,12 +130,12 @@ namespace SPFClient.Network
             client.SendMessage(msg, NetDeliveryMethod.ReliableSequenced);
         }
 
-        public void SendWeaponData(WeaponData data)
+        public void SendImpactData(ImpactData data)
         {
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.WeaponData);
             msg.Write(data);
-            client.SendMessage(msg, NetDeliveryMethod.ReliableSequenced);
+            client.SendMessage(msg, NetDeliveryMethod.ReliableOrdered);
         }
 
         public bool Inititialize(int uid, string username)
@@ -202,25 +197,33 @@ namespace SPFClient.Network
         /// <param name="ar"></param>
         public void OnReceive(object state)
         {
-            while ((message = client.ReadMessage()) != null)
+            try
             {
-                if (message.MessageType == NetIncomingMessageType.Data)
-                    HandleIncomingDataMessage(message);
-
-                else if (message.MessageType == NetIncomingMessageType.StatusChanged)
+                while ((message = client.ReadMessage()) != null)
                 {
-                    var status = (NetConnectionStatus)message.ReadByte();
+                    if (message.MessageType == NetIncomingMessageType.Data)
+                        HandleIncomingDataMessage(message);
 
-
-                    if (status == NetConnectionStatus.Disconnected)
+                    else if (message.MessageType == NetIncomingMessageType.StatusChanged)
                     {
-                        string reason = message.ReadString();
-                        if (string.IsNullOrEmpty(reason))
-                            return;
+                        var status = (NetConnectionStatus)message.ReadByte();
 
-                        OnDisconnect?.Invoke(message.SenderConnection.RemoteEndPoint, reason);
+
+                        if (status == NetConnectionStatus.Disconnected)
+                        {
+                            string reason = message.ReadString();
+                            if (string.IsNullOrEmpty(reason))
+                                return;
+
+                            OnDisconnect?.Invoke(message.SenderConnection.RemoteEndPoint, reason);
+                        }
                     }
                 }
+            }
+
+            catch (Exception ex)
+            {
+                Logger.Log("Exception while receiving the message. " + ex.ToString());
             }
         }
 
@@ -249,13 +252,12 @@ namespace SPFClient.Network
                         return;
                     case NetMessage.RankData:
                         OnRankDataReceived(msg.SenderEndPoint, msg.ReadRankData());
-                        return;
+                        return;       
                 }
             }
 
             catch
             {
-
             }
         }
 
@@ -264,7 +266,7 @@ namespace SPFClient.Network
             var msg = client.CreateMessage();
             msg.Write((byte)NetMessage.NativeCallback);
             msg.Write(cb);
-            client.SendMessage(msg, NetDeliveryMethod.ReliableOrdered);
+            client.SendMessage(msg, NetDeliveryMethod.ReliableSequenced);
         }
 
         internal void ReturnSessionSync(SessionSync req)
@@ -307,7 +309,7 @@ namespace SPFClient.Network
             RankDataEvent?.Invoke(sender, msg);
         }
 
-        protected virtual void OnSessionEvent(EndPoint sender, SessionEvent msg)
+        protected virtual void OnSessionEvent(EndPoint sender, ClientEvent msg)
         {
             if (msg == null) return;
             SessionEvent?.Invoke(sender, msg);

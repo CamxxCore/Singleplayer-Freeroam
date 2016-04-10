@@ -35,7 +35,7 @@ namespace SPFClient.Entities
         public NetworkVehicle(VehicleState state) :
             base(SetupVehicle(state.Position.Deserialize(),
                 state.Rotation.Deserialize(),
-                state.VehicleID,
+                state.ModelID,
                 state.Flags.HasFlag(VehicleFlags.DoorsLocked),
                 state.PrimaryColor,
                 state.SecondaryColor))
@@ -60,7 +60,7 @@ namespace SPFClient.Entities
 
         internal static Vehicle SetupVehicle(Vector3 position, Quaternion rotation, short vehID, bool doorsLocked, byte primaryColor, byte secondaryColor)
         {
-            var model = new Model(Helpers.VehicleIDToHash(vehID));
+            var model = new Model((int)SPFLib.Helpers.VehicleIDToHash(vehID));
 
             if (!model.IsLoaded)
                 model.Request(1000);
@@ -74,11 +74,13 @@ namespace SPFClient.Entities
 
             vehicle.Quaternion = rotation;
 
+            vehicle.PositionNoOffset = position;
+
             Function.Call(Hash.SET_VEHICLE_COLOURS, vehicle.Handle, primaryColor, secondaryColor);
 
-            var dt = DateTime.Now + TimeSpan.FromMilliseconds(300);
+         //   var dt = DateTime.Now + TimeSpan.FromMilliseconds(300);
 
-            while (DateTime.Now < dt) Script.Yield();
+         //   while (DateTime.Now < dt) Script.Yield();
 
             vehicle.IsInvincible = true;
 
@@ -86,7 +88,7 @@ namespace SPFClient.Entities
 
             Function.Call(Hash.SET_VEHICLE_RADIO_LOUD, vehicle.Handle, true);
 
-            Function.Call(Hash.SET_ENTITY_COLLISION, vehicle.Handle, 1, 0);
+         //   Function.Call(Hash.SET_ENTITY_COLLISION, vehicle.Handle, 1, 0);
 
             Function.Call(Hash.SET_ENTITY_AS_MISSION_ENTITY, vehicle.Handle, true, true);
 
@@ -95,9 +97,9 @@ namespace SPFClient.Entities
             return vehicle;
         }
 
-        public virtual void HandleStateUpdate(DateTime timeSent, VehicleState state)
+        public virtual void HandleStateUpdate(VehicleState state, DateTime timeSent)
         {
-            if ((state.Flags & VehicleFlags.Exploded) != 0 && IsAlive)
+            if ((state.Flags & VehicleFlags.Exploded) != 0 && state.Health <= 0 && IsAlive)
             {
                 IsInvincible = false;
                 Function.Call(Hash.EXPLODE_VEHICLE, Handle, true, false);
@@ -144,7 +146,8 @@ namespace SPFClient.Entities
             if (Model.Hash != lastVehicleHash)
             {
                 lastVehicleHash = Model.Hash;
-                lastVehicleID = Helpers.VehicleHashtoID((VehicleHash)lastVehicleHash);
+                lastVehicleID = SPFLib.Helpers.VehicleHashtoID((
+                    (SPFLib.Enums.VehicleHash)lastVehicleHash));
             }
             return lastVehicleID;
         }
@@ -218,12 +221,12 @@ namespace SPFClient.Entities
 
         public override void Update()
         {
-            if (SPFLib.NetworkTime.Now - LastUpdateTime > TimeSpan.FromSeconds(1)) return;
+             if (SPFLib.NetworkTime.Now - LastUpdateTime > TimeSpan.FromSeconds(1)) return;
 
-            if (!Function.Call<bool>((Hash)0xAE31E7DF9B5B132E, Handle))
+          /*  if (!Function.Call<bool>((Hash)0xAE31E7DF9B5B132E, Handle))
             {
                 Function.Call(Hash.SET_VEHICLE_ENGINE_ON, Handle, true, true, 0);
-            }
+            }*/
 
             base.Update();
         }

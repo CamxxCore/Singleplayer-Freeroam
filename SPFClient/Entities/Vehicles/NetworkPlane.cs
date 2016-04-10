@@ -47,7 +47,7 @@ namespace SPFClient.Entities
 
             snapshotCount = Math.Min(snapshotCount + 1, stateBuffer.Length);
 
-            SetLandingGear((LGearState)e.ExtraFlags);
+            SetLandingGear((PlaneGear)e.ExtraFlags);
 
             if (e.Flags.HasFlag(VehicleFlags.VehicleCannon))
             {
@@ -58,6 +58,9 @@ namespace SPFClient.Entities
             {
                 FireWeapon((WeaponHash)0xCF0896E0);
             }
+
+            if (e.Flags.HasFlag(VehicleFlags.Exploded) && IsAlive)
+                Function.Call(Hash.EXPLODE_VEHICLE, Handle, true, false);
         }
 
         public void FireWeapon(WeaponHash hash)
@@ -74,14 +77,14 @@ namespace SPFClient.Entities
             Vector3 vStartPos, vEndPos;
 
             vStartPos = GetOffsetInWorldCoords(vOffset1);
-            vEndPos = Position + new Vector3(vOffset1.X, 0, vOffset1.Z) + ForwardVector * 20;
+            vEndPos = vStartPos + new Vector3(vOffset1.X, 0, vOffset1.Z) + ForwardVector * 20;
             Function.Call(Hash.SHOOT_SINGLE_BULLET_BETWEEN_COORDS, vStartPos.X, vStartPos.Y, vStartPos.Z, vEndPos.X, vEndPos.Y, vEndPos.Z,
                 15, 1, (int)hash, Handle, 1, 1, 0xBF800000);
 
             vOffset1 = new Vector3(-vOffset1.X, vOffset1.Y, vOffset1.Z);
 
             vStartPos = GetOffsetInWorldCoords(vOffset1);
-            vEndPos = Position + new Vector3(vOffset1.X, 0, vOffset1.Z) + ForwardVector * 20;
+            vEndPos = vStartPos + new Vector3(vOffset1.X, 0, vOffset1.Z) + ForwardVector * 20;
             Function.Call(Hash.SHOOT_SINGLE_BULLET_BETWEEN_COORDS, vStartPos.X, vStartPos.Y, vStartPos.Z, vEndPos.X, vEndPos.Y, vEndPos.Z,
                 15, 1, (int)hash, Handle, 1, 1, 0xBF800000);
         }
@@ -122,28 +125,28 @@ namespace SPFClient.Entities
             MemoryAccess.WriteSingle(Address + Offsets.CPlane.Rudder, value);
         }
 
-        public void SetLandingGear(LGearState state)
+        public void SetLandingGear(PlaneGear state)
         {
             var vehicle = new Vehicle(Handle);
 
             switch (state)
             {
-                case LGearState.Closing:
-                    Function.Call(Hash._SET_VEHICLE_LANDING_GEAR, Handle, (int)LGearState.Closing);
+                case PlaneGear.Closing:
+                    Function.Call(Hash._SET_VEHICLE_LANDING_GEAR, Handle, (int)PlaneGear.Closing);
                     break;
-                case LGearState.Opening:
-                    Function.Call(Hash._SET_VEHICLE_LANDING_GEAR, Handle, (int)LGearState.Deployed);
+                case PlaneGear.Opening:
+                    Function.Call(Hash._SET_VEHICLE_LANDING_GEAR, Handle, (int)PlaneGear.Deployed);
                     break;
             }
         }
 
         public override void Update()
         {
-            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, 
-                stateBuffer, snapshotCount, 0.88f);
-
-            if (snapshot != null)
+            if (snapshotCount > EntityExtrapolator.SnapshotMin)
             {
+                var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion,
+                stateBuffer, snapshotCount, 0.22f);
+
                 PositionNoOffset = snapshot.Position;
                 Quaternion = snapshot.Rotation;
                 Velocity = snapshot.Velocity;
@@ -152,6 +155,7 @@ namespace SPFClient.Entities
                 SetRudder(snapshot.Rudder);
             }
 
+            if (IsAlive)
             Function.Call(Hash.SET_HELI_BLADES_FULL_SPEED, Handle);
 
             base.Update();

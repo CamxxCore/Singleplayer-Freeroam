@@ -20,6 +20,9 @@ namespace SPFLib.Enums
         Ragdoll = 512,
         Dead = 1024,
         Reloading = 2048,
+        Climbing = 4096,
+        HasParachute = 8192,
+        ParachuteOpen = 16384
     }
 
 }

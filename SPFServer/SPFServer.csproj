@@ -55,30 +55,31 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Source\Server\GameManager.cs" />
-    <Compile Include="Source\Types\AIClient.cs" />
+    <Compile Include="Source\Main\Natives\CallbackManager.cs" />
+    <Compile Include="Source\Main\GameManager.cs" />
     <Compile Include="Source\Types\GameClient.cs" />
+    <Compile Include="Source\Types\GameVehicle.cs" />
     <Compile Include="Source\Types\IGameEntity.cs" />
-    <Compile Include="Source\Utility\Config.cs" />
+    <Compile Include="Source\Util\Config.cs" />
     <Compile Include="Source\Example\Script.cs" />
-    <Compile Include="Source\Utility\Helpers.cs" />
-    <Compile Include="Source\Utility\Logger.cs" />
-    <Compile Include="Source\Natives\NativeFunctions.cs" />
-    <Compile Include="Source\Server\Main.cs" />
+    <Compile Include="Source\Util\Helpers.cs" />
+    <Compile Include="Source\Util\Logger.cs" />
+    <Compile Include="Source\Main\Natives\NativeFunctions.cs" />
+    <Compile Include="Source\Main\Server.cs" />
     <Compile Include="Source\WCF\NetworkService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Source\Ranks\RankTables.cs" />
+    <Compile Include="Source\Main\Rank\RankTables.cs" />
     <Compile Include="Source\Scripting\IScriptBase.cs" />
     <Compile Include="Source\Scripting\ScriptBase.cs" />
     <Compile Include="Source\Scripting\ScriptManager.cs" />
-    <Compile Include="Source\Types\ServerVarCollection.cs" />
-    <Compile Include="Source\Time\TimeCycleManager.cs" />
+    <Compile Include="Source\Types\ServerVarList.cs" />
+    <Compile Include="Source\Main\TimeCycle.cs" />
     <Compile Include="Source\Types\ServerVar.cs" />
-    <Compile Include="Source\Weather\WeatherManager.cs" />
+    <Compile Include="Source\Main\Weather\WeatherFactory.cs" />
     <Compile Include="Source\WCF\ServiceClient.cs" />
-    <Compile Include="Source\Utility\ThreadQueue.cs" />
-    <Compile Include="Source\Server\SessionServer.cs" />
-    <Compile Include="Source\Weather\WeatherType.cs" />
+    <Compile Include="Source\Util\ThreadQueue.cs" />
+    <Compile Include="Source\Main\NetworkSession.cs" />
+    <Compile Include="Source\Main\Weather\WeatherType.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -89,7 +90,9 @@
       <Name>SPFLib</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Source\Enums\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

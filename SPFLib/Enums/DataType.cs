@@ -1,10 +1,10 @@
-﻿namespace SPFLib.Enums
+﻿
+namespace SPFLib.Enums
 {
     public enum DataType
     {
         None,
         LocalHandle,
-        AIHandle,
         VehicleHandle,
         Int,
         Bool,

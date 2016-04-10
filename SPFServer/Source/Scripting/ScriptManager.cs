@@ -46,13 +46,31 @@ namespace SPFServer
             arEvent.Set();
         }
 
+        public void Reload()
+        {
+            runningScripts.ForEach(x => { x.Item1.running = false; x.Item2.Abort(); });
+            runningScripts.Clear();
+            runningScripts = EnumerateScripts();
+        }
+
         public void DoClientConnect(GameClient sender, DateTime time)
         {
             if (runningScripts == null) return;
 
             foreach (var script in runningScripts)
             {
-                script.Item1.OnClientConnect(sender, time);
+                try
+                {
+                    script.Item1.OnClientConnect(sender, time);
+                }
+
+                catch (Exception ex)
+                {
+                    Logger.Log(string.Format("OnClientConnect: Script '{0}' threw an exception: {1}", script.Item1.Name,
+                        ex.ToString()));
+
+                    Server.WriteErrorToConsole(string.Format("Script '{0}' threw an exception. See logs for details ", script.Item1.Name));
+                }
             }
         }
 
@@ -62,23 +80,41 @@ namespace SPFServer
 
             foreach (var script in runningScripts)
             {
-                script.Item1.OnClientDisconnect(sender, time);
+                try
+                {
+                    script.Item1.OnClientDisconnect(sender, time);
+
+                }
+
+                catch (Exception ex)
+                {
+                    Logger.Log(string.Format("OnClientDisconnect: Script '{0}' threw an exception: {1}", script.Item1.Name,
+                        ex.ToString()));
+
+                    Server.WriteErrorToConsole(string.Format("Script '{0}' threw an exception. See logs for details ", script.Item1.Name));
+                }
             }
         }
 
         public void DoMessageReceived(GameClient sender, string message)
         {
+            if (runningScripts == null) return;
+
             foreach (var script in runningScripts)
             {
-                script.Item1.OnMessageReceived(sender, message);
-            }
-        }
+                try
+                {
+                    script.Item1.OnMessageReceived(sender, message);
+                }
 
-        public void Reload()
-        {
-            runningScripts.ForEach(x => { x.Item1.running = false; x.Item2.Abort(); });
-            runningScripts.Clear();
-            runningScripts = EnumerateScripts();
+                catch (Exception ex)
+                {
+                    Logger.Log(string.Format("OnMessageReceived: Script '{0}' threw an exception: {1}", script.Item1.Name, 
+                        ex.ToString()));
+
+                    Server.WriteErrorToConsole(string.Format("Script '{0}' threw an exception. See logs for details ", script.Item1.Name));
+                }
+            }
         }
 
         private List<Tuple<ScriptBase, Thread>> EnumerateScripts()

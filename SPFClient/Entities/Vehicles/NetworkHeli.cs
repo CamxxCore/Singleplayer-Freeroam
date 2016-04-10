@@ -95,14 +95,15 @@ namespace SPFClient.Entities
 
         public override void Update()
         {
-            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, stateBuffer, snapshotCount, 0.1f, false);
-
-            if (snapshot != null)
+            if (snapshotCount > EntityExtrapolator.SnapshotMin)
             {
+                var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position, Quaternion, stateBuffer, snapshotCount, 0.1f, false);
+
                 PositionNoOffset = snapshot.Position;
                 Quaternion = snapshot.Rotation;
                 Velocity = snapshot.Velocity;
             }
+            
 
             //Function.Call(Hash.SET_HELI_BLADES_FULL_SPEED, Handle);
 

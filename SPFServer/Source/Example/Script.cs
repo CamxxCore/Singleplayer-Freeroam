@@ -5,11 +5,15 @@ using System;
 using SPFServer.Main;
 using System.Linq;
 using SPFServer.Types;
-using SPFServer.Natives;
+using SPFServer.Main;
+using SPFServer.Enums;
+using System.Collections.Generic;
 
 public class Script : ScriptBase
 {
     const string motd = "Default Server Message";
+
+    private readonly Vector3 SpawnPosition = new Vector3(-2148.006f, 3239.402f, 32.8103f);
 
     public Script()
     {
@@ -18,28 +22,14 @@ public class Script : ScriptBase
 
     private void Script_Tick(object sender, EventArgs e)
     {
-        foreach (AIClient ai in Server.ActiveSession.ActiveAI)
-        {
-            foreach (GameClient client in Server.ActiveSession.ActiveClients)
-            {
-                if (ai.Position.DistanceTo(client.Position) < 1f && client.Health > 0)
-                {
-                    client.Health -= 10;
-                    Console.WriteLine("damage");
-                }
-            }
-        }
+
+
     }
 
     public override void OnClientConnect(GameClient sender, DateTime time)
     {
-        foreach (var ai in Server.ActiveSession.ActiveAI)
-        {
-            Server.ActiveSession.InvokeClientNative(sender, "TASK_GOTO_ENTITY_OFFSET_XY",
-                          new NativeArg(DataType.AIHandle, ai.ID), new NativeArg(DataType.LocalHandle), -1, 0, 0, 0, 1.0f, true);
+        //    sender.Position = SpawnPosition;
 
-            Server.ActiveSession.InvokeClientNative(sender, "SET_PED_MOVEMENT_CLIPSET", new NativeArg(DataType.AIHandle, ai.ID), "move_m@drunk@verydrunk", 0x3e800000);
-        }
 
         base.OnClientConnect(sender, time);
     }
@@ -72,25 +62,20 @@ public class Script : ScriptBase
                         Server.ActiveSession.SetWeather(weather);
                     }
                     break;
-                case "spawnai":
-                    for (int i = 0; i < 10; i++)
-                    {
-                        var ai = Server.ActiveSession.CreateAI("test ai", PedType.Zombie01, sender.Position.Around(15f), new Quaternion());
 
-                        foreach (var client in Server.ActiveSession.ActiveClients)
-                        {
-                            Server.ActiveSession.InvokeClientNative(client, "TASK_GOTO_ENTITY_OFFSET_XY",
-                                new NativeArg(DataType.AIHandle, ai.ID), new NativeArg(DataType.LocalHandle), -1, 0, 0, 0, 1.0f, true);
-                            //     Server.ActiveSession.InvokeClientNative(client, "TASK_FOLLOW_TO_OFFSET_OF_ENTITY", new NativeArg(DataType.AIHandle, ai.ID),
-                            //            new NativeArg(DataType.LocalHandle), 0f, 0f, 0f, 2.0f, -1, 0.0f, 1);
-
-                            Server.ActiveSession.InvokeClientNative(client, "SET_PED_MOVEMENT_CLIPSET", new NativeArg(DataType.AIHandle, ai.ID), "move_m@drunk@verydrunk", 0x3e800000);
-                        }
-                    }
+                case "sp":
+                    Server.ActiveSession.CreateVehicle(sender.Position, sender.Rotation, VehicleHash.Adder);
                     break;
             }
         }
 
         base.OnMessageReceived(sender, message);
+    }
+
+    public T GetRandomItem<T>(IEnumerable<T> items)
+    {
+        if (items.Count() < 1) return (T)(object)null;
+        var random = new Random(Guid.NewGuid().GetHashCode());
+        return (T)(object)items.ToArray()[random.Next(0, items.Count())];
     }
 }

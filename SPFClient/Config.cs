@@ -9,6 +9,6 @@ namespace SPFClient
 {
     public class Configuration
     {
-        string Name = INIHelper.GetConfigSetting("General", "Username", "Unknown Player");
+        string Name = IniHelper.GetConfigSetting("General", "Username", "Unknown Player");
     }
 }

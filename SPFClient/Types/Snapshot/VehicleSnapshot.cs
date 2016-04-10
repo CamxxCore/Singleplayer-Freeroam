@@ -12,23 +12,26 @@ namespace SPFClient.Types
         public DateTime Timestamp { get; private set; }
         public float WheelRotation { get; private set; }
         public float Steering { get; private set; }
+        public float RPM { get; private set; }
 
-        public VehicleSnapshot(Vector3 position, Vector3 velocity, Quaternion rotation, float wheelRotation, float steering, DateTime timestamp)
+
+        public VehicleSnapshot(Vector3 position, Vector3 velocity, Quaternion rotation, float wheelRotation, float steering, float rpm, DateTime timestamp)
         {
             Position = position;
             Velocity = velocity;
             Rotation = rotation;
             WheelRotation = wheelRotation;
             Steering = steering;
+            RPM = rpm;
             Timestamp = timestamp;
         }
 
-        public VehicleSnapshot(Vector3 position, Vector3 velocity, Quaternion rotation, float wheelRotation, float steering) :
-        this(position, velocity, rotation, wheelRotation, steering, new DateTime())
+        public VehicleSnapshot(Vector3 position, Vector3 velocity, Quaternion rotation, float wheelRotation, float steering, float rpm) :
+        this(position, velocity, rotation, wheelRotation, steering, rpm, new DateTime())
         { }
 
         public VehicleSnapshot(Vector3 position, Vector3 velocity, Quaternion rotation) :
-            this(position, velocity, rotation, 0f, 0f, new DateTime())
+            this(position, velocity, rotation, 0f, 0f, 0f, new DateTime())
         { }
 
     }

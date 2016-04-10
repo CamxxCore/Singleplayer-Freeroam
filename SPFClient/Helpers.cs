@@ -8,6 +8,7 @@ using Vector3 = SPFLib.Types.Vector3;
 using Quaternion = SPFLib.Types.Quaternion;
 using GTA;
 using GTA.Native;
+using System.Linq;
 
 namespace SPFClient
 {
@@ -107,7 +108,7 @@ namespace SPFClient
             return outArg.GetResult<int>();
         }
 
-        public static GTA.VehicleSeat CurrentVehicleSeat(this Ped ped)
+        public static VehicleSeat CurrentVehicleSeat(this Ped ped)
         {
             Vehicle vehicle;
 
@@ -232,53 +233,6 @@ namespace SPFClient
                 for (int i = 0; i < values.Length; i++)
                 {
                     if ((WeaponHash)values.GetValue(i) == hash)
-                        return (short)i;
-                }
-            }
-
-            catch
-            { }
-
-            return 0;
-        }
-
-        /// <summary>
-        /// Gets a VehicleHash from its enum index / ID.
-        /// </summary>
-        /// <param name="id"></param>
-        /// <returns></returns>
-        public static VehicleHash VehicleIDToHash(short id)
-        {
-            try
-            {
-                var values = typeof(VehicleHash).GetEnumValues();
-
-                if (id < 0 || id > values.Length)
-                    throw new ArgumentOutOfRangeException("id: out of range");
-
-                return (VehicleHash)values.GetValue(id);
-            }
-
-            catch
-            {
-                return VehicleHash.Ninef;
-            }
-        }
-
-        /// <summary>
-        /// Gets an enum index/ ID from a VehicleHash.
-        /// </summary>
-        /// <param name="hash"></param>
-        /// <returns></returns>
-        public static short VehicleHashtoID(VehicleHash hash)
-        {
-            try
-            {
-                var values = typeof(VehicleHash).GetEnumValues();
-
-                for (int i = 0; i < values.Length; i++)
-                {
-                    if ((VehicleHash)values.GetValue(i) == hash)
                         return (short)i;
                 }
             }

@@ -13,8 +13,7 @@ namespace SPFClient.Network
         private static bool GetNativeFunctionInfo(NativeCall native, out Hash hash, out InputArgument[] args)
         {
             var argsList = new List<InputArgument>();
-            Hash hResult;
-            long result;
+            Hash hResult; long result;
 
             foreach (var arg in native.Args)
             {
@@ -38,12 +37,6 @@ namespace SPFClient.Network
                     case DataType.LocalHandle:
                         argsList.Add(new InputArgument(Game.Player.Character.Handle));
                         break;
-                    case DataType.AIHandle:
-                        var ai = EntityManager.AIFromID(Convert.ToInt32(arg.Value));
-                        if (ai == null || ai.Handle <= 0)
-                            goto endfunc;
-                        argsList.Add(ai.Handle);
-                        break;
                 }
             }
 
@@ -62,7 +55,6 @@ namespace SPFClient.Network
                 return true;
             }
 
-            endfunc:
             hash = 0;
             args = null;
             return false;
@@ -83,9 +75,9 @@ namespace SPFClient.Network
                 functionHash == (Hash)0xA43D5C6FE51ADBEF)
             {
                 if (native.Args[0].Type == DataType.String && 
-                    (Convert.ToString(native.Args[0].Value).Equals("xmas", StringComparison.InvariantCultureIgnoreCase) ||
-                     Convert.ToString(native.Args[0].Value).Equals("blizzard", StringComparison.InvariantCultureIgnoreCase) ||
-                     Convert.ToString(native.Args[0].Value).Equals("snow", StringComparison.InvariantCultureIgnoreCase)))
+                    (Convert.ToString(native.Args[0].Value).Equals("xmas", StringComparison.InvariantCultureIgnoreCase)))
+                    // Convert.ToString(native.Args[0].Value).Equals("blizzard", StringComparison.InvariantCultureIgnoreCase))
+                  //   Convert.ToString(native.Args[0].Value).Equals("snow", StringComparison.InvariantCultureIgnoreCase)))
                 {
          
                     if (!MemoryAccess.SnowEnabled)

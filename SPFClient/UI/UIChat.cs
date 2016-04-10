@@ -14,6 +14,7 @@ namespace SPFClient.UI
         static string username;
         static bool active;
         static bool capsLock;
+        bool exitToggle;
 
         public static bool Active { get { return active; } }
 
@@ -95,9 +96,14 @@ namespace SPFClient.UI
                     case Keys.Back:
                         if (textBuffer.Length < 1)
                         {
-                            SetTypingDone();
-                            SetVisibleState(VisibleState.Visible);
-                            ResetDisplayTimer(5000);
+                            if (exitToggle)
+                            {
+                                SetTypingDone();
+                                SetVisibleState(VisibleState.Visible);
+                                ResetDisplayTimer(5000);
+                                exitToggle = false;
+                            }
+                            else exitToggle = true;
                         }
                         else
                         {
@@ -139,7 +145,7 @@ namespace SPFClient.UI
 
             if (active)
             {
-                Function.Call(Hash.DISABLE_ALL_CONTROL_ACTIONS, 0);
+                Function.Call(Hash.DISABLE_ALL_CONTROL_ACTIONS, 1);
 
                 if (Function.Call<bool>(Hash.IS_DISABLED_CONTROL_JUST_PRESSED, 0, (int)GTA.Control.CursorScrollUp))
                 {
@@ -187,6 +193,7 @@ namespace SPFClient.UI
 
         protected void AddTypingText(char text)
         {
+            if (exitToggle) exitToggle = false;
             AddTypingText(Convert.ToString(text));
         }
 

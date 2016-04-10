@@ -50,6 +50,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Management" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.ServiceModel" />
     <Reference Include="System.Windows.Forms" />
@@ -63,17 +64,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Config.cs" />
-    <Compile Include="Config\INIHelper.cs" />
+    <Compile Include="Config\IniHelper.cs" />
     <Compile Include="Entities\Event Args\EntityChangedEventArgs.cs" />
     <Compile Include="Entities\GameEntity.cs" />
     <Compile Include="Entities\Helpers\BicycleController.cs" />
     <Compile Include="Entities\Helpers\EntityExtrapolator.cs" />
     <Compile Include="Entities\Helpers\Flares\IRFlare.cs" />
     <Compile Include="Entities\Helpers\Flares\IRFlaresManager.cs" />
-    <Compile Include="Entities\Helpers\MovementController.cs" />
+    <Compile Include="Entities\Helpers\AnimationManager.cs" />
     <Compile Include="Entities\Helpers\SequenceAnim.cs" />
     <Compile Include="Entities\LocalPlayer.cs" />
-    <Compile Include="Entities\NetworkAI.cs" />
     <Compile Include="Entities\Vehicles\NetworkBicycle.cs" />
     <Compile Include="Entities\Vehicles\NetworkCar.cs" />
     <Compile Include="Entities\NetworkPlayer.cs" />
@@ -81,24 +81,25 @@
     <Compile Include="Entities\Vehicles\NetworkHeli.cs" />
     <Compile Include="Entities\Vehicles\NetworkPlane.cs" />
     <Compile Include="Entities\Helpers\Flares\LoopedPTFX.cs" />
-    <Compile Include="Config\INIFile.cs" />
+    <Compile Include="Config\IniFile.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Network\Helpers\NativeHelper.cs" />
-    <Compile Include="Network\EntityManager.cs" />
+    <Compile Include="Network\PlayerManager.cs" />
+    <Compile Include="Network\VehicleManager.cs" />
     <Compile Include="Offsets.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="Menus\MainMenu.cs" />
     <Compile Include="Menus\ServerMenuItem.cs" />
-    <Compile Include="NativeUI\InstructionalButton.cs" />
-    <Compile Include="NativeUI\MenuPool.cs" />
-    <Compile Include="NativeUI\Sprite.cs" />
-    <Compile Include="NativeUI\StringMeasurer.cs" />
-    <Compile Include="NativeUI\UIMenu.cs" />
-    <Compile Include="NativeUI\UIMenuCheckboxItem.cs" />
-    <Compile Include="NativeUI\UIMenuItem.cs" />
-    <Compile Include="NativeUI\UIMenuListItem.cs" />
-    <Compile Include="NativeUI\UIResRectangle.cs" />
-    <Compile Include="NativeUI\UIResText.cs" />
+    <Compile Include="Menus\NativeUI\InstructionalButton.cs" />
+    <Compile Include="Menus\NativeUI\MenuPool.cs" />
+    <Compile Include="Menus\NativeUI\Sprite.cs" />
+    <Compile Include="Menus\NativeUI\StringMeasurer.cs" />
+    <Compile Include="Menus\NativeUI\UIMenu.cs" />
+    <Compile Include="Menus\NativeUI\UIMenuCheckboxItem.cs" />
+    <Compile Include="Menus\NativeUI\UIMenuItem.cs" />
+    <Compile Include="Menus\NativeUI\UIMenuListItem.cs" />
+    <Compile Include="Menus\NativeUI\UIResRectangle.cs" />
+    <Compile Include="Menus\NativeUI\UIResText.cs" />
     <Compile Include="Network\WCF Service\WCFNetworkService.cs" />
     <Compile Include="Network\WCF Service\WCFServiceClient.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -106,7 +107,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Include="Types\AISnapshot.cs" />
+    <Compile Include="TempID.cs" />
     <Compile Include="Types\BicycleState.cs" />
     <Compile Include="Network\SessionClient.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -116,7 +117,7 @@
     <Compile Include="Types\Snapshot\PlaneSnapshot.cs" />
     <Compile Include="Types\Snapshot\PlayerSnapshot.cs" />
     <Compile Include="Types\GameClient.cs" />
-    <Compile Include="Types\LGearState.cs" />
+    <Compile Include="Types\PlaneGear.cs" />
     <Compile Include="Types\PlaneFlags.cs" />
     <Compile Include="Types\Snapshot\VehicleSnapshot.cs" />
     <Compile Include="UI\Event Args\UIRankBarEventArgs.cs" />
@@ -126,7 +127,7 @@
     <Compile Include="UI\UIManager.cs" />
     <Compile Include="UI\UIPlayerTag.cs" />
     <Compile Include="UI\UIRankBar.cs" />
-    <Compile Include="Network\NetworkSession.cs" />
+    <Compile Include="Network\NetworkManager.cs" />
     <Compile Include="KeyInterop.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -152,9 +153,7 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>copy "$(TargetPath)" "C:\Program Files\Rockstar Games\Grand Theft Auto V\scripts\$(ProjectName).dll"
-copy "$(TargetPath)" "\\DESKTOP-V59S3MM\Rockstar Games\scripts\$(ProjectName).dll"
-copy "C:\Users\Cameron\Documents\Visual Studio 2015\Projects\VNet\Singleplayer-Freeroam\SPFServer\bin\x64\Release\SPFLib.dll" "C:\Program Files\Rockstar Games\Grand Theft Auto V\scripts\SPFLib.dll"
-copy "C:\Users\Cameron\Documents\Visual Studio 2015\Projects\VNet\Singleplayer-Freeroam\SPFServer\bin\x64\Release\SPFLib.dll" "\\DESKTOP-V59S3MM\Rockstar Games\scripts\SPFLib.dll"</PostBuildEvent>
+copy "C:\Users\Cameron\Documents\Visual Studio 2015\Projects\VNet\Singleplayer-Freeroam\SPFServer\bin\x64\Debug\SPFLib.dll" "C:\Program Files\Rockstar Games\Grand Theft Auto V\scripts\SPFLib.dll"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

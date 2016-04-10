@@ -26,7 +26,7 @@ namespace SPFClient.Menus
             menuItem = new UIMenuItem("Direct Connect");
             menuItem.Activated += (s, e) => GetIPAddressInput();
             mainMenu.AddItem(menuItem);
-            mainMenu.BindMenuToItem(serverListMenu, mainMenu.MenuItems[0]);         
+            mainMenu.BindMenuToItem(serverListMenu, mainMenu.MenuItems[0]);
             mainMenu.OnItemSelect += MainMenu_OnItemSelect;
             menuPool = new MenuPool();
             menuPool.ToList().AddRange(new UIMenu[] { mainMenu, serverListMenu });
@@ -50,18 +50,14 @@ namespace SPFClient.Menus
             {
                 var menuItem = new ServerMenuItem(data[i]);
 
-                menuItem.Enabled = false;
-
                 menuItem.Activated += (s, e) =>
                 {
-                    if (NetworkSession.Initialized)
-                        NetworkSession.Close();
+                    if (NetworkManager.Initialized)
+                        NetworkManager.Close();
 
-                   // Scripts.FadeInScreen(500, 1000);
+                    // Scripts.FadeInScreen(500, 1000);
 
-                    Wait(500);
-
-                    NetworkSession.JoinActiveSession(menuItem.Session);
+                    NetworkManager.JoinActiveSession(menuItem.Session);
 
                     //Scripts.FadeInScreen(500, 1000);
 
@@ -87,9 +83,9 @@ namespace SPFClient.Menus
         private void GetIPAddressInput()
         {
             menuPool.CloseAllMenus();
-           NetworkSession.JoinSessionDirect(IPAddress.Parse("192.168.1.147"));
-      //     UIManager.UIInput.ReturnedResult += UIInput_ReturnedResult;
-       //     UIManager.UIInput.Display();                
+            NetworkManager.JoinSessionDirect(IPAddress.Parse("52.35.89.241"));
+            //     UIManager.UIInput.ReturnedResult += UIInput_ReturnedResult;
+            //     UIManager.UIInput.Display();                
         }
         private void UIInput_ReturnedResult(UIInput sender, string result)
         {
@@ -97,28 +93,28 @@ namespace SPFClient.Menus
 
             if (IPAddress.TryParse(result, out addr))
             {
-                NetworkSession.JoinSessionDirect(addr);
+                NetworkManager.JoinSessionDirect(addr);
             }
 
             else GTA.UI.Notify("Invalid IP address specified. \"" + result + "\"");
         }
 
         private void OnTick(object sender, EventArgs e)
-        {    
+        {
             menuPool.ProcessMenus();
         }
 
         private void KeyPressed(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Y)
-            {
-                mainMenu.Visible = !mainMenu.Visible;
-            }
-
-            if (NetworkSession.Initialized && !UIChat.Active && e.KeyCode == Keys.T)
+            if (NetworkManager.Initialized && !UIChat.Active && e.KeyCode == Keys.T)
             {
                 Wait(100);
                 UIChat.SetVisibleState(UIChat.VisibleState.Typing, UIChat.TypeMode.All);
+            }
+
+            if (e.KeyCode == Keys.Y)
+            {
+                mainMenu.Visible = !mainMenu.Visible;
             }
         }
     }

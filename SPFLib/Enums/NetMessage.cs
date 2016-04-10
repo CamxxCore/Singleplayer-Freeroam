@@ -1,4 +1,5 @@
-﻿namespace SPFLib.Enums
+﻿
+namespace SPFLib.Enums
 {
     /// <summary>
     /// Types of data that are recognized on the network.
@@ -8,8 +9,8 @@
         SessionCommand = 1,
         SessionMessage = 2,
         ClientState = 3,
-        ClientStateAI = 4,
-        AckWorldSync = 5,
+        VehicleState = 4,
+        Acknowledgement = 5,
         WeaponData = 6,
         ClientInfo = 7,
         SessionUpdate = 8,

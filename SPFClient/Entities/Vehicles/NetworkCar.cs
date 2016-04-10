@@ -43,7 +43,7 @@ namespace SPFClient.Entities
                 stateBuffer[i] = stateBuffer[i - 1];
 
             stateBuffer[0] = new VehicleSnapshot(position, vel, rotation, 
-                updatedState.WheelRotation, updatedState.Steering, timeSent);
+                updatedState.WheelRotation, updatedState.Steering, updatedState.CurrentRPM, timeSent);
 
             snapshotCount = Math.Min(snapshotCount + 1, stateBuffer.Length);
 
@@ -109,8 +109,13 @@ namespace SPFClient.Entities
                 GetRadioStation(),
                 GetVehicleID());
 
-            if (IsDead)
-                state.Flags |= VehicleFlags.Exploded;
+            if (Function.Call<bool>(Hash.IS_HORN_ACTIVE, Handle))
+            {
+                state.Flags |= VehicleFlags.HornPressed;
+            }
+
+      //      if (IsDead)
+         //       state.Flags |= VehicleFlags.Exploded;
 
             if (Function.Call<bool>((Hash)0x5EF77C9ADD3B11A3, Handle)) //Left Headlight?
                 state.ExtraFlags |= (ushort)DamageFlags.LHeadlight;
@@ -138,22 +143,22 @@ namespace SPFClient.Entities
 
         public override void Update()
         {
-            var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position,
-                Quaternion, stateBuffer, snapshotCount, 0.89f);
-
-            if (snapshot != null)
+            if (snapshotCount > EntityExtrapolator.SnapshotMin)
             {
-                PositionNoOffset = snapshot.Position;
+                var snapshot = EntityExtrapolator.GetExtrapolatedPosition(Position,
+                    Quaternion, stateBuffer, snapshotCount, 0.89f);
+                Position = snapshot.Position;
                 Quaternion = snapshot.Rotation;
                 Velocity = snapshot.Velocity;
                 SetWheelRotation(snapshot.WheelRotation);
                 SetSteering(snapshot.Steering);
+                SetCurrentRPM(snapshot.RPM);
             }
 
-            SetCurrentRPM(updatedState.CurrentRPM);
-
-            if (updatedState.Flags.HasFlag(VehicleFlags.HornPressed))
-                Function.Call(Hash.OVERRIDE_VEH_HORN, Handle, 1, 0x2445ad61);
+            if (updatedState != null && updatedState.Flags.HasFlag(VehicleFlags.HornPressed))
+            {
+                Function.Call(Hash.START_VEHICLE_HORN, Handle, 0, 0x4F485502, 0);
+            }
 
             base.Update();
         }
