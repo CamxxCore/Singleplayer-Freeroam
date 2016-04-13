@@ -1,7 +1,5 @@
-﻿using System;
-using SPFLib.Enums;
+﻿using SPFLib.Enums;
 using SPFLib.Types;
-using SPFServer.Main;
 using SPFServer.Types;
 using SPFServer.Enums;
 

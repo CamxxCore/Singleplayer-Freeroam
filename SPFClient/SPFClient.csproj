@@ -85,7 +85,7 @@
     <Compile Include="Source\Config\IniFile.cs" />
     <Compile Include="Source\Logger.cs" />
     <Compile Include="Source\Network\Helpers\NativeHelper.cs" />
-    <Compile Include="Source\Network\NetworkManager.cs" />
+    <Compile Include="Source\Network\PlayerManager.cs" />
     <Compile Include="Source\Network\VehicleManager.cs" />
     <Compile Include="Source\Offsets.cs" />
     <Compile Include="Source\Helpers.cs" />
@@ -118,7 +118,6 @@
     <Compile Include="Source\Types\Snapshot\HeliSnapshot.cs" />
     <Compile Include="Source\Types\Snapshot\PlaneSnapshot.cs" />
     <Compile Include="Source\Types\Snapshot\PlayerSnapshot.cs" />
-    <Compile Include="Source\Types\GameClient.cs" />
     <Compile Include="Source\Types\PlaneGear.cs" />
     <Compile Include="Source\Types\PlaneFlags.cs" />
     <Compile Include="Source\Types\Snapshot\VehicleSnapshot.cs" />

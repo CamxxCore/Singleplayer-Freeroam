@@ -1,7 +1,5 @@
 ﻿using System.Management;
 using System.Windows.Forms;
-using System;
-using System.Linq;
 namespace SPFClient
 {
     public static class TempID

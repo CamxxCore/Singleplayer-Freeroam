@@ -4,7 +4,6 @@ using System.Drawing;
 using GTA;
 using Font = GTA.Font;
 using System.Reflection;
-using System.Media;
 
 namespace SPFClient.UI
 {

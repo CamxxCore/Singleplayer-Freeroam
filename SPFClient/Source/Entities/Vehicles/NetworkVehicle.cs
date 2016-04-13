@@ -1,7 +1,6 @@
 ﻿using GTA;
 using GTA.Native;
 using SPFLib.Types;
-using SPFClient.Types;
 using SPFLib.Enums;
 using System;
 using System.Drawing;
