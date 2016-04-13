@@ -6,21 +6,23 @@ namespace SPFLib.Enums
     /// </summary>
     public enum NetMessage
     {
-        SessionCommand = 1,
-        SessionMessage = 2,
-        ClientState = 3,
-        VehicleState = 4,
-        Acknowledgement = 5,
-        WeaponData = 6,
-        ClientInfo = 7,
-        SessionUpdate = 8,
-        SessionEvent = 9,
-        SessionSync = 10,
-        NativeCall = 11,
-        NativeCallback = 12,
-        SessionHeartbeat = 13,
-        LoginRequest = 14,
-        SessionNotification = 15,
+        SessionCommand,
+        SessionMessage,
+        ClientState,
+        VehicleState,
+        Acknowledgement,
+        WeaponData,
+        ClientInfo,
+        SessionUpdate,
+        SessionEvent,
+        Unk,
+        SessionSync,
+        NativeCall,
+        NativeCallback,
+        SessionHeartbeat,
+        LoginRequest,
+        SessionNotification,
         RankData = 16,
+
     }
 }

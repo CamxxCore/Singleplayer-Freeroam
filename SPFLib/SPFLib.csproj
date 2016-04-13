@@ -56,7 +56,7 @@
     <Compile Include="Enums\AckType.cs" />
     <Compile Include="Enums\CommandType.cs" />
     <Compile Include="Enums\DataType.cs" />
-    <Compile Include="Enums\EventType.cs" />
+    <Compile Include="Enums\SessionEventType.cs" />
     <Compile Include="Enums\NetMessage.cs" />
     <Compile Include="Enums\ActiveTask.cs" />
     <Compile Include="Enums\ClientFlags.cs" />
@@ -146,6 +146,7 @@
     <Compile Include="Types\SessionAck.cs" />
     <Compile Include="Types\State\AutomobileState.cs" />
     <Compile Include="Types\State\BicycleState.cs" />
+    <Compile Include="Types\State\BoatState.cs" />
     <Compile Include="Types\State\HeliState.cs" />
     <Compile Include="Types\State\PlaneState.cs" />
     <Compile Include="Types\LoginRequest.cs" />
@@ -164,7 +165,7 @@
     <Compile Include="Types\SessionCommand.cs" />
     <Compile Include="Types\SessionState.cs" />
     <Compile Include="Types\SessionSync.cs" />
-    <Compile Include="Types\ClientEvent.cs" />
+    <Compile Include="Types\SessionEvent.cs" />
     <Compile Include="Types\State\Base\VehicleState.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

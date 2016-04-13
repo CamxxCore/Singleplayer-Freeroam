@@ -55,8 +55,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Source\Main\Natives\CallbackManager.cs" />
-    <Compile Include="Source\Main\GameManager.cs" />
+    <Compile Include="Source\Server\ServerCommands.cs" />
+    <Compile Include="Source\Server\Natives\CallbackManager.cs" />
+    <Compile Include="Source\Server\ServerManager.cs" />
+    <Compile Include="Source\Server\ServerSocket.cs" />
     <Compile Include="Source\Types\GameClient.cs" />
     <Compile Include="Source\Types\GameVehicle.cs" />
     <Compile Include="Source\Types\IGameEntity.cs" />
@@ -64,22 +66,22 @@
     <Compile Include="Source\Example\Script.cs" />
     <Compile Include="Source\Util\Helpers.cs" />
     <Compile Include="Source\Util\Logger.cs" />
-    <Compile Include="Source\Main\Natives\NativeFunctions.cs" />
-    <Compile Include="Source\Main\Server.cs" />
+    <Compile Include="Source\Server\Natives\NativeFunctions.cs" />
+    <Compile Include="Source\Server\Server.cs" />
     <Compile Include="Source\WCF\NetworkService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Source\Main\Rank\RankTables.cs" />
+    <Compile Include="Source\Server\ServerRanks.cs" />
     <Compile Include="Source\Scripting\IScriptBase.cs" />
     <Compile Include="Source\Scripting\ScriptBase.cs" />
     <Compile Include="Source\Scripting\ScriptManager.cs" />
-    <Compile Include="Source\Types\ServerVarList.cs" />
-    <Compile Include="Source\Main\TimeCycle.cs" />
+    <Compile Include="Source\Types\ServerVarCollection.cs" />
+    <Compile Include="Source\Server\ServerTime.cs" />
     <Compile Include="Source\Types\ServerVar.cs" />
-    <Compile Include="Source\Main\Weather\WeatherFactory.cs" />
+    <Compile Include="Source\Server\ServerWeather.cs" />
     <Compile Include="Source\WCF\ServiceClient.cs" />
     <Compile Include="Source\Util\ThreadQueue.cs" />
-    <Compile Include="Source\Main\NetworkSession.cs" />
-    <Compile Include="Source\Main\Weather\WeatherType.cs" />
+    <Compile Include="Source\Server\ServerSession.cs" />
+    <Compile Include="Source\Server\Weather\WeatherType.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -92,6 +94,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Source\Enums\" />
+    <Folder Include="Source\Server\Rank\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

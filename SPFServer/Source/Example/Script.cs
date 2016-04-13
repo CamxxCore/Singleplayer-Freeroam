@@ -59,7 +59,7 @@ public class Script : ScriptBase
                     WeatherType weather;
                     if (Enum.TryParse(command[1], true, out weather))
                     {
-                        Server.ActiveSession.SetWeather(weather);
+                        Server.ActiveSession.CurrentWeather = weather;
                     }
                     break;
 

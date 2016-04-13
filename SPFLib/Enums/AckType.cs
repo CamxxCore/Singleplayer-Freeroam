@@ -6,6 +6,7 @@ namespace SPFLib.Enums
         WorldSync,
         PedSync,
         PlayerSync,
-        VehicleSync
+        VehicleSync,
+        PlayerSpawn
     }
 }

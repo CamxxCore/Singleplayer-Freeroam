@@ -94,6 +94,7 @@ namespace SPFLib
                 var state = new SessionState();
                 state.Sequence = message.ReadUInt32();
                 state.Timestamp = new DateTime(message.ReadInt64());
+                state.LocalHealth = message.ReadInt16();
                 var count = message.ReadInt32();
                 state.Vehicles = GetVehicleStates(message, count).ToArray();
                 count = message.ReadInt32();
@@ -110,6 +111,7 @@ namespace SPFLib
         {
             message.Write(state.Sequence);
             message.Write(state.Timestamp.Ticks);
+            message.Write(state.LocalHealth);
             message.Write(state.Vehicles.Length);
             foreach (var vehicle in state.Vehicles)
                 message.Write(vehicle);
@@ -281,14 +283,14 @@ namespace SPFLib
             else message.Write(0);
         }
 
-        public static ClientEvent ReadSessionEvent(this NetIncomingMessage message)
+        public static SessionEvent ReadSessionEvent(this NetIncomingMessage message)
         {
             try
             {
-                var sEvent = new ClientEvent();
+                var sEvent = new SessionEvent();
                 sEvent.ID = message.ReadInt32();
                 sEvent.SenderName = message.ReadString();
-                sEvent.EventType = (EventType)message.ReadInt16();
+                sEvent.EventType = (SessionEventType)message.ReadInt16();
                 return sEvent;
             }
 
@@ -298,7 +300,7 @@ namespace SPFLib
             }
         }
 
-        public static void Write(this NetOutgoingMessage message, ClientEvent sEvent)
+        public static void Write(this NetOutgoingMessage message, SessionEvent sEvent)
         {
             message.Write(sEvent.ID);
             message.Write(sEvent.SenderName);
@@ -338,24 +340,24 @@ namespace SPFLib
                 var state = new ClientState();
                 state.ClientID = message.ReadInt32();
                 state.InVehicle = message.ReadBoolean();
-                state.PedHash = PedIDToHash(message.ReadInt16());
                 state.WeaponID = message.ReadInt16();
                 state.Health = message.ReadInt16();
 
                 if (!state.InVehicle)
                 {
+                    state.PedHash = PedIDToHash(message.ReadInt16());
                     state.MovementFlags = (ClientFlags)message.ReadInt16();
                     state.ActiveTask = (ActiveTask)message.ReadInt16();
                     state.Position = message.ReadVector3();
                     state.Velocity = message.ReadVector3();
-                    state.Angles = message.ReadVector3();
+                    state.AimCoords = message.ReadVector3();
                     state.Rotation = message.ReadQuaternion();//ReadVector3().ToQuaternion();
                 }
 
                 else
                 {
                     state.VehicleID = message.ReadInt32();
-                    state.VehicleSeat = (VehicleSeat)message.ReadInt16();
+                    state.VehicleSeat = (VehicleSeat)(message.ReadByte()) - 3;
                 }
 
                 int nameLen = message.ReadInt32();
@@ -376,24 +378,24 @@ namespace SPFLib
         {
             message.Write(state.ClientID);
             message.Write(state.InVehicle);
-            message.Write(PedHashtoID(state.PedHash));
             message.Write(state.WeaponID);
             message.Write(state.Health);
 
             if (!state.InVehicle)
             {
+                message.Write(PedHashtoID(state.PedHash));
                 message.Write((short)state.MovementFlags);
                 message.Write((short)state.ActiveTask);
                 message.Write(state.Position);
                 message.Write(state.Velocity);
-                message.Write(state.Angles);
+                message.Write(state.AimCoords);
                 message.Write(state.Rotation);
             }
 
             else
             {
                 message.Write(state.VehicleID);
-                message.Write((short)state.VehicleSeat);
+                message.Write((byte)(state.VehicleSeat + 3));
             }
 
             if (sendName && state.Name != null)
@@ -423,8 +425,6 @@ namespace SPFLib
                     #region global vehicle attributes
 
                     state.Position = message.ReadVector3();
-
-                    state.Velocity = message.ReadVector3();
 
                     state.Rotation = message.ReadQuaternion();
 
@@ -461,9 +461,9 @@ namespace SPFLib
 
                     #region global vehicle attributes
 
-                    state.Position = message.ReadVector3();
-
                     state.Velocity = message.ReadVector3();
+
+                    state.Position = message.ReadVector3();
 
                     state.Rotation = message.ReadQuaternion();
 
@@ -496,9 +496,9 @@ namespace SPFLib
 
                     #region global vehicle attributes
 
-                    state.Position = message.ReadVector3();
-
                     state.Velocity = message.ReadVector3();
+
+                    state.Position = message.ReadVector3();
 
                     state.Rotation = message.ReadQuaternion();
 
@@ -554,13 +554,52 @@ namespace SPFLib
                     return state;
                 }
 
+                else if (type == VehicleType.Boat)
+                {
+                    var state = new BoatState();
+
+                    state.WaveHeight = message.ReadInt16().Deserialize();
+
+                    state.CurrentRPM = message.ReadInt16().Deserialize();
+
+                    state.Steering = message.ReadInt16().Deserialize();
+
+                    #region global vehicle attributes
+
+                    state.Velocity = message.ReadVector3();
+
+                    state.Position = message.ReadVector3();
+
+                    state.Rotation = message.ReadQuaternion();
+
+                    state.Health = message.ReadInt16();
+
+                    state.ModelID = message.ReadInt16();
+
+                    state.PrimaryColor = message.ReadByte();
+
+                    state.SecondaryColor = message.ReadByte();
+
+                    state.RadioStation = message.ReadByte();
+
+                    state.Flags = (VehicleFlags)message.ReadByte();
+
+                    state.ExtraFlags = message.ReadUInt16();
+
+                    state.ID = message.ReadInt32();
+
+                    #endregion
+
+                    return state;
+                }
+
                 else
                 {
                     var state = new VehicleState();
 
-                    state.Position = message.ReadVector3();
-
                     state.Velocity = message.ReadVector3();
+
+                    state.Position = message.ReadVector3();
 
                     state.Rotation = message.ReadQuaternion();
 
@@ -616,6 +655,8 @@ namespace SPFLib
                 message.Write(activeState.Stabs.Serialize());
 
                 message.Write(activeState.Rudder.Serialize());
+
+                message.Write(state.Velocity);
             }
 
             else if (state is HeliState)
@@ -623,6 +664,8 @@ namespace SPFLib
                 message.Write((byte)VehicleType.Heli);
 
                 message.Write((state as HeliState).RotorSpeed.Serialize());
+
+                message.Write(state.Velocity);
             }
 
             else if (state is BicycleState)
@@ -632,13 +675,26 @@ namespace SPFLib
                 message.Write((state as BicycleState).WheelRotation.Serialize());
 
                 message.Write((state as BicycleState).Steering.Serialize());
+
+                message.Write(state.Velocity);
+            }
+
+            else if (state is BoatState)
+            {
+                message.Write((byte)VehicleType.Boat);
+
+                message.Write((state as BoatState).WaveHeight.Serialize());
+
+                message.Write((state as BoatState).CurrentRPM.Serialize());
+
+                message.Write((state as BoatState).Steering.Serialize());
+
+                message.Write(state.Velocity);
             }
 
             else message.Write((byte)VehicleType.Any);
 
             message.Write(state.Position);
-
-            message.Write(state.Velocity);
 
             message.Write(state.Rotation);
 
@@ -731,6 +787,11 @@ namespace SPFLib
             }
         }
 
+        public static void Write(this NetOutgoingMessage message, NetMessage msg)
+        {
+            message.Write((byte)msg);
+        }
+
         public static void Write(this NetOutgoingMessage message, Vector3 vec)
         {
             message.Write(vec.X);
@@ -772,11 +833,6 @@ namespace SPFLib
             return (us / 256f);
         }
 
-        public static bool ValidateSequence(uint s1, uint s2, uint max)
-        {
-            return (s1 > s2) && (s1 - s2 <= max / 2) || (s2 > s1) && (s2 - s1 > max / 2);
-        }
-
         public static Vector3 ToVector3(this Quaternion q)
         {
             q.Normalize();
@@ -790,7 +846,6 @@ namespace SPFLib
         {
             return new Quaternion(vec.X, vec.Y, vec.Z, (float)Math.Sqrt(Math.Pow(1 - vec.X, 2) - Math.Pow(vec.Y, 2) - Math.Pow(vec.Z, 2)));
         }
-
 
         /// <summary>
         /// Gets a VehicleHash from its enum index / ID.
@@ -885,7 +940,6 @@ namespace SPFLib
 
             return 0;
         }
-
 
         public static VehicleState VehicleStateFromArgs(VehicleHash hash, Vector3 position,
             Quaternion rotation, byte primaryColor, byte secondaryColor)
@@ -1241,42 +1295,41 @@ namespace SPFLib
                 case VehicleHash.Luxor:
                 case VehicleHash.Blimp:
                     return new PlaneState(id, position, new Vector3(), rotation, primaryColor, secondaryColor, modelID);
-                /*    //boat
-                    case VehicleHash.Dinghy3:
-                    case VehicleHash.Tropic:
-                    case VehicleHash.Toro:
-                    case VehicleHash.Suntrap:
-                    case VehicleHash.Submersible:
-                    case VehicleHash.Squalo:
-                    case VehicleHash.Speeder:
-                    case VehicleHash.Seashark:
-                    case VehicleHash.Marquis:
-                    case VehicleHash.Dinghy:
-                    case VehicleHash.Jetmax:
-                    case VehicleHash.Dinghy2:
-                    case VehicleHash.Speedo:
-
-                    //bike
-                    case VehicleHash.Vader:
-                    case VehicleHash.Sovereign:
-                    case VehicleHash.Ruffian:
-                    case VehicleHash.PCJ:
-                    case VehicleHash.Nemesis:
-                    case VehicleHash.Lectro:
-                    case VehicleHash.Innovation:
-                    case VehicleHash.Hexer:
-                    case VehicleHash.Hakuchou:
-                    case VehicleHash.Enduro:
-                    case VehicleHash.Daemon:
-                    case VehicleHash.CarbonRS:
-                    case VehicleHash.Bagger:
-                    case VehicleHash.Akuma:
-                    case VehicleHash.Sanchez:
-                    case VehicleHash.Bati2:
-                    case VehicleHash.Bati:
-                    case VehicleHash.Faggio2:
-                    case VehicleHash.Thrust:
-                    case VehicleHash.Vindicator:*/
+                case VehicleHash.Dinghy3:
+                case VehicleHash.Tropic:
+                case VehicleHash.Toro:
+                case VehicleHash.Suntrap:
+                case VehicleHash.Submersible:
+                case VehicleHash.Squalo:
+                case VehicleHash.Speeder:
+                case VehicleHash.Seashark:
+                case VehicleHash.Marquis:
+                case VehicleHash.Dinghy:
+                case VehicleHash.Jetmax:
+                case VehicleHash.Dinghy2:
+                case VehicleHash.Speedo:
+                    return new BoatState(id, position, new Vector3(), rotation, primaryColor, secondaryColor, modelID);
+                //bike
+                /*  case VehicleHash.Vader:
+                  case VehicleHash.Sovereign:
+                  case VehicleHash.Ruffian:
+                  case VehicleHash.PCJ:
+                  case VehicleHash.Nemesis:
+                  case VehicleHash.Lectro:
+                  case VehicleHash.Innovation:
+                  case VehicleHash.Hexer:
+                  case VehicleHash.Hakuchou:
+                  case VehicleHash.Enduro:
+                  case VehicleHash.Daemon:
+                  case VehicleHash.CarbonRS:
+                  case VehicleHash.Bagger:
+                  case VehicleHash.Akuma:
+                  case VehicleHash.Sanchez:
+                  case VehicleHash.Bati2:
+                  case VehicleHash.Bati:
+                  case VehicleHash.Faggio2:
+                  case VehicleHash.Thrust:
+                  case VehicleHash.Vindicator:*/
                 // cycle
                 case VehicleHash.TriBike3:
                 case VehicleHash.Bmx:

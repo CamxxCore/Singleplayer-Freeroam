@@ -22,7 +22,8 @@ namespace SPFLib.Enums
         Reloading = 2048,
         Climbing = 4096,
         HasParachute = 8192,
-        ParachuteOpen = 16384
+        ParachuteOpen = 16384,
+        Swimming = 32768
     }
 
 }

@@ -63,72 +63,76 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Config.cs" />
-    <Compile Include="Config\IniHelper.cs" />
-    <Compile Include="Entities\Event Args\EntityChangedEventArgs.cs" />
-    <Compile Include="Entities\GameEntity.cs" />
-    <Compile Include="Entities\Helpers\BicycleController.cs" />
-    <Compile Include="Entities\Helpers\EntityExtrapolator.cs" />
-    <Compile Include="Entities\Helpers\Flares\IRFlare.cs" />
-    <Compile Include="Entities\Helpers\Flares\IRFlaresManager.cs" />
-    <Compile Include="Entities\Helpers\AnimationManager.cs" />
-    <Compile Include="Entities\Helpers\SequenceAnim.cs" />
-    <Compile Include="Entities\LocalPlayer.cs" />
-    <Compile Include="Entities\Vehicles\NetworkBicycle.cs" />
-    <Compile Include="Entities\Vehicles\NetworkCar.cs" />
-    <Compile Include="Entities\NetworkPlayer.cs" />
-    <Compile Include="Entities\NetworkVehicle.cs" />
-    <Compile Include="Entities\Vehicles\NetworkHeli.cs" />
-    <Compile Include="Entities\Vehicles\NetworkPlane.cs" />
-    <Compile Include="Entities\Helpers\Flares\LoopedPTFX.cs" />
-    <Compile Include="Config\IniFile.cs" />
-    <Compile Include="Logger.cs" />
-    <Compile Include="Network\Helpers\NativeHelper.cs" />
-    <Compile Include="Network\PlayerManager.cs" />
-    <Compile Include="Network\VehicleManager.cs" />
-    <Compile Include="Offsets.cs" />
-    <Compile Include="Helpers.cs" />
-    <Compile Include="Menus\MainMenu.cs" />
-    <Compile Include="Menus\ServerMenuItem.cs" />
-    <Compile Include="Menus\NativeUI\InstructionalButton.cs" />
-    <Compile Include="Menus\NativeUI\MenuPool.cs" />
-    <Compile Include="Menus\NativeUI\Sprite.cs" />
-    <Compile Include="Menus\NativeUI\StringMeasurer.cs" />
-    <Compile Include="Menus\NativeUI\UIMenu.cs" />
-    <Compile Include="Menus\NativeUI\UIMenuCheckboxItem.cs" />
-    <Compile Include="Menus\NativeUI\UIMenuItem.cs" />
-    <Compile Include="Menus\NativeUI\UIMenuListItem.cs" />
-    <Compile Include="Menus\NativeUI\UIResRectangle.cs" />
-    <Compile Include="Menus\NativeUI\UIResText.cs" />
-    <Compile Include="Network\WCF Service\WCFNetworkService.cs" />
-    <Compile Include="Network\WCF Service\WCFServiceClient.cs" />
+    <Compile Include="Source\Config.cs" />
+    <Compile Include="Source\Config\IniHelper.cs" />
+    <Compile Include="Source\Entities\Event Args\EntityChangedEventArgs.cs" />
+    <Compile Include="Source\Entities\GameEntity.cs" />
+    <Compile Include="Source\Entities\Helpers\BicycleController.cs" />
+    <Compile Include="Source\Entities\Helpers\EntityExtrapolator.cs" />
+    <Compile Include="Source\Entities\Helpers\Flares\IRFlare.cs" />
+    <Compile Include="Source\Entities\Helpers\Flares\IRFlaresManager.cs" />
+    <Compile Include="Source\Entities\Helpers\AnimationManager.cs" />
+    <Compile Include="Source\Entities\Helpers\SequenceAnim.cs" />
+    <Compile Include="Source\Entities\LocalPlayer.cs" />
+    <Compile Include="Source\Entities\Vehicles\NetworkBicycle.cs" />
+    <Compile Include="Source\Entities\Vehicles\NetworkBoat.cs" />
+    <Compile Include="Source\Entities\Vehicles\NetworkCar.cs" />
+    <Compile Include="Source\Entities\NetworkPlayer.cs" />
+    <Compile Include="Source\Entities\Vehicles\NetworkVehicle.cs" />
+    <Compile Include="Source\Entities\Vehicles\NetworkHeli.cs" />
+    <Compile Include="Source\Entities\Vehicles\NetworkPlane.cs" />
+    <Compile Include="Source\Entities\Helpers\Flares\LoopedPTFX.cs" />
+    <Compile Include="Source\Config\IniFile.cs" />
+    <Compile Include="Source\Logger.cs" />
+    <Compile Include="Source\Network\Helpers\NativeHelper.cs" />
+    <Compile Include="Source\Network\NetworkManager.cs" />
+    <Compile Include="Source\Network\VehicleManager.cs" />
+    <Compile Include="Source\Offsets.cs" />
+    <Compile Include="Source\Helpers.cs" />
+    <Compile Include="Source\Menus\MainMenu.cs" />
+    <Compile Include="Source\Menus\ServerMenuItem.cs" />
+    <Compile Include="Source\Menus\NativeUI\InstructionalButton.cs" />
+    <Compile Include="Source\Menus\NativeUI\MenuPool.cs" />
+    <Compile Include="Source\Menus\NativeUI\Sprite.cs" />
+    <Compile Include="Source\Menus\NativeUI\StringMeasurer.cs" />
+    <Compile Include="Source\Menus\NativeUI\UIMenu.cs" />
+    <Compile Include="Source\Menus\NativeUI\UIMenuCheckboxItem.cs" />
+    <Compile Include="Source\Menus\NativeUI\UIMenuItem.cs" />
+    <Compile Include="Source\Menus\NativeUI\UIMenuListItem.cs" />
+    <Compile Include="Source\Menus\NativeUI\UIResRectangle.cs" />
+    <Compile Include="Source\Menus\NativeUI\UIResText.cs" />
+    <Compile Include="Source\Network\WCF Service\WCFNetworkService.cs" />
+    <Compile Include="Source\Network\WCF Service\WCFServiceClient.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Include="TempID.cs" />
-    <Compile Include="Types\BicycleState.cs" />
-    <Compile Include="Network\SessionClient.cs" />
+    <Compile Include="Source\TempID.cs" />
+    <Compile Include="Source\Types\BicycleState.cs" />
+    <Compile Include="Source\Network\Client.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Types\Animation.cs" />
-    <Compile Include="Types\Snapshot\BicycleSnapshot.cs" />
-    <Compile Include="Types\Snapshot\HeliSnapshot.cs" />
-    <Compile Include="Types\Snapshot\PlaneSnapshot.cs" />
-    <Compile Include="Types\Snapshot\PlayerSnapshot.cs" />
-    <Compile Include="Types\GameClient.cs" />
-    <Compile Include="Types\PlaneGear.cs" />
-    <Compile Include="Types\PlaneFlags.cs" />
-    <Compile Include="Types\Snapshot\VehicleSnapshot.cs" />
-    <Compile Include="UI\Event Args\UIRankBarEventArgs.cs" />
-    <Compile Include="UI\UIBox.cs" />
-    <Compile Include="UI\UIChat.cs" />
-    <Compile Include="UI\UIInput.cs" />
-    <Compile Include="UI\UIManager.cs" />
-    <Compile Include="UI\UIPlayerTag.cs" />
-    <Compile Include="UI\UIRankBar.cs" />
-    <Compile Include="Network\NetworkManager.cs" />
-    <Compile Include="KeyInterop.cs" />
+    <Compile Include="Source\Types\Animation.cs" />
+    <Compile Include="Source\Types\Snapshot\BicycleSnapshot.cs" />
+    <Compile Include="Source\Types\Snapshot\BoatSnapshot.cs" />
+    <Compile Include="Source\Types\Snapshot\HeliSnapshot.cs" />
+    <Compile Include="Source\Types\Snapshot\PlaneSnapshot.cs" />
+    <Compile Include="Source\Types\Snapshot\PlayerSnapshot.cs" />
+    <Compile Include="Source\Types\GameClient.cs" />
+    <Compile Include="Source\Types\PlaneGear.cs" />
+    <Compile Include="Source\Types\PlaneFlags.cs" />
+    <Compile Include="Source\Types\Snapshot\VehicleSnapshot.cs" />
+    <Compile Include="Source\UI\Event Args\UIRankBarEventArgs.cs" />
+    <Compile Include="Source\UI\UIBigMessage.cs" />
+    <Compile Include="Source\UI\UIBox.cs" />
+    <Compile Include="Source\UI\UIChat.cs" />
+    <Compile Include="Source\UI\UIInput.cs" />
+    <Compile Include="Source\UI\UIKillCam.cs" />
+    <Compile Include="Source\UI\UIManager.cs" />
+    <Compile Include="Source\UI\UIPlayerTag.cs" />
+    <Compile Include="Source\UI\UIRankBar.cs" />
+    <Compile Include="Source\Network\NetworkSession.cs" />
+    <Compile Include="Source\KeyInterop.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SPFLib\SPFLib.csproj">
@@ -153,7 +157,9 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>copy "$(TargetPath)" "C:\Program Files\Rockstar Games\Grand Theft Auto V\scripts\$(ProjectName).dll"
-copy "C:\Users\Cameron\Documents\Visual Studio 2015\Projects\VNet\Singleplayer-Freeroam\SPFServer\bin\x64\Debug\SPFLib.dll" "C:\Program Files\Rockstar Games\Grand Theft Auto V\scripts\SPFLib.dll"</PostBuildEvent>
+copy "$(TargetPath)" "\\DESKTOP-V59S3MM\Rockstar Games\scripts\$(ProjectName).dll"
+copy "C:\Users\Cameron\Documents\Visual Studio 2015\Projects\VNet\Singleplayer-Freeroam\SPFServer\bin\x64\Debug\SPFLib.dll" "C:\Program Files\Rockstar Games\Grand Theft Auto V\scripts\SPFLib.dll"
+copy "C:\Users\Cameron\Documents\Visual Studio 2015\Projects\VNet\Singleplayer-Freeroam\SPFServer\bin\x64\Debug\SPFLib.dll" "\\DESKTOP-V59S3MM\Rockstar Games\scripts\SPFLib.dll"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

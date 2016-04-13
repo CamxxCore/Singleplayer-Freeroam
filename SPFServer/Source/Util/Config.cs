@@ -5,7 +5,7 @@ namespace SPFServer
 {
     public static class Config
     {
-        public static void GetOverrideVarsInt(string configPath, ref ServerVarList<int> vars)
+        public static void GetOverrideVarsInt(string configPath, ref ServerVarCollection<int> vars)
         {
             if (!File.Exists(configPath))
                 return;
@@ -29,7 +29,7 @@ namespace SPFServer
             }
         }
 
-        public static void GetOverrideVarsString(string configPath, ref ServerVarList<string> vars)
+        public static void GetOverrideVarsString(string configPath, ref ServerVarCollection<string> vars)
         {
             if (!File.Exists(configPath))
                 return;

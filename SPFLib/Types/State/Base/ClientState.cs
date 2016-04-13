@@ -10,7 +10,7 @@ namespace SPFLib.Types
         public int ClientID { get; set; }
         public Vector3 Position { get; set; }
         public Vector3 Velocity { get; set; }
-        public Vector3 Angles { get; set; }
+        public Vector3 AimCoords { get; set; }
         public Quaternion Rotation { get; set; }
         public ClientFlags MovementFlags { get; set; }
         public ActiveTask ActiveTask { get; set; }
@@ -33,7 +33,7 @@ namespace SPFLib.Types
             Name = name;
             Position = new Vector3();
             Velocity = new Vector3();
-            Angles = new Vector3();
+            AimCoords = new Vector3();
             Rotation = new Quaternion();
             MovementFlags = 0;
             ActiveTask = 0;
